@@ -51,6 +51,10 @@ CompileFlags:
     -Wsign-conversion,
     -Wshorten-64-to-32,
     -ferror-limit=0,
+    -I../vendor/mongoose,
+    -I../vendor/sqlite,
+    -I../vendor/curl/include,
+    -DCURL_STATICLIB,
   ]
   Remove: -Wformat*
 
