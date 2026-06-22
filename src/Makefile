@@ -84,26 +84,24 @@ CXXFLAGS := \
 	-Wno-unknown-pragmas \
 	-fno-strict-aliasing \
 	-Wl,-Bsymbolic \
+	-nostdlib++ \
+	-fno-exceptions \
+	-D_FORTIFY_SOURCE=2 \
 	$(INCLUDES) \
 	$(DEFINES) \
 	$(ENVCXXFLAGS)
 
-# The vendored C is trusted and is built at a fixed optimization without the C++
-# warning set, since a third party amalgamation does not follow the project
-# warnings. The debug info is kept so a backtrace crosses the boundary cleanly.
+# Vendored C code.
 CFLAGS := \
 	-Wno-deprecated \
 	-Wno-unused-command-line-argument \
 	-pipe \
 	-fvisibility=hidden \
-	-O2 \
-	-g \
+	-D_FORTIFY_SOURCE=2 \
 	$(INCLUDES)
 
 LINK_LIBS := # nothing
 
-# A cosmo build links through the cosmopolitan toolchain, so the host linker
-# override is skipped there.
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 ifneq ($(shell which mold > /dev/null 2>&1),)
 USE_LD := -fuse-ld=mold
@@ -118,22 +116,16 @@ endif
 
 # MODE=rel
 ifeq ($(MODE), rel)
-# The release build keeps the UndefinedBehaviorSanitizer on so a deployed server
-# traps undefined behavior rather than miscompiling it silently, and it builds at
-# -O2 so the sanitizer overhead stays bounded.
 CXXFLAGS += \
 	-s \
+	-O2 \
 	-DNDEBUG \
+	-flto \
+	-fsanitize=undefined \
+CFLAGS += \
 	-O2 \
 	-flto \
-	-U_FORTIFY_SOURCE \
-	-D_FORTIFY_SOURCE=2 \
-	-fsanitize=undefined \
-	-fno-exceptions
-CFLAGS += -O2 -flto
-# The release binary links static so the deploy ships a single artifact. A
-# vendored static libcurl is required for a fully static link, otherwise the
-# system libcurl is resolved at build time.
+	-fsanitize=undefined
 CXXFLAGS += \
 	-static-pie \
 	-nostdlib++
@@ -147,30 +139,29 @@ CXXFLAGS += \
 	-fsanitize=address \
 	-fsanitize=undefined \
 	-fno-exceptions
+CFLAGS := \
+	-O0 \
+	-g3 \
+	-fsanitize=address \
+	-fsanitize=undefined
 # MODE=cov
 else ifeq ($(MODE), cov)
 CXXFLAGS += \
 	-g3 \
+	-O0 \
 	-DNDEBUG \
 	-fno-omit-frame-pointer \
-	-O0 \
 	-fprofile-instr-generate \
-	-fcoverage-mapping \
-	-static-pie \
-	-nostdlib++ \
-	-fno-exceptions
+	-fcoverage-mapping
 LINK_LIBS += -lsupc++
-# MODE=cosmo, the cosmopolitan portable build. cosmo needs exceptions, so the
-# exceptionless flag is dropped here while the source stays exception-free.
 else ifeq ($(MODE), cosmo)
 CXXFLAGS += \
 	-mcosmo \
 	-mtiny \
-	-fexceptions \
-	-g \
+	-fno-exceptions \
 	-DNDEBUG \
-	-O3
-CFLAGS += -O3
+	-O2
+CFLAGS += -O2
 ifneq ($(CXX), cosmoc++)
 $(error Your CXX is "$(CXX)" instead of "cosmoc++" for MODE=cosmo)
 endif
@@ -188,26 +179,11 @@ else
 $(error Invalid MODE=$(MODE). Available modes are "dbg", "rel", "cov", "cosmo", "cosmo_dbg")
 endif
 
-# sqlite pulls in the dynamic loader, the math library, and the thread library.
-# A cosmo build resolves these through the cosmopolitan libc, so the host link
-# libraries are skipped there.
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 CXXFLAGS += -pthread
 LINK_LIBS += -lpthread -ldl -lm
-
-# curl is linked only when it is present, since the outbound layer that needs it
-# is not wired yet. A built vendored static libcurl or a system libcurl is
-# resolved through pkg-config, otherwise the link omits it.
-LINK_LIBS += $(shell pkg-config --libs libcurl 2>/dev/null)
 endif
 
-# A bare `make` builds the server, the same as `make wr`, rather than the first
-# object the rules below would otherwise name as the default goal.
-.DEFAULT_GOAL := wr
-
-# Every object is built into $(OBJ_DIR), so its directory tree must exist first.
-# The order-only prerequisite creates it before any compile, so a plain
-# `make MODE=rel` from a clean tree works without first running the wr target.
 $(OBJECTS): | dirs
 $(VENDOR_OBJECTS): | dirs
 
@@ -255,13 +231,6 @@ ANSIBLE_DIR := ../deploy/ansible
 ANSIBLE_PLAYBOOK ?= ansible-playbook
 ANSIBLE_ARGS ?=
 
-# The static release binary is built locally, then shipped to the inventory
-# hosts through ansible. Extra ansible arguments, such as --ask-vault-pass, are
-# passed through ANSIBLE_ARGS.
-deploy:
-	$(MAKE) MODE=rel wr
-	cd $(ANSIBLE_DIR) && $(ANSIBLE_PLAYBOOK) playbooks/wr.yml $(ANSIBLE_ARGS)
-
 CLANG_TIDY ?= clang-tidy
 
 tidy:
@@ -279,6 +248,7 @@ clean:
 	rm -rf ../perf*
 	rm -rf ../*.profraw ../*.profdata ../coverage # Coverage
 
+.DEFAULT_GOAL := wr
 .PHONY: dirs wr install uninstall deploy tidy fmt clean
 
 -include $(DEPS)
