@@ -1,0 +1,14 @@
+#!/bin/sh
+# Pre-commit hook. The source is formatted through `make fmt` before a commit
+# lands so the tree stays clang-format clean. Only the files that were already
+# staged are restaged, so an unrelated working tree change is never added.
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+
+make -C "$repo_root/src" fmt >/dev/null
+
+git diff --cached --name-only --diff-filter=ACM -- 'src/*.cpp' 'src/*.hpp' |
+	while read -r path; do
+		git add -- "$repo_root/$path"
+	done

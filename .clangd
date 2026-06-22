@@ -1,0 +1,106 @@
+Diagnostics:
+  MissingIncludes: None
+  ClangTidy:
+    FastCheckFilter: None
+    Add: [
+      clang-diagnostic-*,
+      clang-analyzer-*,
+      readability-*,
+      google-*,
+      performance-*,
+      bugprone-*,
+      modernize-*,
+      misc-*,
+    ]
+    Remove: [
+      readability-avoid-unconditional-preprocessor-if,
+      google-readability-braces-around-statements,
+      readability-braces-around-statements,
+      readability-identifier-length,
+      readability-static-definition-in-anonymous-namespace,
+      readability-uppercase-literal-suffix,
+      readability-use-anyofallof,
+      modernize-avoid-c-arrays,
+      modernize-make-unique,
+      modernize-use-ranges,
+      modernize-use-std-format,
+      modernize-use-std-print,
+      misc-no-recursion,
+      misc-use-anonymous-namespace,
+      google-readability-casting,
+      google-readability-todo,
+      google-readability-avoid-underscore-in-googletest-name,
+      readability-magic-numbers,
+      bugprone-easily-swappable-parameters,
+      bugprone-reserved-identifier,
+      bugprone-throwing-static-initialization,
+      misc-non-private-member-variables-in-classes,
+      readability-use-concise-preprocessor-directives,
+      modernize-use-designated-initializers,
+    ]
+    CheckOptions:
+      readability-function-cognitive-complexity.Threshold: 150
+
+---
+CompileFlags:
+  Add: [
+    -Wall,
+    -Wextra,
+    -Wdouble-promotion,
+    -Wconversion,
+    -Wsign-conversion,
+    -Wshorten-64-to-32,
+    -ferror-limit=0,
+  ]
+  Remove: -Wformat*
+
+---
+If:
+  PathMatch: [.*\.c, .*\.h]
+CompileFlags:
+  Add: [-std=c23, -xc]
+Diagnostics:
+  ClangTidy:
+    Remove: [
+      modernize-use-nullptr,
+    ]
+    Add: [readability-identifier-naming]
+    CheckOptions:
+      readability-identifier-naming.FunctionCase: lower_case
+      readability-identifier-naming.VariableCase: lower_case
+      readability-identifier-naming.ParameterCase: lower_case
+      readability-identifier-naming.StaticVariableCase: UPPER_CASE
+      readability-identifier-naming.GlobalVariableCase: UPPER_CASE
+      readability-identifier-naming.GlobalConstantCase: UPPER_CASE
+      readability-identifier-naming.EnumConstantCase: UPPER_CASE
+      readability-identifier-naming.StructCase: CamelCase
+      readability-identifier-naming.UnionCase: CamelCase
+      readability-identifier-naming.EnumCase: CamelCase
+      readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+
+---
+If:
+  PathExclude: [.*\.c, .*\.h]
+CompileFlags:
+  Add: [-std=c++23]
+Diagnostics:
+  ClangTidy:
+    Add: [readability-identifier-naming]
+    CheckOptions:
+      readability-identifier-naming.PrivateMemberPrefix: m_
+      readability-identifier-naming.ProtectedMemberPrefix: m_
+      readability-identifier-naming.ClassMemberPrefix: m_
+      readability-identifier-naming.GlobalVariableCase: UPPER_CASE
+      readability-identifier-naming.GlobalConstantCase: UPPER_CASE
+      readability-identifier-naming.ConstexprVariableCase: UPPER_CASE
+      readability-identifier-naming.StaticConstantCase: UPPER_CASE
+      readability-identifier-naming.ClassConstantCase: UPPER_CASE
+      readability-identifier-naming.EnumConstantCase: lower_case
+      readability-identifier-naming.ClassCase: CamelCase
+      readability-identifier-naming.StructCase: lower_case
+      readability-identifier-naming.FunctionCase: lower_case
+      readability-identifier-naming.MethodCase: lower_case
+      readability-identifier-naming.VariableCase: lower_case
+      readability-identifier-naming.ParameterCase: lower_case
+      readability-identifier-naming.NamespaceCase: lower_case
+      readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

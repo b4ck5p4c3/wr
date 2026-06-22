@@ -1,0 +1,25 @@
+# As readable as I will allow
+---
+BasedOnStyle: LLVM
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterControlStatement: MultiLine
+  AfterFunction: true
+  AfterEnum: true
+  AfterExternBlock: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+AlignArrayOfStructures: Left
+AlignConsecutiveMacros: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortCaseLabelsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: true
+IncludeBlocks: Regroup
+IndentExternBlock: NoIndent
+IndentGotoLabels: false
+SpaceAfterCStyleCast: true
