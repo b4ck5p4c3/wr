@@ -25,6 +25,4 @@ src/o
 core.*
 
 wr
-wr-prof
-wr-dbg
-wr-cov
+wr-*

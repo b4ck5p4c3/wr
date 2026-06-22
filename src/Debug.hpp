@@ -1,0 +1,109 @@
+#pragma once
+
+#include "Common.hpp"
+
+namespace wr {
+class String;
+}
+
+#if !defined NDEBUG
+#include <cstdio>
+#define TRACE(...)                                                             \
+  do {                                                                         \
+    unused(std::fprintf(stderr, "[TRACE] " __FILE__ ":%d: ", __LINE__));       \
+    unused(std::fprintf(stderr, __VA_ARGS__));                                 \
+    unused(fflush(stderr));                                                    \
+  } while (0)
+#define TRACELN(...)                                                           \
+  do {                                                                         \
+    unused(std::fprintf(stderr, "[TRACE] " __FILE__ ":%d: ", __LINE__));       \
+    unused(std::fprintf(stderr, __VA_ARGS__));                                 \
+    unused(fputc('\n', stderr));                                               \
+    unused(fflush(stderr));                                                    \
+  } while (0)
+#if defined __clang__
+#include <cstdarg>
+template <class StringT>
+donteliminate void t__strprintf(StringT &s, const char *fmt, ...)
+{
+  va_list a;
+  va_start(a, fmt);
+  va_list ac;
+  va_copy(ac, a);
+  int written = vsnprintf(nullptr, 0, fmt, ac);
+  if (written < 0) {
+    va_end(ac);
+    va_end(a);
+    return;
+  }
+  usize formatted_length = static_cast<usize>(written);
+  char *formatted_buffer = new char[formatted_length + 1];
+  unused(vsnprintf(formatted_buffer, formatted_length + 1, fmt, a));
+  s.append(formatted_buffer);
+  delete[] formatted_buffer;
+  va_end(ac);
+  va_end(a);
+}
+template <class StringT, class T>
+StringT t__string_from_struct(const T &x)
+{
+  StringT s{};
+  __builtin_dump_struct(&x, t__strprintf<StringT>, s);
+  return s;
+}
+#define STRUCT_STRING(x) ::wr::t__string_from_struct<::wr::String>(x)
+#endif
+#else /* !NDEBUG */
+#define STRUCT_STRING(...) ::wr::String{"<optimized out>"}
+#define TRACE(...)         /* None */
+#define TRACELN(...)       /* None */
+#endif
+
+#if !defined STRUCT_STRING
+#define STRUCT_STRING(...) ::wr::String{"<not supported>"}
+#endif
+
+#define t__va_are_empty(...) (sizeof((char[]) {#__VA_ARGS__}) == 1)
+
+#define VA_ARE_EMPTY(...) t__va_are_empty(__VA_ARGS__)
+
+#if !defined NDEBUG
+#define TRAP(...)                                                              \
+  do {                                                                         \
+    TRACELN("Encountered a debug trap");                                       \
+    if (!VA_ARE_EMPTY(__VA_ARGS__)) {                                          \
+      TRACELN("Details: " __VA_ARGS__);                                        \
+    }                                                                          \
+    t__debugtrap();                                                            \
+  } while (0)
+#else
+#define TRAP(...) abort()
+#endif
+
+#if !defined NDEBUG
+#define unreachable(...)                                                       \
+  do {                                                                         \
+    TRACELN("Reached an unreachable statement");                               \
+    if (!VA_ARE_EMPTY(__VA_ARGS__)) {                                          \
+      TRACELN("Details: " __VA_ARGS__);                                        \
+    }                                                                          \
+    t__unreachable();                                                          \
+  } while (0)
+#else
+#define unreachable(...) t__unreachable()
+#endif
+
+#if !defined NDEBUG
+#define ASSERT(x, ...)                                                         \
+  do {                                                                         \
+    if (!(x)) [[unlikely]] {                                                   \
+      TRACELN("'ASSERT(" #x ")' fail in %s().", __func__);                     \
+      if (!VA_ARE_EMPTY(__VA_ARGS__)) {                                        \
+        TRACELN("Details: " __VA_ARGS__);                                      \
+      }                                                                        \
+      TRAP();                                                                  \
+    }                                                                          \
+  } while (0)
+#else
+#define ASSERT(...) /* None */
+#endif

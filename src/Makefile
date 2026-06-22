@@ -1,4 +1,4 @@
-# make MODE=dbg/rel/cov
+# make MODE=dbg/rel/cov/cosmo/cosmo_dbg
 MODE ?= dbg
 
 SOURCES := $(wildcard *.cpp)
@@ -25,14 +25,24 @@ VENDOR_OBJECTS := \
 VENDOR_DEPS := $(VENDOR_OBJECTS:.o=.d)
 
 MODE_SUFFIX := $(if $(filter rel,$(MODE)),,-$(MODE))
+ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 OUT := ../wr$(MODE_SUFFIX)
+else
+OUT := ../wr$(MODE_SUFFIX).com
+endif
 
-# Clang is the default toolchain for both the C++ sources and the vendored C.
+# Clang is the default toolchain for both the C++ sources and the vendored C,
+# while a cosmo build uses the cosmopolitan toolchain.
+ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 ifeq ($(origin CXX), default)
 CXX := clang++
 endif
 ifeq ($(origin CC), default)
 CC := clang
+endif
+else
+CXX := cosmoc++
+CC := cosmocc
 endif
 
 OS_INFO := $(shell . /etc/os-release 2>/dev/null; printf '%s%s' "$${PRETTY_NAME:+$$PRETTY_NAME }" "$$(uname -rvom 2>/dev/null || echo '<no uname>')")
@@ -70,7 +80,6 @@ CXXFLAGS := \
 	-pipe \
 	-fvisibility=hidden \
 	-fno-rtti \
-	-fno-exceptions \
 	-fno-semantic-interposition \
 	-Wno-unknown-pragmas \
 	-fno-strict-aliasing \
@@ -93,10 +102,16 @@ CFLAGS := \
 
 LINK_LIBS := # nothing
 
+# A cosmo build links through the cosmopolitan toolchain, so the host linker
+# override is skipped there.
+ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 ifneq ($(shell which mold > /dev/null 2>&1),)
 USE_LD := -fuse-ld=mold
 else ifneq ($(shell which lld > /dev/null 2>&1),)
 USE_LD := -fuse-ld=lld
+else
+USE_LD :=
+endif
 else
 USE_LD :=
 endif
@@ -113,7 +128,8 @@ CXXFLAGS += \
 	-flto \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=2 \
-	-fsanitize=undefined
+	-fsanitize=undefined \
+	-fno-exceptions
 CFLAGS += -O2 -flto
 # The release binary links static so the deploy ships a single artifact. A
 # vendored static libcurl is required for a fully static link, otherwise the
@@ -129,7 +145,8 @@ CXXFLAGS += \
 	-g3 \
 	-O0 \
 	-fsanitize=address \
-	-fsanitize=undefined
+	-fsanitize=undefined \
+	-fno-exceptions
 # MODE=cov
 else ifeq ($(MODE), cov)
 CXXFLAGS += \
@@ -140,13 +157,41 @@ CXXFLAGS += \
 	-fprofile-instr-generate \
 	-fcoverage-mapping \
 	-static-pie \
-	-nostdlib++
+	-nostdlib++ \
+	-fno-exceptions
 LINK_LIBS += -lsupc++
+# MODE=cosmo, the cosmopolitan portable build. cosmo needs exceptions, so the
+# exceptionless flag is dropped here while the source stays exception-free.
+else ifeq ($(MODE), cosmo)
+CXXFLAGS += \
+	-mcosmo \
+	-mtiny \
+	-fexceptions \
+	-g \
+	-DNDEBUG \
+	-O3
+CFLAGS += -O3
+ifneq ($(CXX), cosmoc++)
+$(error Your CXX is "$(CXX)" instead of "cosmoc++" for MODE=cosmo)
+endif
+# MODE=cosmo_dbg
+else ifeq ($(MODE), cosmo_dbg)
+CXXFLAGS += \
+	-mcosmo \
+	-mdbg \
+	-fexceptions \
+	-g3
+ifneq ($(CXX), cosmoc++)
+$(error Your CXX is "$(CXX)" instead of "cosmoc++" for MODE=cosmo_dbg)
+endif
 else
-$(error Invalid MODE=$(MODE). Available modes are "dbg", "rel", "cov")
+$(error Invalid MODE=$(MODE). Available modes are "dbg", "rel", "cov", "cosmo", "cosmo_dbg")
 endif
 
 # sqlite pulls in the dynamic loader, the math library, and the thread library.
+# A cosmo build resolves these through the cosmopolitan libc, so the host link
+# libraries are skipped there.
+ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 CXXFLAGS += -pthread
 LINK_LIBS += -lpthread -ldl -lm
 
@@ -154,6 +199,7 @@ LINK_LIBS += -lpthread -ldl -lm
 # is not wired yet. A built vendored static libcurl or a system libcurl is
 # resolved through pkg-config, otherwise the link omits it.
 LINK_LIBS += $(shell pkg-config --libs libcurl 2>/dev/null)
+endif
 
 # A bare `make` builds the server, the same as `make wr`, rather than the first
 # object the rules below would otherwise name as the default goal.
@@ -218,7 +264,7 @@ fmt:
 	$(CLANG_FORMAT) -i $(SOURCES) $(HEADERS)
 
 clean:
-	rm -rf ./o ../wr ../wr-$(MODE)
+	rm -rf ./o ../wr ../wr-$(MODE) ../wr.com ../wr-cosmo.com ../wr-cosmo_dbg.com
 	rm -rf ../perf*
 	rm -rf ../*.profraw ../*.profdata ../coverage # Coverage
 
