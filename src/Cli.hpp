@@ -64,6 +64,8 @@ public:
 protected:
   Flag(Kind type, char short_name, StringView long_name, flag_section section,
        StringView description);
+  Flag(Allocator allocator, Kind type, char short_name, StringView long_name,
+       flag_section section, StringView description);
 
   Kind m_kind;
   usize m_position{0}; /* 0 if it wasn't specified. */
@@ -78,6 +80,8 @@ class FlagBool : public Flag
 public:
   FlagBool(char short_name, StringView long_name, flag_section section,
            StringView description);
+  FlagBool(Allocator allocator, char short_name, StringView long_name,
+           flag_section section, StringView description);
 
   fn toggle() -> void;
   pure fn is_enabled() const noexcept -> bool;
@@ -93,6 +97,8 @@ class FlagString : public Flag
 public:
   FlagString(char short_name, StringView long_name, flag_section section,
              StringView description);
+  FlagString(Allocator allocator, char short_name, StringView long_name,
+             flag_section section, StringView description);
 
   fn set(StringView v) -> void;
   pure fn is_set() const noexcept -> bool;
@@ -110,6 +116,8 @@ class FlagManyStrings : public Flag
 public:
   FlagManyStrings(char short_name, StringView long_name, flag_section section,
                   StringView description);
+  FlagManyStrings(Allocator allocator, char short_name, StringView long_name,
+                  flag_section section, StringView description);
 
   fn append(StringView v) -> void;
   pure fn count() const noexcept -> usize;

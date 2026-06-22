@@ -16,6 +16,12 @@ Flag::Flag(Flag::Kind kind, char short_name, StringView long_name,
       m_long_name(long_name), m_description(description)
 {}
 
+Flag::Flag(Allocator allocator, Flag::Kind kind, char short_name,
+           StringView long_name, flag_section section, StringView description)
+    : m_kind(kind), m_short_name(short_name), m_section(section),
+      m_long_name(allocator, long_name), m_description(allocator, description)
+{}
+
 pure fn Flag::kind() const noexcept -> Flag::Kind { return m_kind; }
 
 fn Flag::set_position(u32 n) -> void { m_position = n; }
@@ -38,6 +44,12 @@ FlagBool::FlagBool(char short_name, StringView long_name, flag_section section,
     : Flag(Flag::Kind::Bool, short_name, long_name, section, description)
 {}
 
+FlagBool::FlagBool(Allocator allocator, char short_name, StringView long_name,
+                   flag_section section, StringView description)
+    : Flag(allocator, Flag::Kind::Bool, short_name, long_name, section,
+           description)
+{}
+
 fn FlagBool::toggle() -> void { m_value = !m_value; }
 
 pure fn FlagBool::is_enabled() const noexcept -> bool { return m_value; }
@@ -51,6 +63,14 @@ fn FlagBool::reset() -> void
 FlagString::FlagString(char short_name, StringView long_name,
                        flag_section section, StringView description)
     : Flag(Flag::Kind::String, short_name, long_name, section, description)
+{}
+
+FlagString::FlagString(Allocator allocator, char short_name,
+                       StringView long_name, flag_section section,
+                       StringView description)
+    : Flag(allocator, Flag::Kind::String, short_name, long_name, section,
+           description),
+      m_value(allocator)
 {}
 
 fn FlagString::set(StringView v) -> void
@@ -76,6 +96,14 @@ fn FlagString::reset() -> void
 FlagManyStrings::FlagManyStrings(char short_name, StringView long_name,
                                  flag_section section, StringView description)
     : Flag(Flag::Kind::ManyStrings, short_name, long_name, section, description)
+{}
+
+FlagManyStrings::FlagManyStrings(Allocator allocator, char short_name,
+                                 StringView long_name, flag_section section,
+                                 StringView description)
+    : Flag(allocator, Flag::Kind::ManyStrings, short_name, long_name, section,
+           description),
+      m_values(allocator)
 {}
 
 fn FlagManyStrings::append(StringView v) -> void { m_values.push_managed(v); }
@@ -455,7 +483,7 @@ cold fn make_synopsis(StringView program_name,
     s += program_name;
     s += ' ';
     s += line;
-    s += "\n\n";
+    s += "\n";
   }
 
   return s;

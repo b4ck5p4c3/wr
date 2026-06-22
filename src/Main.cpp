@@ -26,7 +26,7 @@ fn main(int argc, char **argv) -> int
     print(make_synopsis("wr", HELP_SYNOPSIS));
     print("\n");
     print(HELP_DESCRIPTION);
-    print("\n");
+    print("\n\n");
     print(make_flag_help(FLAG_LIST));
     print("\n");
     flush();
