@@ -20,15 +20,18 @@ periodic liveness check.
 ## Vendoring
 
 - mongoose is a submodule at vendor/mongoose, and all server work is driven through it.
-- curl is a submodule at vendor/curl, and all outbound work is driven through it.
+- curl is a submodule at vendor/curl, and all outbound work is driven through it. The curl library tree is compiled into the object tree against a committed config header at vendor/curl_config.h, and only the QUIC and SSH backends are left out. The QUIC core is kept for the HTTP/3 stubs the HTTPS path references.
+- mbedtls is the TLS backend that curl is built against. mbedtls is a submodule at vendor/mbedtls pinned to the v3.6.6 tag. The release tag bundles the generated sources, so the checkout compiles without the framework submodule and without the code generation a development checkout needs. It is compiled into the object tree against a committed config header at vendor/mbedtls_config.h, and TLS 1.2 and TLS 1.3 are enabled.
 - sqlite is the amalgamation at vendor/sqlite, and it is the only store.
-- The vendored mongoose and sqlite C sources are compiled into the same object tree under o/$(MODE)/vendor.
+- The vendored mongoose, sqlite, curl, and mbedtls C sources are compiled into the same object tree under o/$(MODE)/vendor.
+- The curl and mbedtls sources are compiled in the dbg, rel, and cov modes. The cosmo modes leave them out for now, so the portable build carries no outbound TLS.
+- The curl config header is generated once by curl's cmake against mbedtls, then committed, and the mbedtls config header is the upstream default. The curl config is selected through HAVE_CONFIG_H, and the mbedtls config is selected through MBEDTLS_CONFIG_FILE.
 - A dependency upgrade waits for approval.
 
 ## Code conventions
 
 - The macro layer is defined in src/Common.hpp.
-- The container and the allocator foundation is split across src/String, src/StringView, src/ArrayList, src/Maybe, src/Allocator, and src/Debug, all under namespace wr.
+- The container and the allocator foundation is split across src/String, src/StringView, src/ArrayList, src/Maybe, src/StringMap, src/PackedStringKey, src/Allocator, and src/Debug, all under namespace wr. src/StringMap is an open-addressing string-keyed hash table, and src/PackedStringKey is its probe key.
 - The flag parser is src/Cli, and ErrorBase, Error, and Warning are held in src/Errors.
 - The build is exceptionless. -fno-exceptions is set, so a fallible function returns ErrorOr<T> from src/ErrorOr.hpp rather than throwing, and an error is propagated early by the TRY macro.
 - An unrecoverable allocation failure aborts, since a constructor cannot return an ErrorOr.
@@ -51,6 +54,7 @@ periodic liveness check.
 
 - The database is opened, the mongoose event manager is built, the liveness timer is registered, and the loop is run by src/Main.cpp.
 - A request is routed by the HTTP layer to the page renderer, the JSON API, the auth endpoints, or the static asset handler.
+- The HTTP layer is a generic interface over pluggable backends, modeled on the backend pattern in the oo project. The shared value types HttpMethod, HttpStatus, HttpHeaders, HttpRequest, and HttpResponse are held in src/Http. The abstract HttpClient and the HttpRequestBuilder are held in src/Client, and the abstract HttpServer with its HttpServerEvent is held in src/Server. The curl client backend CurlClient is held in src/Curl, and the mongoose server backend MongooseServer is held in src/Mongoose. A type that owns memory takes an explicit Allocator in its constructor.
 - The sqlite connection, the schema migration, and the prepared statements are owned by the store.
 - curl is wrapped by the outbound layer for the liveness probes and the OAuth token exchange.
 - The member sites, the panel users, the panel admins, and the sessions are held in the data model.
