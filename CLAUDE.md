@@ -1,103 +1,101 @@
 # wr project notes
 
-wr is a C++ and C webring backend. The server serves a dynamic page that lists
-the member sites, a user panel, an admin panel, GitHub and Telegram auth, and a
-periodic liveness check. The code style and the build skeleton are reused from
-the shit shell, and the deploy layout is reused from the fennec.support ansible
-setup.
+wr is a C++ and C webring backend. A dynamic page that lists the member sites is
+served, alongside a user panel, an admin panel, GitHub and Telegram auth, and a
+periodic liveness check.
 
 ## Build
 
-- `make MODE=rel` writes the static binary to ../wr.
-- `make MODE=dbg` writes ../wr-dbg with AddressSanitizer and UndefinedBehaviorSanitizer, and dbg is the default.
-- `make MODE=cov` writes ../wr-cov with coverage instrumentation.
-- `make MODE=cosmo` and `make MODE=cosmo_dbg` write the portable ../wr-cosmo.com and ../wr-cosmo_dbg.com through the cosmopolitan toolchain.
-- The dbg, rel, and cov modes build exceptionless with -fno-exceptions, while the cosmo modes build with -fexceptions, since the cosmopolitan toolchain requires it. The source stays exception-free in every mode.
-- The release build keeps UndefinedBehaviorSanitizer on and compiles at -O2.
+- The static binary is written to ../wr by `make MODE=rel`.
+- ../wr-dbg is written by `make MODE=dbg` with AddressSanitizer and UndefinedBehaviorSanitizer, and dbg is the default.
+- ../wr-cov is written by `make MODE=cov` with coverage instrumentation.
+- The portable ../wr-cosmo.com and ../wr-cosmo_dbg.com are written by `make MODE=cosmo` and `make MODE=cosmo_dbg` through the cosmopolitan toolchain.
+- The dbg, rel, and cov modes are built exceptionless with -fno-exceptions, while the cosmo modes are built with -fexceptions, since the cosmopolitan toolchain requires it. The source stays exception-free in every mode.
+- UndefinedBehaviorSanitizer is kept on in the release build, and the release is compiled at -O2.
 - A bare `make` builds the wr target, since the object tree under src/o/$(MODE) is created as an order-only prerequisite.
-- The toolchain is clang and clang++ at -std=c++23, and the linker is mold or lld when present.
-- `make fmt` and `make tidy` run clang-format and clang-tidy, and `make clean` removes the artifacts.
-- `./install-hooks.sh` symlinks the pre-commit hook so `make fmt` runs before every commit.
+- clang and clang++ at -std=c++23 are the toolchain, and mold or lld is used as the linker when present.
+- clang-format and clang-tidy are run by `make fmt` and `make tidy`, and the artifacts are removed by `make clean`.
+- The pre-commit hook is symlinked by `./install-hooks.sh`, so `make fmt` is run before every commit.
 
 ## Vendoring
 
-- mongoose is a submodule at vendor/mongoose and it drives all server work.
-- curl is a submodule at vendor/curl and it drives all outbound work.
-- sqlite is the amalgamation at vendor/sqlite and it is the only store.
+- mongoose is a submodule at vendor/mongoose, and all server work is driven through it.
+- curl is a submodule at vendor/curl, and all outbound work is driven through it.
+- sqlite is the amalgamation at vendor/sqlite, and it is the only store.
 - The vendored mongoose and sqlite C sources are compiled into the same object tree under o/$(MODE)/vendor.
 - A dependency upgrade waits for approval.
 
 ## Code conventions
 
-- The macro layer is carried over from shit through src/Common.hpp.
-- The container and the allocator foundation is ported from shit, src/String, src/StringView, src/ArrayList, src/Maybe, src/Allocator, and src/Debug, all under namespace wr.
-- src/Cli is the flag parser ported from shit, and src/Errors holds ErrorBase, Error, and Warning.
-- The build is exceptionless. `-fno-exceptions` is set, so a fallible function returns `ErrorOr<T>` from src/ErrorOr.hpp rather than throwing, and the `TRY` macro propagates an error early.
+- The macro layer is defined in src/Common.hpp.
+- The container and the allocator foundation is split across src/String, src/StringView, src/ArrayList, src/Maybe, src/Allocator, and src/Debug, all under namespace wr.
+- The flag parser is src/Cli, and ErrorBase, Error, and Warning are held in src/Errors.
+- The build is exceptionless. -fno-exceptions is set, so a fallible function returns ErrorOr<T> from src/ErrorOr.hpp rather than throwing, and an error is propagated early by the TRY macro.
 - An unrecoverable allocation failure aborts, since a constructor cannot return an ErrorOr.
 - A raw pointer to untyped memory is written `opaque *`, the alias for `void *` defined in src/Common.hpp.
-- Functions use the `fn name(...) -> ret` form, and a function that never unwinds is marked `noexcept`. The `throws` and `wontthrow` macros are retired, since the build is exceptionless.
-- Comments document why the code is the way it is, and the block rationale comments of the shit port are dropped while the inline comments are kept.
-- Locals use `let` and `let const`, so a deducible type is never spelled out.
+- A function is written in the `fn name(...) -> ret` form, and a function that never unwinds is marked `noexcept`.
+- A comment states why the code is the way it is. A block rationale comment is dropped, and an inline comment is kept.
+- A local is written with `let` and `let const`, so a deducible type is never spelled out.
 - The integer aliases are `usize`, `u8` through `u64`, and `i8` through `i64`.
-- A null pointer check reads `!= nullptr` or `== nullptr`, never a bare truthiness test.
-- A boolean reads `is_`, `should_`, `was_`, `did_`, or `has_`, and a number carries a `_count` or a measure suffix.
-- A variable-bound lambda is named `do_`, and an accessor reads `get_` or `set_`.
+- A null pointer check is written `!= nullptr` or `== nullptr`, never a bare truthiness test.
+- A boolean is named with an `is_`, `should_`, `was_`, `did_`, or `has_` prefix, and a number carries a `_count` or a measure suffix.
+- A variable-bound lambda is named `do_`, and an accessor is named with a `get_` or `set_` prefix.
 - An if whose condition has `&&` or `||` is braced, while a single-condition if stays unbraced.
-- A chain of three or more name comparisons becomes a `consteval StaticStringMap` rather than an if ladder.
-- Stray enums and structs are lower_snake_case, and only a class and a nested type are CamelCase.
-- File operations take a Path, not a String or a StringView.
-- State threads through context structs and constructors, and no mutable global holds per-request state.
+- A chain of three or more name comparisons is written as a `consteval StaticStringMap` rather than an if ladder.
+- A stray enum or struct is lower_snake_case, and only a class and a nested type are CamelCase.
+- A file operation takes a Path, not a String or a StringView.
+- State is threaded through context structs and constructors, and no mutable global holds per-request state.
 - An existing helper is reused rather than a second copy written, and a new abstraction waits for approval.
 
 ## Architecture
 
-- src/Main.cpp opens the database, builds the mongoose event manager, registers the liveness timer, and runs the loop.
-- The HTTP layer routes a request to the page renderer, the JSON API, the auth endpoints, or the static asset handler.
-- The store owns the sqlite connection, the schema migration, and the prepared statements.
-- The outbound layer wraps curl for the liveness probes and the OAuth token exchange.
-- The data model holds the member sites, the panel users, the panel admins, and the sessions.
-- A user owns sites through the user panel, and an admin approves, removes, and manages users through the admin panel.
-- Auth runs through GitHub OAuth and the Telegram login widget, and a login opens a session row and sets the session cookie.
-- The liveness sweep probes each site on a periodic timer and records the reachability and the last seen time.
+- The database is opened, the mongoose event manager is built, the liveness timer is registered, and the loop is run by src/Main.cpp.
+- A request is routed by the HTTP layer to the page renderer, the JSON API, the auth endpoints, or the static asset handler.
+- The sqlite connection, the schema migration, and the prepared statements are owned by the store.
+- curl is wrapped by the outbound layer for the liveness probes and the OAuth token exchange.
+- The member sites, the panel users, the panel admins, and the sessions are held in the data model.
+- A user owns sites through the user panel, and an admin approves a site, removes a site, and manages the users through the admin panel.
+- Authentication is run through GitHub OAuth and the Telegram login widget, and a session row is opened and the session cookie is set on a login.
+- Each site is probed by the liveness sweep on a periodic timer, and the reachability and the last seen time are recorded.
 - A site that fails the probe is marked down rather than removed.
 
 ## Logging
 
-The logger lives in src/Trace.hpp. The structure is taken from the shit shell,
-while the leading wall-clock timestamp is taken from the zest server.
+The logger lives in src/Trace.hpp. A message is checked against a verbosity level
+and written to the active sink.
 
-- `LOG(level, ...)` prints a printf-style line, and `LOG_VARS(level, ...)` dumps named variables.
-- The levels are Nothing, Info, Debug, and All, and a line prints when its level is at or below LOGGER_VERBOSITY.
+- A printf-style line is printed by `LOG(level, ...)`, and the named variables are dumped by `LOG_VARS(level, ...)`.
+- The levels are Nothing, Info, Debug, and All, and a line is printed when its level is at or below LOGGER_VERBOSITY.
 - A line carries the `[HH:MM:SS]` timestamp, the severity, the file and line, and the function.
-- The logger stays compiled in every build, since the server traces at runtime. The shit logger compiles out in release.
+- The logger is kept in every build, since a running server is traced at runtime.
 - The sink is standard error by default. `set_log_file` returns an ErrorOr and routes the log to a file opened for append, selected through the `-L` flag.
 
 ## Concurrency
 
-The concurrency model is reused from the burner sync-map pattern, with the state
-shared between the mongoose event loop and the liveness worker thread guarded by
-a synchronized map.
+The state shared between the mongoose event loop and the liveness worker thread
+is guarded by a synchronized map.
 
-- A synchronized map guards the shared state behind a lock, and the underlying map is private.
+- The shared state is guarded behind a lock, and the underlying map is private.
 - The hot read path, the page render and the routing lookup, takes a read lock through a shared mutex.
 - One coarse lock covers the related maps that mutate together, so a paired update stays atomic.
-- A reader takes a snapshot under the lock and uses it after the lock is released, so the critical section stays short.
-- The cleanup runs on a disconnect or a removal event, and no sweeper thread or TTL is used.
+- A snapshot is taken under the lock and used after the lock is released, so the critical section stays short.
+- The cleanup is run on a disconnect or a removal event, and no sweeper thread or TTL is used.
 - An accumulator that aggregates stats across reconnections is never destroyed for the lifetime of the server.
 
 ## Frontend
 
 - The dynamic engine is Preact, and the built bundle is served by mongoose as a static asset.
-- The boundary between the server and the frontend is the JSON API, and the server renders no HTML beyond the bootstrap shell.
+- The boundary between the server and the frontend is the JSON API, and no HTML beyond the bootstrap shell is rendered by the server.
 - The user panel and the admin panel are Preact views behind the session cookie.
 - The frontend source and its build live under the web directory.
 
 ## Deploy
 
-- The deploy directory holds an ansible setup at deploy/ansible, with ansible.cfg, inventory, playbooks, and files.
-- The playbook builds the release binary through `make MODE=rel`, copies ../wr to the server, installs the unit, and starts the service.
-- The service runs as a dedicated system user under a system unit in /etc/systemd/system, with `Restart=always` and `WantedBy=multi-user.target`.
-- The secrets are the GitHub OAuth client id and secret, the Telegram bot token, and the session key, and they live in an ansible vault under group_vars.
+- An ansible setup is held in the deploy directory at deploy/ansible, with ansible.cfg, inventory, playbooks, and files.
+- The static release binary is built locally and shipped to the inventory hosts by `make deploy`, which builds through `make MODE=rel` and then runs the playbook.
+- ../wr is copied to /usr/local/bin/wr by the playbook, the unit is installed, and the service is started.
+- The service is run as a dedicated system user under a system unit in /etc/systemd/system, with `Restart=always` and `WantedBy=multi-user.target`.
+- The secrets are the GitHub OAuth client id and secret, the Telegram bot token, and the session key, and they are held in an ansible vault under group_vars.
 - The vault secrets are rendered into an environment file that the unit reads, and no secret is committed in plaintext.
 
 ## Commits
@@ -105,16 +103,16 @@ a synchronized map.
 The repository follows conventional commits, lowercase and granular, one logical
 change per commit.
 
-- The subject is `type: imperative summary` with no trailing period, and the existing log shows `chore: vendor curl 8.20.0` and `chore: setup repo skeleton`.
+- The subject is `type: imperative summary` with no trailing period.
 - The type is one of `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, or `build`.
-- `feat` adds a feature, `fix` repairs a bug, `chore` covers vendoring and tooling, and `docs` covers the docs.
+- A feature is added by `feat`, a bug is repaired by `fix`, vendoring and tooling are covered by `chore`, and the docs are covered by `docs`.
 - A body is added only when the why is not obvious from the subject.
 
 ## Testing
 
-- `make -C test test` builds the debug binary and runs the suites against the goldens under test/expected.
-- The refill target regenerates the goldens, and each regenerated golden is read before it is trusted.
-- A server launch is wrapped in a timeout so a blocking accept never freezes the run.
+- The debug binary is built and the suites are run against the goldens under test/expected by `make -C test test`.
+- The goldens are regenerated by the refill target, and each regenerated golden is read before it is trusted.
+- A server launch is wrapped in a timeout, so a blocking accept never freezes the run.
 
 ## Finishing a change
 

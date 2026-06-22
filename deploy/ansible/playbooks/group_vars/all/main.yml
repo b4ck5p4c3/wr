@@ -1,0 +1,4 @@
+---
+# The non-secret variables. The secrets live in the gitignored vault.yml beside
+# this file, templated from ansible/vault.example.yml.
+wr_listen_address: "127.0.0.1:8080"

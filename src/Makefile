@@ -251,6 +251,17 @@ uninstall:
 	rm -f "$(DESTDIR)$(bindir)/wr"
 	echo "Removed wr from '$(DESTDIR)$(PREFIX)'."
 
+ANSIBLE_DIR := ../deploy/ansible
+ANSIBLE_PLAYBOOK ?= ansible-playbook
+ANSIBLE_ARGS ?=
+
+# The static release binary is built locally, then shipped to the inventory
+# hosts through ansible. Extra ansible arguments, such as --ask-vault-pass, are
+# passed through ANSIBLE_ARGS.
+deploy:
+	$(MAKE) MODE=rel wr
+	cd $(ANSIBLE_DIR) && $(ANSIBLE_PLAYBOOK) playbooks/wr.yml $(ANSIBLE_ARGS)
+
 CLANG_TIDY ?= clang-tidy
 
 tidy:
@@ -268,7 +279,7 @@ clean:
 	rm -rf ../perf*
 	rm -rf ../*.profraw ../*.profdata ../coverage # Coverage
 
-.PHONY: dirs wr install uninstall tidy fmt clean
+.PHONY: dirs wr install uninstall deploy tidy fmt clean
 
 -include $(DEPS)
 -include $(VENDOR_DEPS)

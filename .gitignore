@@ -26,3 +26,5 @@ core.*
 
 wr
 wr-*
+
+deploy/ansible/playbooks/group_vars/all/vault.yml
