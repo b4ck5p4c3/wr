@@ -1,3 +1,6 @@
 [submodule "vendor/mongoose"]
 	path = vendor/mongoose
 	url = https://github.com/cesanta/mongoose/
+[submodule "vendor/curl"]
+	path = vendor/curl
+	url = https://github.com/curl/curl
