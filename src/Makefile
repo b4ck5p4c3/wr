@@ -10,8 +10,9 @@ SOURCES += $(wildcard */**.cpp)
 HEADERS += $(wildcard */**.hpp)
 
 # The vendored third party code is built into the same object tree. mongoose and
-# sqlite are amalgamated C sources compiled with the C compiler, and curl is
-# linked as a library through the headers under vendor/curl/include.
+# sqlite are amalgamated C sources compiled with the C compiler. curl and mbedtls
+# are full source trees compiled the same way, each against a committed config
+# header under vendor, curl_config.h and mbedtls_config.h.
 VENDOR_DIR := ../vendor
 
 OBJ_DIR := o/$(MODE)
@@ -23,6 +24,28 @@ VENDOR_OBJECTS := \
 	$(OBJ_DIR)/vendor/mongoose.o \
 	$(OBJ_DIR)/vendor/sqlite3.o
 VENDOR_DEPS := $(VENDOR_OBJECTS:.o=.d)
+
+# curl and mbedtls are compiled from their full source trees. The cosmo toolchain
+# build is excluded for now, so the portable build carries no outbound TLS. Every
+# unused curl protocol and TLS backend self empties through the config macros, so
+# the whole lib tree is compiled. The QUIC core is kept for the HTTP/3 stubs the
+# HTTPS path references, and its ngtcp2 and quiche backends self empty without
+# their libraries. The SSH backend is omitted, since the SCP and SFTP protocols
+# are disabled and nothing references it.
+ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
+CURL_SOURCES := \
+	$(wildcard $(VENDOR_DIR)/curl/lib/*.c) \
+	$(wildcard $(VENDOR_DIR)/curl/lib/curlx/*.c) \
+	$(wildcard $(VENDOR_DIR)/curl/lib/vauth/*.c) \
+	$(wildcard $(VENDOR_DIR)/curl/lib/vtls/*.c) \
+	$(wildcard $(VENDOR_DIR)/curl/lib/vquic/*.c)
+MBEDTLS_SOURCES := $(wildcard $(VENDOR_DIR)/mbedtls/library/*.c)
+endif
+
+CURL_OBJECTS := $(patsubst $(VENDOR_DIR)/%.c,$(OBJ_DIR)/vendor/%.o,$(CURL_SOURCES))
+MBEDTLS_OBJECTS := $(patsubst $(VENDOR_DIR)/%.c,$(OBJ_DIR)/vendor/%.o,$(MBEDTLS_SOURCES))
+CURL_DEPS := $(CURL_OBJECTS:.o=.d)
+MBEDTLS_DEPS := $(MBEDTLS_OBJECTS:.o=.d)
 
 MODE_SUFFIX := $(if $(filter rel,$(MODE)),,-$(MODE))
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
@@ -84,9 +107,9 @@ CXXFLAGS := \
 	-Wno-unknown-pragmas \
 	-fno-strict-aliasing \
 	-Wl,-Bsymbolic \
+	-DCURL_STATICLIB \
 	-nostdlib++ \
 	-fno-exceptions \
-	-D_FORTIFY_SOURCE=2 \
 	$(INCLUDES) \
 	$(DEFINES) \
 	$(ENVCXXFLAGS)
@@ -97,7 +120,6 @@ CFLAGS := \
 	-Wno-unused-command-line-argument \
 	-pipe \
 	-fvisibility=hidden \
-	-D_FORTIFY_SOURCE=2 \
 	$(INCLUDES)
 
 LINK_LIBS := # nothing
@@ -116,15 +138,22 @@ endif
 
 # MODE=rel
 ifeq ($(MODE), rel)
+# _FORTIFY_SOURCE is set only here, since it requires an optimized build and a
+# bare -O0 build warns. The macro is undefined first so a toolchain default does
+# not collide with the explicit level.
 CXXFLAGS += \
 	-s \
 	-O2 \
 	-DNDEBUG \
 	-flto \
-	-fsanitize=undefined \
+	-U_FORTIFY_SOURCE \
+	-D_FORTIFY_SOURCE=2 \
+	-fsanitize=undefined
 CFLAGS += \
 	-O2 \
 	-flto \
+	-U_FORTIFY_SOURCE \
+	-D_FORTIFY_SOURCE=2 \
 	-fsanitize=undefined
 CXXFLAGS += \
 	-static-pie \
@@ -144,6 +173,9 @@ CFLAGS := \
 	-g3 \
 	-fsanitize=address \
 	-fsanitize=undefined
+# The base flags drop the C++ standard library, so the support library is linked
+# back for the C++ ABI runtime, the same as the rel and cov modes.
+LINK_LIBS += -lsupc++
 # MODE=cov
 else ifeq ($(MODE), cov)
 CXXFLAGS += \
@@ -184,8 +216,23 @@ CXXFLAGS += -pthread
 LINK_LIBS += -lpthread -ldl -lm
 endif
 
+# curl and mbedtls are compiled with the active mode flags plus their own include
+# paths and config selection. The mbedtls config is named with angle brackets, so
+# the committed vendor/mbedtls_config.h is found through -I$(VENDOR_DIR) ahead of
+# the in tree default at include/mbedtls/mbedtls_config.h. curl finds its own
+# vendor/curl_config.h the same way under HAVE_CONFIG_H.
+# _GNU_SOURCE exposes the glibc extensions the vendored C relies on, such as
+# accept4 and memrchr in curl, which curl's own cmake defines globally on glibc.
+MBEDTLS_CONFIG := -DMBEDTLS_CONFIG_FILE='<mbedtls_config.h>'
+MBEDTLS_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -I$(VENDOR_DIR) -I$(VENDOR_DIR)/mbedtls/include $(MBEDTLS_CONFIG)
+CURL_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -DHAVE_CONFIG_H -DBUILDING_LIBCURL -DCURL_STATICLIB \
+	-I$(VENDOR_DIR) -I$(VENDOR_DIR)/curl/lib -I$(VENDOR_DIR)/curl/include \
+	-I$(VENDOR_DIR)/mbedtls/include $(MBEDTLS_CONFIG)
+
 $(OBJECTS): | dirs
 $(VENDOR_OBJECTS): | dirs
+$(CURL_OBJECTS): | dirs
+$(MBEDTLS_OBJECTS): | dirs
 
 $(OBJ_DIR)/%.o: %.cpp Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
@@ -199,13 +246,21 @@ $(OBJ_DIR)/vendor/sqlite3.o: $(VENDOR_DIR)/sqlite/sqlite3.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
+$(OBJ_DIR)/vendor/curl/%.o: $(VENDOR_DIR)/curl/%.c Makefile
+	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
+	$(CC) $(CURL_CFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJ_DIR)/vendor/mbedtls/%.o: $(VENDOR_DIR)/mbedtls/%.c Makefile
+	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
+	$(CC) $(MBEDTLS_CFLAGS) -MMD -MP -c $< -o $@
+
 # Linking.
-$(OUT): $(OBJECTS) $(VENDOR_OBJECTS)
+$(OUT): $(OBJECTS) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)
 	printf "\tLinking $(OUT)... %-64s\r" ' '
-	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(VENDOR_OBJECTS) $(LINK_LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS) $(LINK_LIBS) -o $@
 
 dirs: $(DIRS)
-	mkdir -p $(OBJ_DIR)/ $(OBJ_DIR)/vendor/
+	mkdir -p $(OBJ_DIR)/ $(OBJ_DIR)/vendor/ $(sort $(dir $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)))
 	for source_dir in $(DIRS); do mkdir -p $(OBJ_DIR)/$$source_dir; done
 
 wr: dirs
@@ -253,3 +308,5 @@ clean:
 
 -include $(DEPS)
 -include $(VENDOR_DEPS)
+-include $(CURL_DEPS)
+-include $(MBEDTLS_DEPS)
