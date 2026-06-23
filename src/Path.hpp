@@ -13,6 +13,8 @@ class Path
 public:
   explicit Path(const char *path) noexcept : m_path(path) {}
   explicit Path(const String &path) noexcept : m_path(path.c_str()) {}
+  /* A temporary String would leave the borrowed pointer dangling. */
+  explicit Path(String &&) = delete;
 
   mustuse pure fn c_str() const noexcept -> const char * { return m_path; }
 

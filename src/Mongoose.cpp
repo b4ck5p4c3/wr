@@ -9,7 +9,7 @@ namespace {
 
 /* The panel and the admin bodies are small JSON, so a larger body is refused at
    the boundary to keep a request from pinning memory. */
-constexpr usize MAX_REQUEST_BODY_LENGTH = 1 << 20;
+constexpr usize MAX_REQUEST_BODY_LENGTH = usize{1} << 20;
 
 /* The view aliases the mongoose buffer and is valid only while the message is.
  */
