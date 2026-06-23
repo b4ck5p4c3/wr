@@ -1,5 +1,9 @@
 #pragma once
 
+#if !defined(__linux__) && !defined(__COSMOPOLITAN__)
+#error "Temple OS is not supported. Install Linux!"
+#endif
+
 #if !defined WR_ENVCXXFLAGS
 #warning WR_ENVCXXFLAGS should be defined. Please use provided makefile \
          for compilation!
