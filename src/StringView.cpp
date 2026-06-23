@@ -44,4 +44,11 @@ fn StringView::starts_with(StringView prefix) const noexcept -> bool
          std::memcmp(data, prefix.data, prefix.length) == 0;
 }
 
+fn StringView::ends_with(StringView suffix) const noexcept -> bool
+{
+  if (suffix.length > length) return false;
+  return suffix.length == 0 || std::memcmp(data + length - suffix.length,
+                                           suffix.data, suffix.length) == 0;
+}
+
 } // namespace wr

@@ -12,7 +12,9 @@ public:
   usize length{0};
 
   StringView() = default;
-  StringView(const char *bytes, usize count) : data(bytes), length(count) {}
+  constexpr StringView(const char *bytes, usize count)
+      : data(bytes), length(count)
+  {}
   StringView(const char *cstr) noexcept;
 
   hot mustuse pure fn count() const noexcept -> usize { return length; }
@@ -38,6 +40,8 @@ public:
       -> StringView;
 
   mustuse pure fn starts_with(StringView prefix) const noexcept -> bool;
+
+  mustuse pure fn ends_with(StringView suffix) const noexcept -> bool;
 
   mustuse pure fn is_all_decimal_digits() const noexcept -> bool
   {

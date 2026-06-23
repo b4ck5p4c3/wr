@@ -1,6 +1,7 @@
 #include "App.hpp"
 
 #include "Http.hpp"
+#include "StaticStringMap.hpp"
 #include "Trace.hpp"
 
 namespace wr {
@@ -9,18 +10,23 @@ namespace {
 
 fn content_type_for(StringView path) -> StringView
 {
-  let const do_ends_with = [&](StringView suffix) -> bool {
-    if (path.count() < suffix.count()) return false;
-    return path.substring(path.count() - suffix.count()) == suffix;
+  struct mime_type
+  {
+    const char *suffix;
+    const char *type;
   };
-  if (do_ends_with(".html")) return "text/html; charset=utf-8";
-  if (do_ends_with(".js")) return "text/javascript; charset=utf-8";
-  if (do_ends_with(".css")) return "text/css; charset=utf-8";
-  if (do_ends_with(".json")) return "application/json";
-  if (do_ends_with(".svg")) return "image/svg+xml";
-  if (do_ends_with(".png")) return "image/png";
-  if (do_ends_with(".ico")) return "image/x-icon";
-  if (do_ends_with(".woff2")) return "font/woff2";
+  static constexpr mime_type TABLE[] = {
+      {".html",  "text/html; charset=utf-8"      },
+      {".js",    "text/javascript; charset=utf-8"},
+      {".css",   "text/css; charset=utf-8"       },
+      {".json",  "application/json"              },
+      {".svg",   "image/svg+xml"                 },
+      {".png",   "image/png"                     },
+      {".ico",   "image/x-icon"                  },
+      {".woff2", "font/woff2"                    },
+  };
+  for (let const &entry : TABLE)
+    if (path.ends_with(entry.suffix)) return entry.type;
   return "application/octet-stream";
 }
 
@@ -158,41 +164,67 @@ fn App::dispatch(HttpServerEvent &event) -> void
   }
 
   if (path.starts_with("/api/")) {
-    /* A mutation is reached only through POST, so a cross-site GET cannot drive
-       the panel or the admin actions on a signed-in browser. */
-    let const is_mutation =
-        path == "/api/sites/add" || path == "/api/sites/rename" ||
-        path == "/api/admin/site" || path == "/api/admin/pending/approve" ||
-        path == "/api/admin/pending/reject";
-    if (is_mutation && event.method() != "POST") {
+    enum class api_route
+    {
+      me,
+      admin_pending,
+      admin_approve,
+      admin_reject,
+      admin_site,
+      sites_add,
+      sites_rename,
+    };
+    struct api_endpoint
+    {
+      api_route route;
+      bool does_mutate;
+    };
+    static constexpr StaticStringMap<api_endpoint, 7> API_ROUTES{
+        {{"/api/me", {api_route::me, false}},
+         {"/api/admin/pending", {api_route::admin_pending, false}},
+         {"/api/admin/pending/approve", {api_route::admin_approve, true}},
+         {"/api/admin/pending/reject", {api_route::admin_reject, true}},
+         {"/api/admin/site", {api_route::admin_site, true}},
+         {"/api/sites/add", {api_route::sites_add, true}},
+         {"/api/sites/rename", {api_route::sites_rename, true}}}
+    };
+
+    let const endpoint = API_ROUTES.find(path);
+    if (endpoint == nullptr) {
+      reply_message(event, 404, "No such endpoint");
+      return;
+    }
+
+    /* The required method is data in the route table, so a mutation is reached
+       only through POST and a cross-site GET cannot drive it on a signed-in
+       browser. */
+    if (endpoint->does_mutate && event.method() != "POST") {
       reply_message(event, 405, "This endpoint requires POST");
       return;
     }
 
-    if (path == "/api/me") {
-      handle_me(event);
-    } else if (path == "/api/admin/pending") {
-      handle_admin_pending(event);
-    } else if (path == "/api/admin/pending/approve") {
-      handle_admin_resolve(event, true);
-    } else if (path == "/api/admin/pending/reject") {
-      handle_admin_resolve(event, false);
-    } else if (path == "/api/admin/site") {
-      handle_admin_edit(event);
-    } else if (path == "/api/sites/add") {
+    switch (endpoint->route) {
+    case api_route::me: handle_me(event); break;
+    case api_route::admin_pending: handle_admin_pending(event); break;
+    case api_route::admin_approve: handle_admin_resolve(event, true); break;
+    case api_route::admin_reject: handle_admin_resolve(event, false); break;
+    case api_route::admin_site: handle_admin_edit(event); break;
+    case api_route::sites_add: {
       let const who = current_account(event);
       if (who.has_value())
         handle_user_add(event, who.value());
       else
         reply_message(event, 401, "Not signed in");
-    } else if (path == "/api/sites/rename") {
+      break;
+    }
+    case api_route::sites_rename: {
       let const who = current_account(event);
       if (who.has_value())
         handle_user_rename(event, who.value());
       else
         reply_message(event, 401, "Not signed in");
-    } else {
-      reply_message(event, 404, "No such endpoint");
+      break;
+    }
     }
     return;
   }
@@ -270,14 +302,26 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
     return;
   }
 
+  enum class nav_step
+  {
+    next,
+    prev,
+    random,
+  };
+  static constexpr StaticStringMap<nav_step, 3> NAV_STEPS{
+      {{"next", nav_step::next},
+       {"prev", nav_step::prev},
+       {"random", nav_step::random}}
+  };
+
   let const count = sites.count();
   usize target = current;
-  if (step == "next") {
-    target = (current + 1) % count;
-  } else if (step == "prev") {
-    target = (current + count - 1) % count;
-  } else if (step == "random") {
-    target = static_cast<usize>(std::rand()) % count;
+  if (let const stepped = NAV_STEPS.find(step); stepped != nullptr) {
+    switch (*stepped) {
+    case nav_step::next: target = (current + 1) % count; break;
+    case nav_step::prev: target = (current + count - 1) % count; break;
+    case nav_step::random: target = static_cast<usize>(std::rand()) % count;
+    }
   }
 
   if (!wants_data) {
