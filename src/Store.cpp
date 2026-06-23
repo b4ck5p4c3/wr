@@ -119,35 +119,15 @@ fn Store::migrate() -> ErrorOr<Ok>
   return Success;
 }
 
-fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
+fn Store::query_sites(const char *filter_sql, Maybe<StringView> owner) const
+    -> ErrorOr<ArrayList<site>>
 {
   ArrayList<site> sites{m_allocator};
   String sql{m_allocator};
   sql.append("SELECT ");
   sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites WHERE is_reachable = 1 ORDER BY created_at, slug;");
-
-  sqlite3_stmt *statement = nullptr;
-  if (sqlite3_prepare_v2(m_db, sql.c_str(), -1, &statement, nullptr) !=
-      SQLITE_OK)
-    return make_db_error(m_allocator, m_db, "Unable to list the active sites");
-  defer { sqlite3_finalize(statement); };
-
-  int step_result = SQLITE_DONE;
-  while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
-    sites.push(read_site(m_allocator, statement));
-  if (step_result != SQLITE_DONE)
-    return make_db_error(m_allocator, m_db, "Unable to read the sites");
-  return sites;
-}
-
-fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
-{
-  ArrayList<site> sites{m_allocator};
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites ORDER BY created_at, slug;");
+  sql.append(" FROM sites ");
+  sql.append(filter_sql);
 
   sqlite3_stmt *statement = nullptr;
   if (sqlite3_prepare_v2(m_db, sql.c_str(), -1, &statement, nullptr) !=
@@ -155,6 +135,8 @@ fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
     return make_db_error(m_allocator, m_db, "Unable to list the sites");
   defer { sqlite3_finalize(statement); };
 
+  if (owner.has_value()) bind_text(statement, 1, owner.value());
+
   int step_result = SQLITE_DONE;
   while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
     sites.push(read_site(m_allocator, statement));
@@ -163,28 +145,20 @@ fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
   return sites;
 }
 
+fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
+{
+  return query_sites("WHERE is_reachable = 1 ORDER BY created_at, slug;", None);
+}
+
+fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
+{
+  return query_sites("ORDER BY created_at, slug;", None);
+}
+
 fn Store::list_sites_for_owner(StringView owner) const
     -> ErrorOr<ArrayList<site>>
 {
-  ArrayList<site> sites{m_allocator};
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites WHERE owner = ? ORDER BY created_at, slug;");
-
-  sqlite3_stmt *statement = nullptr;
-  if (sqlite3_prepare_v2(m_db, sql.c_str(), -1, &statement, nullptr) !=
-      SQLITE_OK)
-    return make_db_error(m_allocator, m_db, "Unable to list the owned sites");
-  defer { sqlite3_finalize(statement); };
-
-  bind_text(statement, 1, owner);
-  int step_result = SQLITE_DONE;
-  while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
-    sites.push(read_site(m_allocator, statement));
-  if (step_result != SQLITE_DONE)
-    return make_db_error(m_allocator, m_db, "Unable to read the sites");
-  return sites;
+  return query_sites("WHERE owner = ? ORDER BY created_at, slug;", owner);
 }
 
 fn Store::find_site(StringView slug) const -> ErrorOr<Maybe<site>>

@@ -99,6 +99,12 @@ public:
 private:
   fn migrate() -> ErrorOr<Ok>;
 
+  /* List the sites the filter selects. The filter is the WHERE and ORDER tail
+     appended after the column list, and the owner is bound to the single
+     parameter when the filter names one. */
+  mustuse fn query_sites(const char *filter_sql, Maybe<StringView> owner) const
+      -> ErrorOr<ArrayList<site>>;
+
   Allocator m_allocator;
   sqlite3 *m_db{nullptr};
 };
