@@ -32,7 +32,7 @@ periodic liveness check.
 ## Code conventions
 
 - The macro layer is defined in src/Common.hpp.
-- The container and the allocator foundation is split across src/String, src/StringView, src/ArrayList, src/Maybe, src/StringMap, src/PackedStringKey, src/StaticStringMap, src/Allocator, and src/Debug, all under namespace wr. src/StringMap is an open-addressing string-keyed hash table, and src/PackedStringKey is its probe key. src/StaticStringMap is a consteval string-keyed lookup table read by the dispatch and the content-type paths as data.
+- The container and the allocator foundation is split across src/String, src/StringView, src/ArrayList, src/Maybe, src/StringMap, src/PackedStringKey, src/StaticStringMap, src/Path, src/Allocator, and src/Debug, all under namespace wr. src/StringMap is an open-addressing string-keyed hash table, and src/PackedStringKey is its probe key. src/StaticStringMap is a consteval string-keyed lookup table read by the dispatch and the content-type paths as data.
 - The flag parser is src/Cli, and ErrorBase, Error, and Warning are held in src/Errors.
 - The build is exceptionless. -fno-exceptions is set, so a fallible function returns ErrorOr<T> from src/ErrorOr.hpp rather than throwing, and an error is propagated early by the TRY macro.
 - An unrecoverable allocation failure aborts, since a constructor cannot return an ErrorOr.

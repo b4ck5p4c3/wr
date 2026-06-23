@@ -5,6 +5,7 @@
 #include "ErrorOr.hpp"
 #include "Liveness.hpp"
 #include "Mongoose.hpp"
+#include "Path.hpp"
 #include "Store.hpp"
 #include "Trace.hpp"
 
@@ -64,7 +65,7 @@ fn main(int argc, char **argv) -> int
 
   if (FLAG_LOGFILE.is_set()) {
     let const log_path = String{FLAG_LOGFILE.value()};
-    let log_result = set_log_file(log_path.c_str());
+    let log_result = set_log_file(Path{log_path});
     if (log_result.is_error()) {
       show_message(log_result.error().message().view());
       return 1;
@@ -114,7 +115,7 @@ fn main(int argc, char **argv) -> int
   LOG(Info, "wr is starting up");
 
   Store store{allocator};
-  let store_result = store.open(cfg.database_path.view());
+  let store_result = store.open(Path{cfg.database_path});
   if (store_result.is_error()) {
     show_message(store_result.error().message().view());
     return 1;

@@ -5,6 +5,7 @@
 #include "Containers.hpp"
 #include "ErrorOr.hpp"
 #include "Maybe.hpp"
+#include "Path.hpp"
 
 struct sqlite3;
 
@@ -64,7 +65,7 @@ public:
   Store(const Store &) = delete;
   Store &operator=(const Store &) = delete;
 
-  fn open(StringView path) -> ErrorOr<Ok>;
+  fn open(Path path) -> ErrorOr<Ok>;
 
   mustuse fn list_active_sites() const -> ErrorOr<ArrayList<site>>;
   mustuse fn list_all_sites() const -> ErrorOr<ArrayList<site>>;

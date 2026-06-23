@@ -3,6 +3,7 @@
 #include "Common.hpp"
 #include "Containers.hpp"
 #include "ErrorOr.hpp"
+#include "Path.hpp"
 
 #include <ctime>
 
@@ -25,9 +26,9 @@ inline fn log_output_stream() noexcept -> std::FILE *
   return LOGGER_OUTPUT != nullptr ? LOGGER_OUTPUT : stderr;
 }
 
-inline fn set_log_file(const char *path) -> ErrorOr<Ok>
+inline fn set_log_file(Path path) -> ErrorOr<Ok>
 {
-  std::FILE *opened = std::fopen(path, "a");
+  std::FILE *opened = std::fopen(path.c_str(), "a");
   if (opened == nullptr) return Error{"Unable to open the log file"};
 
   if (LOGGER_OUTPUT != nullptr) std::fclose(LOGGER_OUTPUT);

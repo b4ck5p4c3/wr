@@ -1,6 +1,7 @@
 #include "App.hpp"
 
 #include "Http.hpp"
+#include "Path.hpp"
 #include "StaticStringMap.hpp"
 #include "Trace.hpp"
 
@@ -30,9 +31,9 @@ fn content_type_for(StringView path) -> StringView
   return "application/octet-stream";
 }
 
-fn read_file(Allocator allocator, const char *path) -> Maybe<String>
+fn read_file(Allocator allocator, Path path) -> Maybe<String>
 {
-  std::FILE *file = std::fopen(path, "rb");
+  std::FILE *file = std::fopen(path.c_str(), "rb");
   if (file == nullptr) return None;
   defer { std::fclose(file); };
 
@@ -361,7 +362,7 @@ fn App::serve_static(HttpServerEvent &event) -> void
   else
     file_path.append(path);
 
-  let contents = read_file(m_allocator, file_path.c_str());
+  let contents = read_file(m_allocator, Path{file_path});
   if (contents.has_value()) {
     reply_text(event, 200, content_type_for(file_path.view()),
                contents.value().view());
@@ -373,7 +374,7 @@ fn App::serve_static(HttpServerEvent &event) -> void
   String index_path{m_allocator};
   index_path.append(m_config.web_root.view());
   index_path.append("/index.html");
-  let shell = read_file(m_allocator, index_path.c_str());
+  let shell = read_file(m_allocator, Path{index_path});
   if (shell.has_value()) {
     reply_text(event, 200, "text/html; charset=utf-8", shell.value().view());
     return;

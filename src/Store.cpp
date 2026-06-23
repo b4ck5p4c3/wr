@@ -72,17 +72,16 @@ Store::~Store()
   if (m_db != nullptr) sqlite3_close(m_db);
 }
 
-fn Store::open(StringView path) -> ErrorOr<Ok>
+fn Store::open(Path path) -> ErrorOr<Ok>
 {
-  let const path_string = String{m_allocator, path};
   let const flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
-  if (sqlite3_open_v2(path_string.c_str(), &m_db, flags, nullptr) != SQLITE_OK)
+  if (sqlite3_open_v2(path.c_str(), &m_db, flags, nullptr) != SQLITE_OK)
     return make_db_error(m_allocator, m_db, "Unable to open the database");
 
   sqlite3_busy_timeout(m_db, 5000);
   TRY(migrate());
 
-  LOG(Info, "store opened at %s", path_string.c_str());
+  LOG(Info, "store opened at %s", path.c_str());
   return Success;
 }
 
