@@ -46,6 +46,12 @@ fn json_get_number(Allocator allocator, StringView json, StringView key)
   let const document = mg_str_n(json.data, json.count());
   double value = 0;
   if (!mg_json_get_num(document, path.c_str(), &value)) return None;
+
+  /* The cast is undefined when the double is not finite or sits outside the i64
+     range, so a value that does not fit is refused. The bound 2^63 is exactly
+     representable, and a NaN fails both comparisons. */
+  if (!(value >= -9223372036854775808.0 && value < 9223372036854775808.0))
+    return None;
   return Maybe<i64>{static_cast<i64>(value)};
 }
 
