@@ -15,11 +15,21 @@ fn ipv4_is_private(u32 host_order) -> bool
 {
   let const b0 = (host_order >> 24) & 0xff;
   let const b1 = (host_order >> 16) & 0xff;
-  if (b0 == 0 || b0 == 10 || b0 == 127) return true;
-  if (b0 == 169 && b1 == 254) return true;
-  if (b0 == 172 && b1 >= 16 && b1 <= 31) return true;
-  if (b0 == 192 && b1 == 168) return true;
-  if (b0 == 100 && b1 >= 64 && b1 <= 127) return true;
+  if (b0 == 0 || b0 == 10 || b0 == 127) {
+    return true;
+  }
+  if (b0 == 169 && b1 == 254) {
+    return true;
+  }
+  if (b0 == 172 && b1 >= 16 && b1 <= 31) {
+    return true;
+  }
+  if (b0 == 192 && b1 == 168) {
+    return true;
+  }
+  if (b0 == 100 && b1 >= 64 && b1 <= 127) {
+    return true;
+  }
   return false;
 }
 
@@ -36,7 +46,9 @@ fn extract_http_host(StringView url, char *out, usize capacity) -> bool
   }
   if (scheme_end == url.count()) return false;
   let const scheme = url.substring_of_length(0, scheme_end);
-  if (scheme != "http" && scheme != "https") return false;
+  if (scheme != "http" && scheme != "https") {
+    return false;
+  }
 
   usize authority_end = scheme_end + 3;
   while (authority_end < url.count() && url[authority_end] != '/' &&
@@ -86,7 +98,9 @@ fn address_is_private(const sockaddr *address) -> bool
       if (bytes[i] != 0) is_loopback = false;
     if (is_loopback) return true;
     if ((bytes[0] & 0xfe) == 0xfc) return true;
-    if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) return true;
+    if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) {
+      return true;
+    }
 
     bool is_v4_mapped = bytes[10] == 0xff && bytes[11] == 0xff;
     for (int i = 0; i < 10; i++)
@@ -115,14 +129,14 @@ fn host_is_public(StringView url) -> bool
   if (getaddrinfo(host, nullptr, &hints, &results) != 0) return false;
   defer { freeaddrinfo(results); };
 
-  bool allowed = results != nullptr;
+  bool is_public = results != nullptr;
   for (const addrinfo *it = results; it != nullptr; it = it->ai_next) {
     if (address_is_private(it->ai_addr)) {
-      allowed = false;
+      is_public = false;
       break;
     }
   }
-  return allowed;
+  return is_public;
 }
 
 } // namespace wr

@@ -38,8 +38,8 @@ fn Liveness::run() -> void
 {
   while (!m_should_stop) {
     sweep();
-    /* The wait is broken into one-second steps, so a stop is honored promptly
-       rather than after a full minute. */
+    /* The wait is broken into one-second steps, so a stop is honored within a
+       second. */
     for (int i = 0; i < 60 && !m_should_stop; i++)
       sleep(1);
   }
@@ -59,10 +59,12 @@ fn Liveness::sweep() -> void
     let const &row = sites[i];
     let const interval =
         row.is_reachable ? UP_INTERVAL_SECONDS : DOWN_INTERVAL_SECONDS;
-    if (row.last_seen_at != 0 && now - row.last_seen_at < interval) continue;
+    if (row.last_seen_at != 0 && now - row.last_seen_at < interval) {
+      continue;
+    }
 
     /* A site whose url resolves to a private address is taken out of the ring
-       rather than probed, so the sweep is never an ssrf vector. */
+       before any probe, so the sweep is never an ssrf vector. */
     if (!host_is_public(row.url.view())) {
       if (row.is_reachable)
         LOG(Info, "site %s resolves to a private address, taken down",

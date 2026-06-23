@@ -73,6 +73,10 @@ fn main(int argc, char **argv) -> int
 
   let const allocator = heap_allocator();
 
+  /* The random navigation step draws from the C rng, so it is seeded once at
+     startup to vary the sequence across runs. */
+  std::srand(static_cast<unsigned>(std::time(nullptr)));
+
   /* The server options carry no default, so a missing one fails early with the
      names of every option still required. */
   if (!FLAG_LISTEN.is_set() || !FLAG_DATABASE.is_set() ||
@@ -80,16 +84,16 @@ fn main(int argc, char **argv) -> int
   {
     String message{allocator};
     message.append("These options are required:\n");
-    let const note = [&](const FlagString &flag, const char *line) {
+    let const do_note = [&](const FlagString &flag, const char *line) {
       if (flag.is_set()) return;
       message.append("  - ");
       message.append(line);
       message.append("\n");
     };
-    note(FLAG_LISTEN, "--listen <url>");
-    note(FLAG_DATABASE, "--database <path>");
-    note(FLAG_WEBROOT, "--web-root <dir>");
-    note(FLAG_PUBLICURL, "--public-url <url>");
+    do_note(FLAG_LISTEN, "--listen <url>");
+    do_note(FLAG_DATABASE, "--database <path>");
+    do_note(FLAG_WEBROOT, "--web-root <dir>");
+    do_note(FLAG_PUBLICURL, "--public-url <url>");
     message.append("\nSee --help for info.");
     show_message(message.view());
     return 1;
