@@ -87,7 +87,7 @@ fn main(int argc, char **argv) -> int
     message.append("These options are required:\n");
     let const do_note = [&](const FlagString &flag, const char *line) {
       if (flag.is_set()) return;
-      message.append("  - ");
+      message.append("  ");
       message.append(line);
       message.append("\n");
     };
