@@ -160,6 +160,12 @@ fn App::dispatch(HttpServerEvent &event) -> void
     return;
   }
   if (path.starts_with("/auth/logout")) {
+    /* Logout deletes the session, so it requires POST like the other mutations
+       and a cross-site GET cannot end a signed-in session. */
+    if (event.method() != "POST") {
+      reply_message(event, 405, "This endpoint requires POST");
+      return;
+    }
     handle_logout(event);
     return;
   }
@@ -178,7 +184,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
     struct api_endpoint
     {
       api_route route;
-      bool does_mutate;
+      bool is_mutation;
     };
     static constexpr StaticStringMap<api_endpoint, 7> API_ROUTES{
         {{"/api/me", {api_route::me, false}},
@@ -199,7 +205,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
     /* The required method is data in the route table, so a mutation is reached
        only through POST and a cross-site GET cannot drive it on a signed-in
        browser. */
-    if (endpoint->does_mutate && event.method() != "POST") {
+    if (endpoint->is_mutation && event.method() != "POST") {
       reply_message(event, 405, "This endpoint requires POST");
       return;
     }
