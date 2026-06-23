@@ -9,7 +9,9 @@ fn now_seconds() -> i64 { return static_cast<i64>(std::time(nullptr)); }
 
 fn find_substring(StringView haystack, StringView needle) -> Maybe<usize>
 {
-  if (needle.count() == 0 || needle.count() > haystack.count()) return None;
+  if (needle.count() == 0 || needle.count() > haystack.count()) {
+    return None;
+  }
   for (usize i = 0; i + needle.count() <= haystack.count(); i++) {
     if (haystack.substring_of_length(i, needle.count()) == needle) return i;
   }
@@ -24,14 +26,14 @@ fn percent_decode(Allocator allocator, StringView text) -> String
     if (c == '+') {
       out.push(' ');
     } else if (c == '%' && i + 2 < text.count()) {
-      let const hex = [](char digit) -> int {
+      let const do_hex = [](char digit) -> int {
         if (digit >= '0' && digit <= '9') return digit - '0';
         if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
         if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
         return -1;
       };
-      let const high = hex(text[i + 1]);
-      let const low = hex(text[i + 2]);
+      let const high = do_hex(text[i + 1]);
+      let const low = do_hex(text[i + 2]);
       if (high >= 0 && low >= 0) {
         out.push(static_cast<char>((high << 4) | low));
         i += 2;
@@ -63,15 +65,18 @@ fn constant_time_equal(StringView left, StringView right) -> bool
   return difference == 0;
 }
 
-fn random_token(Allocator allocator) -> String
+fn random_token(Allocator allocator) -> ErrorOr<String>
 {
-  String token{allocator};
   unsigned char bytes[16] = {};
   std::FILE *source = std::fopen("/dev/urandom", "rb");
-  if (source != nullptr) {
-    unused(std::fread(bytes, 1, sizeof(bytes), source));
-    std::fclose(source);
-  }
+  if (source == nullptr) return Error{"Unable to open the entropy source"};
+  defer { std::fclose(source); };
+
+  let const read_count = std::fread(bytes, 1, sizeof(bytes), source);
+  if (read_count != sizeof(bytes))
+    return Error{"The entropy source returned too few bytes"};
+
+  String token{allocator};
   append_hex(token, bytes, sizeof(bytes));
   return token;
 }
