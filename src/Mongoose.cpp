@@ -7,8 +7,8 @@ namespace wr {
 
 namespace {
 
-/* A mongoose string is a buffer and a length, so it maps onto a StringView with
-   no copy. The view is valid only while the message is. */
+/* The view aliases the mongoose buffer and is valid only while the message is.
+ */
 mustuse pure fn to_view(mg_str text) noexcept -> StringView
 {
   return StringView{text.buf, text.len};
@@ -34,7 +34,7 @@ fn MongooseServer::listen(StringView url, HttpServerHandler handler,
       mg_http_listen(&m_manager, listen_url.c_str(), &handle_event, this);
   if (connection == nullptr) {
     String message{m_allocator};
-    message.append("failed to listen on ");
+    message.append("Failed to listen on ");
     message.append(url);
     return Error{message.view()};
   }
@@ -57,14 +57,20 @@ fn MongooseServer::reply(opaque *connection, u16 status,
 
   String header_block{m_allocator};
   headers.for_each([&](StringView name, StringView value) {
+    /* mongoose appends its own Content-Length, so a caller-supplied one is
+       dropped to keep the response from carrying two framing headers. */
+    if (name == "content-length") return;
     header_block.append(name);
     header_block.append(": ");
     header_block.append(value);
     header_block.append("\r\n");
   });
 
-  /* The body is passed through a length-bounded conversion, so a percent sign
-     in it is never read as a format directive. */
+  /* The length-bounded conversion keeps a percent sign in the body from being
+     read as a format directive. The precision is an int, so the body length is
+     bounded below INT_MAX, which every served payload satisfies. */
+  ASSERT(body.count() <= 0x7fffffffULL,
+         "reply body too large for mg_http_reply");
   mg_http_reply(mongoose_connection, static_cast<int>(status),
                 header_block.c_str(), "%.*s", static_cast<int>(body.count()),
                 body.data);
@@ -106,8 +112,7 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
   case MG_EV_HTTP_MSG: {
     let const message = static_cast<mg_http_message *>(event_data);
 
-    /* The request headers are collected into a map for the duration of the
-       handler call, then released when this frame returns. */
+    /* The header map lives only for the handler call. */
     HttpHeaders request_headers{m_allocator};
     for (usize i = 0; i < MG_MAX_HTTP_HEADERS; i++) {
       let const &header = message->headers[i];

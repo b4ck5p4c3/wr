@@ -8,17 +8,19 @@
 
 namespace wr {
 
-/* The curl-backed HTTP client. One easy handle is built per request, so a
-   client instance carries no per-request state and is reused across calls. */
+/* The curl-backed HTTP client. One easy handle is built per request, so the
+   client carries no per-request state. */
 class CurlClient final : public HttpClient
 {
 public:
-  /* Per-client options. Peer verification is on by default, so a TLS request
-     validates the chain unless a caller opts out. */
+  /* Peer verification is on by default, and redirects are not followed, so an
+     OAuth exchange never replays a secret to a redirect target and a liveness
+     probe never reports a site that redirects to a parking page as up. */
   struct Options
   {
     u32 timeout_ms{30000};
     bool should_verify_peer{true};
+    bool should_follow_redirects{false};
   };
 
   explicit CurlClient(Allocator allocator) : m_allocator(allocator) {}
