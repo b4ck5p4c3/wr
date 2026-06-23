@@ -17,13 +17,13 @@ HELP_SYNOPSIS_DECL("[options]");
 FLAG(HELP, Bool, 'h', "help", "Show this help and exit.");
 FLAG(VERSION, Bool, 'v', "version", "Show the version and exit.");
 FLAG(LISTEN, String, 'l', "listen", Server,
-     "Listen on URL (default http://0.0.0.0:8000).");
+     "URL to listen on, like http://0.0.0.0:8000 (required).");
 FLAG(DATABASE, String, 'd', "database", Server,
-     "Path to the sqlite database (default wr.db).");
+     "Path to the sqlite database (required).");
 FLAG(WEBROOT, String, 'w', "web-root", Server,
-     "Directory of the built frontend (default web/dist).");
+     "Directory of the built frontend (required).");
 FLAG(PUBLICURL, String, 'u', "public-url", Server,
-     "Public base URL used for the OAuth redirect.");
+     "Public base URL for the OAuth redirect (required).");
 FLAG(LOGFILE, String, 'L', "log-file", Debug,
      "Append the log to FILE instead of standard error.");
 
@@ -48,6 +48,7 @@ fn main(int argc, char **argv) -> int
   if (FLAG_HELP.is_enabled()) {
     print(make_synopsis("wr", HELP_SYNOPSIS));
     print("\n");
+    print("  ");
     print(HELP_DESCRIPTION);
     print("\n\n");
     print(make_flag_help(FLAG_LIST));
@@ -77,21 +78,19 @@ fn main(int argc, char **argv) -> int
   if (!FLAG_LISTEN.is_set() || !FLAG_DATABASE.is_set() ||
       !FLAG_WEBROOT.is_set() || !FLAG_PUBLICURL.is_set())
   {
-    String missing{allocator};
-    let const note = [&](const FlagString &flag, const char *name) {
+    String message{allocator};
+    message.append("These options are required:\n");
+    let const note = [&](const FlagString &flag, const char *line) {
       if (flag.is_set()) return;
-      if (!missing.is_empty()) missing.append(", ");
-      missing.append(name);
+      message.append("  - ");
+      message.append(line);
+      message.append("\n");
     };
     note(FLAG_LISTEN, "--listen <url>");
     note(FLAG_DATABASE, "--database <path>");
     note(FLAG_WEBROOT, "--web-root <dir>");
     note(FLAG_PUBLICURL, "--public-url <url>");
-
-    String message{allocator};
-    message.append("These options are required, ");
-    message.append(missing.view());
-    message.append(". See --help for info.");
+    message.append("\nSee --help for info.");
     show_message(message.view());
     return 1;
   }
