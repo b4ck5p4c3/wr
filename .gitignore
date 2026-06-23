@@ -23,6 +23,7 @@ garbage/
 src/o
 
 core.*
+*.db
 
 wr
 wr-*

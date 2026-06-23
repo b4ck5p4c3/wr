@@ -45,12 +45,12 @@ at least once.
 
 ## API
 
-The public navigation API is documented in arch.md, alongside the architecture
+The public navigation API is documented in ARCH.md, alongside the architecture
 and the data model. The endpoints are GET /sites and the per-slug navigation
 routes /{slug}, /{slug}/data, /{slug}/next, /{slug}/prev, and /{slug}/random,
 each with a /data variant.
 
 ## Layout
 
-The architecture, the diagrams, and the data model are in arch.md. The code
+The architecture, the diagrams, and the data model are in ARCH.md. The code
 conventions and the build detail are in CLAUDE.md.
