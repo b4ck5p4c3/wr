@@ -23,37 +23,6 @@ fn ipv4_is_private(u32 host_order) -> bool
   return false;
 }
 
-fn address_is_private(const sockaddr *address) -> bool
-{
-  if (address->sa_family == AF_INET) {
-    let const v4 = reinterpret_cast<const sockaddr_in *>(address);
-    return ipv4_is_private(ntohl(v4->sin_addr.s_addr));
-  }
-  if (address->sa_family == AF_INET6) {
-    let const bytes =
-        reinterpret_cast<const sockaddr_in6 *>(address)->sin6_addr.s6_addr;
-    bool is_loopback = bytes[15] == 1;
-    for (int i = 0; i < 15; i++)
-      if (bytes[i] != 0) is_loopback = false;
-    if (is_loopback) return true;
-    if ((bytes[0] & 0xfe) == 0xfc) return true;
-    if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) return true;
-
-    bool is_v4_mapped = bytes[10] == 0xff && bytes[11] == 0xff;
-    for (int i = 0; i < 10; i++)
-      if (bytes[i] != 0) is_v4_mapped = false;
-    if (is_v4_mapped) {
-      let const v4 = (static_cast<u32>(bytes[12]) << 24) |
-                     (static_cast<u32>(bytes[13]) << 16) |
-                     (static_cast<u32>(bytes[14]) << 8) |
-                     static_cast<u32>(bytes[15]);
-      return ipv4_is_private(v4);
-    }
-    return false;
-  }
-  return true;
-}
-
 /* The host of an http or https url, written NUL terminated into the buffer. The
    scheme is required and the userinfo and the port are stripped. */
 fn extract_http_host(StringView url, char *out, usize capacity) -> bool
@@ -102,6 +71,37 @@ fn extract_http_host(StringView url, char *out, usize capacity) -> bool
 }
 
 } // namespace
+
+fn address_is_private(const sockaddr *address) -> bool
+{
+  if (address->sa_family == AF_INET) {
+    let const v4 = reinterpret_cast<const sockaddr_in *>(address);
+    return ipv4_is_private(ntohl(v4->sin_addr.s_addr));
+  }
+  if (address->sa_family == AF_INET6) {
+    let const bytes =
+        reinterpret_cast<const sockaddr_in6 *>(address)->sin6_addr.s6_addr;
+    bool is_loopback = bytes[15] == 1;
+    for (int i = 0; i < 15; i++)
+      if (bytes[i] != 0) is_loopback = false;
+    if (is_loopback) return true;
+    if ((bytes[0] & 0xfe) == 0xfc) return true;
+    if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) return true;
+
+    bool is_v4_mapped = bytes[10] == 0xff && bytes[11] == 0xff;
+    for (int i = 0; i < 10; i++)
+      if (bytes[i] != 0) is_v4_mapped = false;
+    if (is_v4_mapped) {
+      let const v4 = (static_cast<u32>(bytes[12]) << 24) |
+                     (static_cast<u32>(bytes[13]) << 16) |
+                     (static_cast<u32>(bytes[14]) << 8) |
+                     static_cast<u32>(bytes[15]);
+      return ipv4_is_private(v4);
+    }
+    return false;
+  }
+  return true;
+}
 
 fn host_is_public(StringView url) -> bool
 {

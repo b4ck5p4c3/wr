@@ -1,9 +1,11 @@
 #include "Curl.hpp"
 
+#include "Net.hpp"
 #include "String.hpp"
 #include "Trace.hpp"
 
 #include <curl/curl.h>
+#include <sys/socket.h>
 
 namespace wr {
 
@@ -62,6 +64,19 @@ fn collect_response_header(char *pointer, size_t size, size_t count,
   }
 
   return total_length;
+}
+
+/* The socket is opened only when the address curl resolved is public, so a host
+   that rebinds to a private address between the early check and the connect is
+   refused at connect time. */
+fn open_public_socket(opaque *user_data, curlsocktype purpose,
+                      curl_sockaddr *address) -> curl_socket_t
+{
+  unused(user_data);
+  unused(purpose);
+  if (address_is_private(reinterpret_cast<const sockaddr *>(&address->addr)))
+    return CURL_SOCKET_BAD;
+  return socket(address->family, address->socktype, address->protocol);
 }
 
 } // namespace
@@ -125,6 +140,8 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
   curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
   if (m_options.should_follow_redirects)
     curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
+  if (m_options.should_reject_private_addresses)
+    curl_easy_setopt(handle, CURLOPT_OPENSOCKETFUNCTION, &open_public_socket);
 
   LOG(Debug, "curl request %s %s", method_name.data, url.c_str());
 

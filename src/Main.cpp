@@ -130,6 +130,7 @@ fn main(int argc, char **argv) -> int
      thread. */
   CurlClient::Options probe_options;
   probe_options.timeout_ms = 10000;
+  probe_options.should_reject_private_addresses = true;
   CurlClient probe_client{allocator, probe_options};
   Liveness liveness{allocator, cfg, probe_client};
   if (liveness.start().is_error())
