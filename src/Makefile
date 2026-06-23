@@ -152,6 +152,10 @@ ifeq ($(MODE), rel)
 # _FORTIFY_SOURCE is set only here, since it requires an optimized build and a
 # bare -O0 build warns. The macro is undefined first so a toolchain default does
 # not collide with the explicit level.
+# The minimal UndefinedBehaviorSanitizer runtime is used, since the full runtime
+# interposes libc functions such as signal and its interceptors call a null
+# pointer in a fully static-pie binary. The minimal runtime keeps the UB traps
+# without any interceptor.
 CXXFLAGS += \
 	-s \
 	-O2 \
@@ -159,13 +163,15 @@ CXXFLAGS += \
 	-flto \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=2 \
-	-fsanitize=undefined
+	-fsanitize=undefined \
+	-fsanitize-minimal-runtime
+# The vendored C is third party and is not undefined-behavior clean, so the
+# release does not instrument it.
 CFLAGS += \
 	-O2 \
 	-flto \
 	-U_FORTIFY_SOURCE \
-	-D_FORTIFY_SOURCE=2 \
-	-fsanitize=undefined
+	-D_FORTIFY_SOURCE=2
 CXXFLAGS += \
 	-static-pie \
 	-nostdlib++
