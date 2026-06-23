@@ -19,6 +19,10 @@ public:
   struct Options
   {
     u32 timeout_ms{30000};
+    /* The connect phase is bounded separately when this is non-zero, so a host
+       that stalls the handshake fails fast rather than holding the whole
+       transfer budget. */
+    u32 connect_timeout_ms{0};
     bool should_verify_peer{true};
     bool should_follow_redirects{false};
     /* Refuse a connection to a private or loopback address, checked on the

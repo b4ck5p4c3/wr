@@ -131,6 +131,9 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
 
   curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS,
                    static_cast<long>(m_options.timeout_ms));
+  if (m_options.connect_timeout_ms > 0)
+    curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS,
+                     static_cast<long>(m_options.connect_timeout_ms));
   curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER,
                    m_options.should_verify_peer ? 1L : 0L);
   curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST,

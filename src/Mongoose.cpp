@@ -7,6 +7,10 @@ namespace wr {
 
 namespace {
 
+/* The panel and the admin bodies are small JSON, so a larger body is refused at
+   the boundary to keep a request from pinning memory. */
+constexpr usize MAX_REQUEST_BODY_LENGTH = 1 << 20;
+
 /* The view aliases the mongoose buffer and is valid only while the message is.
  */
 mustuse pure fn to_view(mg_str text) noexcept -> StringView
@@ -111,6 +115,11 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
   }
   case MG_EV_HTTP_MSG: {
     let const message = static_cast<mg_http_message *>(event_data);
+
+    if (message->body.len > MAX_REQUEST_BODY_LENGTH) {
+      mg_http_reply(connection, 413, "", "");
+      break;
+    }
 
     /* The header map lives only for the handler call. */
     HttpHeaders request_headers{m_allocator};
