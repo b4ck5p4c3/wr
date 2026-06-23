@@ -7,3 +7,6 @@
 [submodule "vendor/mbedtls"]
 	path = vendor/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls
+[submodule "vendor/rapidjson"]
+	path = vendor/rapidjson
+	url = https://github.com/Tencent/rapidjson

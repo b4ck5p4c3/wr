@@ -76,8 +76,9 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     reply_message(event, 502, "The token exchange failed");
     return;
   }
-  let const access_token = json_get_string(
-      m_allocator, token_response.value().body(), "access_token");
+  let const token_document =
+      Json::from(m_allocator, token_response.value().body());
+  let const access_token = token_document["access_token"].to<StringView>();
   if (!access_token.has_value()) {
     reply_message(event, 401, "GitHub refused the code");
     return;
@@ -85,7 +86,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
 
   String authorization{m_allocator};
   authorization.append("token ");
-  authorization.append(access_token.value().view());
+  authorization.append(access_token.value());
 
   HttpRequestBuilder user_builder{m_allocator};
   let const user_request =
@@ -101,10 +102,10 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  let const id =
-      json_get_number(m_allocator, user_response.value().body(), "id");
-  let const login =
-      json_get_string(m_allocator, user_response.value().body(), "login");
+  let const user_document =
+      Json::from(m_allocator, user_response.value().body());
+  let const id = user_document["id"].to<i64>();
+  let const login = user_document["login"].to<StringView>();
   if (!id.has_value() || !login.has_value()) {
     reply_message(event, 502, "GitHub returned no identity");
     return;
@@ -116,7 +117,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   String identity{m_allocator};
   identity.append("github:");
   identity.append(id_text);
-  finish_login(event, identity.view(), login.value().view());
+  finish_login(event, identity.view(), login.value());
 }
 
 fn App::handle_telegram_callback(HttpServerEvent &event) -> void

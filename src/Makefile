@@ -97,6 +97,7 @@ DEFINES := \
 INCLUDES := \
 	-I$(VENDOR_DIR)/mongoose \
 	-I$(VENDOR_DIR)/sqlite \
+	-I$(VENDOR_DIR)/rapidjson/include \
 	-I$(VENDOR_DIR)/curl/include \
 	-I$(VENDOR_DIR)/mbedtls/include
 
@@ -250,6 +251,11 @@ $(OBJECTS): | dirs
 $(VENDOR_OBJECTS): | dirs
 $(CURL_OBJECTS): | dirs
 $(MBEDTLS_OBJECTS): | dirs
+
+# rapidjson offsets a null pointer in its internal stack, which the minimal
+# UndefinedBehaviorSanitizer runtime traps, so the JSON unit is built without it
+# the way the vendored C is.
+$(OBJ_DIR)/Json.o: CXXFLAGS += -fno-sanitize=undefined
 
 $(OBJ_DIR)/%.o: %.cpp Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '

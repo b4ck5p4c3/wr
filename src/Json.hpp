@@ -2,19 +2,12 @@
 
 #include "Allocator.hpp"
 #include "Common.hpp"
+#include "Containers.hpp"
 #include "Maybe.hpp"
 #include "String.hpp"
 #include "StringView.hpp"
 
 namespace wr {
-
-/* Read a string or a number field from a JSON document by key. The parse is
-   structure aware and unescapes a string, so a key is matched only as an object
-   member. The document is read through the mongoose JSON parser. */
-mustuse fn json_get_string(Allocator allocator, StringView json, StringView key)
-    -> Maybe<String>;
-mustuse fn json_get_number(Allocator allocator, StringView json, StringView key)
-    -> Maybe<i64>;
 
 /* A small JSON writer that builds a document into an owned String. The comma
    and the colon are placed by the writer, so a caller only opens containers and
@@ -148,6 +141,70 @@ private:
   bool m_has_member[MAX_DEPTH]{};
   usize m_depth{0};
   bool m_after_key{false};
+};
+
+/* A parsed JSON value. The document is parsed once by from, and a value is
+   reached by operator[] and read by to. An invalid parse or a missing key
+   yields an invalid value, so a lookup chain never faults and a caller checks
+   the leaf. The parse is structure aware, so a key is matched only as an object
+   member. */
+class Json
+{
+public:
+  Json() = default;
+
+  mustuse static fn from(Allocator allocator, StringView text) -> Json;
+
+  mustuse pure fn is_valid() const noexcept -> bool
+  {
+    return m_kind != kind::invalid;
+  }
+
+  mustuse fn operator[](StringView key) const noexcept -> const Json &;
+
+  /* The leaf converted to T, or None when the kind does not match. The targets
+     are StringView for a string, i64 for an integer, and bool. */
+  template <typename T>
+  mustuse fn to() const noexcept -> Maybe<T>
+  {
+    if constexpr (__is_same(T, StringView)) {
+      if (m_kind == kind::string) return Maybe<StringView>{m_string.view()};
+      return None;
+    } else if constexpr (__is_same(T, i64)) {
+      if (m_kind == kind::integer) return Maybe<i64>{m_integer};
+      return None;
+    } else if constexpr (__is_same(T, bool)) {
+      if (m_kind == kind::boolean) return Maybe<bool>{m_boolean};
+      return None;
+    } else {
+      static_assert(__is_same(T, StringView), "unsupported Json conversion");
+    }
+  }
+
+private:
+  enum class kind : u8
+  {
+    invalid,
+    null,
+    boolean,
+    integer,
+    real,
+    string,
+    array,
+    object,
+  };
+
+  /* The SAX handler builds the tree from the rapidjson reader events, so it
+     sets the value fields directly. It is defined in Json.cpp where rapidjson
+     is held. */
+  friend struct JsonBuilder;
+
+  kind m_kind{kind::invalid};
+  bool m_boolean{false};
+  i64 m_integer{0};
+  String m_string;
+  ArrayList<String> m_keys;
+  ArrayList<Json> m_values;
 };
 
 } // namespace wr
