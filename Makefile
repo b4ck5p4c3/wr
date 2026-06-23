@@ -36,6 +36,14 @@ fmt:
 	echo Launching '$$'CLANG_FORMAT...
 	$(MAKE) -C src fmt
 
+test: wr
+	echo Launching tests...
+	$(MAKE) -C test test
+
+refill_tests: wr
+	echo Refilling tests...
+	$(MAKE) -C test refill
+
 clean:
 	echo Cleaning up...
 	$(MAKE) -C src clean
