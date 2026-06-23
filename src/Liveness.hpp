@@ -3,7 +3,6 @@
 #include "Allocator.hpp"
 #include "App.hpp"
 #include "Common.hpp"
-#include "Curl.hpp"
 #include "ErrorOr.hpp"
 #include "Store.hpp"
 
@@ -11,16 +10,18 @@
 
 namespace wr {
 
+class HttpClient;
+
 /* The liveness sweep. It runs on its own thread with its own store connection
-   and its own curl client, so a blocking probe never stalls the server loop. An
+   and a borrowed client, so a blocking probe never stalls the server loop. An
    up site is probed every five minutes, a down site every minute, and the
    reachability and the last probe time are recorded. */
 class Liveness
 {
 public:
-  Liveness(Allocator allocator, const config &cfg)
+  Liveness(Allocator allocator, const config &cfg, HttpClient &client)
       : m_allocator(allocator), m_config(cfg), m_store(allocator),
-        m_client(allocator, probe_options())
+        m_client(client)
   {}
 
   Liveness(const Liveness &) = delete;
@@ -33,16 +34,6 @@ private:
   static constexpr i64 UP_INTERVAL_SECONDS = 300;
   static constexpr i64 DOWN_INTERVAL_SECONDS = 60;
 
-  static fn probe_options() -> CurlClient::Options
-  {
-    CurlClient::Options options;
-    options.timeout_ms = 10000;
-    /* Redirects are not followed, so a public url cannot bounce a probe to a
-       private address. */
-    options.should_follow_redirects = false;
-    return options;
-  }
-
   static fn thread_main(opaque *self) -> opaque *;
   fn run() -> void;
   fn sweep() -> void;
@@ -50,7 +41,7 @@ private:
   Allocator m_allocator;
   const config &m_config;
   Store m_store;
-  CurlClient m_client;
+  HttpClient &m_client;
   pthread_t m_thread{};
   bool m_is_running{false};
   volatile bool m_should_stop{false};

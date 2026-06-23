@@ -1,56 +1,17 @@
 #include "App.hpp"
 #include "Client.hpp"
-#include "Curl.hpp"
+#include "Crypto.hpp"
 #include "Http.hpp"
 #include "Trace.hpp"
+#include "Utils.hpp"
 
-#include <ctime>
-#include <mbedtls/md.h>
-#include <mbedtls/sha256.h>
+#include <cstdlib>
 
 namespace wr {
 
-namespace {
-
-fn to_hex(String &out, const unsigned char *bytes, usize length) -> void
-{
-  let const digits = "0123456789abcdef";
-  for (usize i = 0; i < length; i++) {
-    out.push(digits[bytes[i] >> 4]);
-    out.push(digits[bytes[i] & 0x0f]);
-  }
-}
-
-/* A random opaque token, sixteen bytes of urandom hex encoded. */
-fn make_token(Allocator allocator) -> String
-{
-  String token{allocator};
-  unsigned char bytes[16] = {};
-  std::FILE *source = std::fopen("/dev/urandom", "rb");
-  if (source != nullptr) {
-    unused(std::fread(bytes, 1, sizeof(bytes), source));
-    std::fclose(source);
-  }
-  to_hex(token, bytes, sizeof(bytes));
-  return token;
-}
-
-/* Compare two byte strings without an early exit, so a signature check does not
-   leak the matching prefix length through its timing. */
-fn constant_time_equal(StringView left, StringView right) -> bool
-{
-  if (left.count() != right.count()) return false;
-  unsigned char difference = 0;
-  for (usize i = 0; i < left.count(); i++)
-    difference |= static_cast<unsigned char>(left[i] ^ right[i]);
-  return difference == 0;
-}
-
-} // namespace
-
 fn App::handle_login_github(HttpServerEvent &event) -> void
 {
-  let const state = make_token(m_allocator);
+  let const state = random_token(m_allocator);
 
   String url{m_allocator};
   url.append("https://github.com/login/oauth/authorize?client_id=");
@@ -174,19 +135,18 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
     check.append(value.value().view());
   }
 
+  /* The secret key is the SHA-256 of the bot token, and the signature is the
+     HMAC of the check string under that key. */
   unsigned char secret[32] = {};
-  let const token = m_config.telegram_bot_token.view();
-  mbedtls_sha256(reinterpret_cast<const unsigned char *>(token.data),
-                 token.count(), secret, 0);
+  sha256(m_config.telegram_bot_token.view(), secret);
 
   unsigned char digest[32] = {};
-  let const info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-  mbedtls_md_hmac(info, secret, sizeof(secret),
-                  reinterpret_cast<const unsigned char *>(check.view().data),
-                  check.count(), digest);
+  hmac_sha256(
+      StringView{reinterpret_cast<const char *>(secret), sizeof(secret)},
+      check.view(), digest);
 
   String computed{m_allocator};
-  to_hex(computed, digest, sizeof(digest));
+  append_hex(computed, digest, sizeof(digest));
   if (!constant_time_equal(computed.view(), provided_hash.value().view())) {
     reply_message(event, 401, "The Telegram signature did not match");
     return;
@@ -239,7 +199,7 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
 
   unused(m_store.upsert_account(identity, display_name, was_admin).is_error());
 
-  let const token = make_token(m_allocator);
+  let const token = random_token(m_allocator);
   let const expires_at = now_seconds() + i64{30} * 24 * 60 * 60;
   unused(m_store.create_session(token.view(), identity, expires_at).is_error());
 

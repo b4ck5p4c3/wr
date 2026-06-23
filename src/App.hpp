@@ -7,10 +7,11 @@
 #include "Maybe.hpp"
 #include "Server.hpp"
 #include "Store.hpp"
+#include "Utils.hpp"
 
 namespace wr {
 
-class CurlClient;
+class HttpClient;
 
 /* The runtime configuration, from the flags and the environment. */
 struct config
@@ -31,7 +32,7 @@ struct config
 class App
 {
 public:
-  App(Allocator allocator, Store &store, CurlClient &client, const config &cfg)
+  App(Allocator allocator, Store &store, HttpClient &client, const config &cfg)
       : m_allocator(allocator), m_store(store), m_client(client), m_config(cfg)
   {}
 
@@ -77,7 +78,7 @@ private:
 
   Allocator m_allocator;
   Store &m_store;
-  CurlClient &m_client;
+  HttpClient &m_client;
   const config &m_config;
 };
 
@@ -93,15 +94,5 @@ mustuse fn find_cookie(StringView cookie_header, StringView name)
 /* Write a site as a PublicSite object, the slug, the name, the url, and the
    favicon. */
 fn write_site_json(JsonWriter &writer, const site &row) -> void;
-
-/* The current unix time in seconds. */
-mustuse fn now_seconds() -> i64;
-
-/* A flat JSON string or number field by key, used to read a small request body
-   or an OAuth response. Nested structures are not parsed. */
-mustuse fn json_string_field(Allocator allocator, StringView json,
-                             StringView key) -> Maybe<String>;
-mustuse fn json_number_field(Allocator allocator, StringView json,
-                             StringView key) -> Maybe<String>;
 
 } // namespace wr
