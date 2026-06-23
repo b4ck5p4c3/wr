@@ -1,5 +1,6 @@
 #include "App.hpp"
 #include "Http.hpp"
+#include "Json.hpp"
 #include "Trace.hpp"
 
 namespace wr {
@@ -84,10 +85,10 @@ fn App::handle_me(HttpServerEvent &event) -> void
 fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
 {
   let const body = event.body();
-  let const slug = json_string_field(m_allocator, body, "slug");
-  let const name = json_string_field(m_allocator, body, "name");
-  let const url = json_string_field(m_allocator, body, "url");
-  let const favicon = json_string_field(m_allocator, body, "favicon");
+  let const slug = json_get_string(m_allocator, body, "slug");
+  let const name = json_get_string(m_allocator, body, "name");
+  let const url = json_get_string(m_allocator, body, "url");
+  let const favicon = json_get_string(m_allocator, body, "favicon");
   if (!slug.has_value() || !name.has_value() || !url.has_value()) {
     reply_message(event, 400, "A slug, a name, and a url are required");
     return;
@@ -121,8 +122,8 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
 fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
 {
   let const body = event.body();
-  let const slug = json_string_field(m_allocator, body, "slug");
-  let const name = json_string_field(m_allocator, body, "name");
+  let const slug = json_get_string(m_allocator, body, "slug");
+  let const name = json_get_string(m_allocator, body, "name");
   if (!slug.has_value() || !name.has_value()) {
     reply_message(event, 400, "A slug and a name are required");
     return;
@@ -155,12 +156,16 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
   }
 
   let const body = event.body();
-  let const slug = json_string_field(m_allocator, body, "slug");
-  let const name = json_string_field(m_allocator, body, "name");
-  let const url = json_string_field(m_allocator, body, "url");
-  let const favicon = json_string_field(m_allocator, body, "favicon");
+  let const slug = json_get_string(m_allocator, body, "slug");
+  let const name = json_get_string(m_allocator, body, "name");
+  let const url = json_get_string(m_allocator, body, "url");
+  let const favicon = json_get_string(m_allocator, body, "favicon");
   if (!slug.has_value() || !name.has_value() || !url.has_value()) {
     reply_message(event, 400, "A slug, a name, and a url are required");
+    return;
+  }
+  if (!is_valid_slug(slug.value().view())) {
+    reply_message(event, 400, "The slug may use only a-z, 0-9, and a dash");
     return;
   }
   if (!is_valid_site_url(url.value().view())) {
@@ -224,13 +229,12 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
     return;
   }
 
-  let const id_text = json_number_field(m_allocator, event.body(), "id");
-  if (!id_text.has_value()) {
+  let const id_or = json_get_number(m_allocator, event.body(), "id");
+  if (!id_or.has_value()) {
     reply_message(event, 400, "An id is required");
     return;
   }
-  let const id =
-      static_cast<i64>(std::strtoll(id_text.value().c_str(), nullptr, 10));
+  let const id = id_or.value();
 
   let const found = m_store.find_pending(id);
   if (found.is_error() || !found.value().has_value()) {
@@ -243,12 +247,12 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
     if (action.kind == "add") {
       site row{};
       row.slug = String{m_allocator, action.target_slug.view()};
-      row.name = json_string_field(m_allocator, action.payload.view(), "name")
+      row.name = json_get_string(m_allocator, action.payload.view(), "name")
                      .value_or(String{m_allocator});
-      row.url = json_string_field(m_allocator, action.payload.view(), "url")
+      row.url = json_get_string(m_allocator, action.payload.view(), "url")
                     .value_or(String{m_allocator});
       row.favicon =
-          json_string_field(m_allocator, action.payload.view(), "favicon")
+          json_get_string(m_allocator, action.payload.view(), "favicon")
               .value_or(String{m_allocator});
       row.owner = String{m_allocator, action.owner.view()};
       row.created_at = now_seconds();

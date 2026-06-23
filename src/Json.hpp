@@ -2,10 +2,19 @@
 
 #include "Allocator.hpp"
 #include "Common.hpp"
+#include "Maybe.hpp"
 #include "String.hpp"
 #include "StringView.hpp"
 
 namespace wr {
+
+/* Read a string or a number field from a JSON document by key. The parse is
+   structure aware and unescapes a string, so a key is matched only as an object
+   member. The document is read through the mongoose JSON parser. */
+mustuse fn json_get_string(Allocator allocator, StringView json, StringView key)
+    -> Maybe<String>;
+mustuse fn json_get_number(Allocator allocator, StringView json, StringView key)
+    -> Maybe<i64>;
 
 /* A small JSON writer that builds a document into an owned String. The comma
    and the colon are placed by the writer, so a caller only opens containers and

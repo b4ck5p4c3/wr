@@ -7,17 +7,6 @@ namespace wr {
 
 fn now_seconds() -> i64 { return static_cast<i64>(std::time(nullptr)); }
 
-fn find_substring(StringView haystack, StringView needle) -> Maybe<usize>
-{
-  if (needle.count() == 0 || needle.count() > haystack.count()) {
-    return None;
-  }
-  for (usize i = 0; i + needle.count() <= haystack.count(); i++) {
-    if (haystack.substring_of_length(i, needle.count()) == needle) return i;
-  }
-  return None;
-}
-
 fn percent_decode(Allocator allocator, StringView text) -> String
 {
   String out{allocator};
@@ -79,64 +68,6 @@ fn random_token(Allocator allocator) -> ErrorOr<String>
   String token{allocator};
   append_hex(token, bytes, sizeof(bytes));
   return token;
-}
-
-fn json_string_field(Allocator allocator, StringView json, StringView key)
-    -> Maybe<String>
-{
-  String needle{allocator};
-  needle.push('"');
-  needle.append(key);
-  needle.push('"');
-  let const at = find_substring(json, needle.view());
-  if (!at.has_value()) return None;
-
-  usize i = at.value() + needle.count();
-  while (i < json.count() && json[i] != ':')
-    i++;
-  i++;
-  while (i < json.count() && (json[i] == ' ' || json[i] == '\t'))
-    i++;
-  if (i >= json.count() || json[i] != '"') return None;
-  i++;
-
-  String value{allocator};
-  while (i < json.count() && json[i] != '"') {
-    if (json[i] == '\\' && i + 1 < json.count()) {
-      i++;
-      value.push(json[i] == 'n' ? '\n' : json[i]);
-    } else {
-      value.push(json[i]);
-    }
-    i++;
-  }
-  return Maybe<String>{steal(value)};
-}
-
-fn json_number_field(Allocator allocator, StringView json, StringView key)
-    -> Maybe<String>
-{
-  String needle{allocator};
-  needle.push('"');
-  needle.append(key);
-  needle.push('"');
-  let const at = find_substring(json, needle.view());
-  if (!at.has_value()) return None;
-
-  usize i = at.value() + needle.count();
-  while (i < json.count() && json[i] != ':')
-    i++;
-  i++;
-  while (i < json.count() && (json[i] == ' ' || json[i] == '\t'))
-    i++;
-
-  String value{allocator};
-  while (i < json.count() && json[i] >= '0' && json[i] <= '9') {
-    value.push(json[i]);
-    i++;
-  }
-  if (value.is_empty()) return None;
-  return Maybe<String>{steal(value)};
 }
 
 } // namespace wr

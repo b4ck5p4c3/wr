@@ -2,6 +2,7 @@
 #include "Client.hpp"
 #include "Crypto.hpp"
 #include "Http.hpp"
+#include "Json.hpp"
 #include "Trace.hpp"
 #include "Utils.hpp"
 
@@ -75,7 +76,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     reply_message(event, 502, "The token exchange failed");
     return;
   }
-  let const access_token = json_string_field(
+  let const access_token = json_get_string(
       m_allocator, token_response.value().body(), "access_token");
   if (!access_token.has_value()) {
     reply_message(event, 401, "GitHub refused the code");
@@ -101,17 +102,20 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   }
 
   let const id =
-      json_number_field(m_allocator, user_response.value().body(), "id");
+      json_get_number(m_allocator, user_response.value().body(), "id");
   let const login =
-      json_string_field(m_allocator, user_response.value().body(), "login");
+      json_get_string(m_allocator, user_response.value().body(), "login");
   if (!id.has_value() || !login.has_value()) {
     reply_message(event, 502, "GitHub returned no identity");
     return;
   }
 
+  char id_text[24];
+  std::snprintf(id_text, sizeof(id_text), "%lld",
+                static_cast<long long>(id.value()));
   String identity{m_allocator};
   identity.append("github:");
-  identity.append(id.value().view());
+  identity.append(id_text);
   finish_login(event, identity.view(), login.value().view());
 }
 
