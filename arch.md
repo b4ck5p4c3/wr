@@ -13,11 +13,13 @@ status. The build follows this document as the design reference.
 
 - Implemented, the HTTP abstraction and its curl and mongoose backends, the
   container and allocator foundation, the StringMap, the CLI, the error types,
-  the logger, and the vendoring of mongoose, curl, mbedtls, and sqlite.
-- Planned, the sqlite store, the schema, the routing layer, the public
-  navigation API, the sessions, the GitHub and Telegram auth, the user and admin
-  panels, the pending-action workflow, the liveness sweep, the static asset
-  serving, and the Preact frontend.
+  the logger, the vendoring of mongoose, curl, mbedtls, and sqlite, the sqlite
+  store and the schema, the routing layer, the public navigation API, the
+  sessions, the GitHub and Telegram auth, the user and admin panel API, the
+  pending-action workflow, the liveness sweep, the static asset serving, and the
+  Preact frontend.
+- Pending, the cosmo build of the outbound curl layer, since curl is not yet
+  compiled under the cosmopolitan toolchain.
 
 ## Components
 

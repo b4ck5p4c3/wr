@@ -9,7 +9,8 @@ periodic liveness check.
 - The static binary is written to ../wr by `make MODE=rel`.
 - ../wr-dbg is written by `make MODE=dbg` with AddressSanitizer and UndefinedBehaviorSanitizer, and dbg is the default.
 - ../wr-cov is written by `make MODE=cov` with coverage instrumentation.
-- The portable ../wr-cosmo.com and ../wr-cosmo_dbg.com are written by `make MODE=cosmo` and `make MODE=cosmo_dbg` through the cosmopolitan toolchain.
+- The portable ../wr-cosmo.com and ../wr-cosmo_dbg.com are written by `make MODE=cosmo` and `make MODE=cosmo_dbg` through the cosmopolitan toolchain. The cosmo modes compile the foundation and the server core, but the outbound curl layer is not compiled under the cosmopolitan toolchain yet, so the curl-dependent server links only in the dbg, rel, and cov modes.
+- The frontend is built under the web directory by `bun install` and `bun run build`, or the npm equivalent, which writes web/dist. The server serves that directory through the `-w` flag.
 - The dbg, rel, and cov modes are built exceptionless with -fno-exceptions, while the cosmo modes are built with -fexceptions, since the cosmopolitan toolchain requires it. The source stays exception-free in every mode.
 - UndefinedBehaviorSanitizer is kept on in the release build, and the release is compiled at -O2.
 - A bare `make` builds the wr target, since the object tree under src/o/$(MODE) is created as an order-only prerequisite.
@@ -55,6 +56,9 @@ periodic liveness check.
 - The database is opened, the mongoose event manager is built, the liveness timer is registered, and the loop is run by src/Main.cpp.
 - A request is routed by the HTTP layer to the page renderer, the JSON API, the auth endpoints, or the static asset handler.
 - The HTTP layer is a generic interface over pluggable backends, modeled on the backend pattern in the oo project. The shared value types HttpMethod, HttpStatus, HttpHeaders, HttpRequest, and HttpResponse are held in src/Http. The abstract HttpClient and the HttpRequestBuilder are held in src/Client, and the abstract HttpServer with its HttpServerEvent is held in src/Server. The curl client backend CurlClient is held in src/Curl, and the mongoose server backend MongooseServer is held in src/Mongoose. A type that owns memory takes an explicit Allocator in its constructor.
+- The application context App in src/App owns the dispatch and the request helpers, and it routes a request to the public navigation API, the auth endpoints, the panel API, or the static asset handler. The JSON responses are built by the writer in src/Json. The GitHub and Telegram auth, the sessions, and the current-account lookup are in src/Auth. The user and admin panel handlers are in src/Panel. The liveness sweep runs on its own thread from src/Liveness with its own store connection and curl client.
+- The sqlite store is owned by src/Store, which holds the connection, the migration, and the row types for sites, accounts, sessions, and pending actions.
+- The Preact frontend lives under the web directory, and the JSON API is the only boundary between the server and the bundle.
 - The sqlite connection, the schema migration, and the prepared statements are owned by the store.
 - curl is wrapped by the outbound layer for the liveness probes and the OAuth token exchange.
 - The member sites, the panel users, the panel admins, and the sessions are held in the data model.
