@@ -3,8 +3,10 @@
 
 async function getJson(path) {
   const response = await fetch(path, { credentials: "same-origin" });
-  if (!response.ok) throw new Error("request failed with " + response.status);
-  return response.json();
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(data.message || "request failed with " + response.status);
+  return data;
 }
 
 async function postJson(path, body) {
