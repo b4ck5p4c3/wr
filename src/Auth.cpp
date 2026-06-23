@@ -11,7 +11,12 @@ namespace wr {
 
 fn App::handle_login_github(HttpServerEvent &event) -> void
 {
-  let const state = random_token(m_allocator);
+  let const state_or = random_token(m_allocator);
+  if (state_or.is_error()) {
+    reply_message(event, 500, "Unable to start the login");
+    return;
+  }
+  let const &state = state_or.value();
 
   String url{m_allocator};
   url.append("https://github.com/login/oauth/authorize?client_id=");
@@ -42,7 +47,8 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     return;
   }
   let const cookie_state = find_cookie(cookie_header.value(), "wr_oauth_state");
-  if (!cookie_state.has_value() || state.value().view() != cookie_state.value())
+  if (!cookie_state.has_value() ||
+      !constant_time_equal(state.value().view(), cookie_state.value()))
   {
     reply_message(event, 400, "The OAuth state did not match");
     return;
@@ -124,12 +130,12 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
   let const fields = {"auth_date", "first_name", "id",
                       "last_name", "photo_url",  "username"};
   String check{m_allocator};
-  bool first = true;
+  bool is_first = true;
   for (const char *field : fields) {
     let const value = find_query_param(query, field, m_allocator);
     if (!value.has_value()) continue;
-    if (!first) check.push('\n');
-    first = false;
+    if (!is_first) check.push('\n');
+    is_first = false;
     check.append(field);
     check.push('=');
     check.append(value.value().view());
@@ -194,14 +200,27 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
 {
   bool was_admin = false;
   let const existing = m_store.find_account(identity);
-  if (!existing.is_error() && existing.value().has_value())
+  if (!existing.is_error() && existing.value().has_value()) {
     was_admin = existing.value().value().is_admin;
+  }
 
-  unused(m_store.upsert_account(identity, display_name, was_admin).is_error());
+  if (m_store.upsert_account(identity, display_name, was_admin).is_error()) {
+    reply_message(event, 500, "Unable to store the account");
+    return;
+  }
 
-  let const token = random_token(m_allocator);
+  let const token_or = random_token(m_allocator);
+  if (token_or.is_error()) {
+    reply_message(event, 500, "Unable to open the session");
+    return;
+  }
+  let const &token = token_or.value();
+
   let const expires_at = now_seconds() + i64{30} * 24 * 60 * 60;
-  unused(m_store.create_session(token.view(), identity, expires_at).is_error());
+  if (m_store.create_session(token.view(), identity, expires_at).is_error()) {
+    reply_message(event, 500, "Unable to open the session");
+    return;
+  }
 
   String cookie{m_allocator};
   cookie.append("wr_session=");
