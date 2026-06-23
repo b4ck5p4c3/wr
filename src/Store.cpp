@@ -48,6 +48,20 @@ fn read_site(Allocator allocator, sqlite3_stmt *statement) -> site
   return row;
 }
 
+fn read_pending_action(Allocator allocator, sqlite3_stmt *statement)
+    -> pending_action
+{
+  pending_action row{};
+  row.id = sqlite3_column_int64(statement, 0);
+  row.kind = column_string(allocator, statement, 1);
+  row.owner = column_string(allocator, statement, 2);
+  row.target_slug = column_string(allocator, statement, 3);
+  row.payload = column_string(allocator, statement, 4);
+  row.created_at = sqlite3_column_int64(statement, 5);
+  row.status = column_string(allocator, statement, 6);
+  return row;
+}
+
 constexpr const char *SITE_COLUMNS =
     "slug, name, url, favicon, is_reachable, last_seen_at, owner, created_at";
 
@@ -119,8 +133,11 @@ fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
     return make_db_error(m_allocator, m_db, "Unable to list the active sites");
   defer { sqlite3_finalize(statement); };
 
-  while (sqlite3_step(statement) == SQLITE_ROW)
+  int step_result = SQLITE_DONE;
+  while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
     sites.push(read_site(m_allocator, statement));
+  if (step_result != SQLITE_DONE)
+    return make_db_error(m_allocator, m_db, "Unable to read the sites");
   return sites;
 }
 
@@ -138,8 +155,11 @@ fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
     return make_db_error(m_allocator, m_db, "Unable to list the sites");
   defer { sqlite3_finalize(statement); };
 
-  while (sqlite3_step(statement) == SQLITE_ROW)
+  int step_result = SQLITE_DONE;
+  while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
     sites.push(read_site(m_allocator, statement));
+  if (step_result != SQLITE_DONE)
+    return make_db_error(m_allocator, m_db, "Unable to read the sites");
   return sites;
 }
 
@@ -159,8 +179,11 @@ fn Store::list_sites_for_owner(StringView owner) const
   defer { sqlite3_finalize(statement); };
 
   bind_text(statement, 1, owner);
-  while (sqlite3_step(statement) == SQLITE_ROW)
+  int step_result = SQLITE_DONE;
+  while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
     sites.push(read_site(m_allocator, statement));
+  if (step_result != SQLITE_DONE)
+    return make_db_error(m_allocator, m_db, "Unable to read the sites");
   return sites;
 }
 
@@ -347,17 +370,12 @@ fn Store::list_pending() const -> ErrorOr<ArrayList<pending_action>>
                          "Unable to list the pending actions");
   defer { sqlite3_finalize(statement); };
 
-  while (sqlite3_step(statement) == SQLITE_ROW) {
-    pending_action row{};
-    row.id = sqlite3_column_int64(statement, 0);
-    row.kind = column_string(m_allocator, statement, 1);
-    row.owner = column_string(m_allocator, statement, 2);
-    row.target_slug = column_string(m_allocator, statement, 3);
-    row.payload = column_string(m_allocator, statement, 4);
-    row.created_at = sqlite3_column_int64(statement, 5);
-    row.status = column_string(m_allocator, statement, 6);
-    actions.push(steal(row));
-  }
+  int step_result = SQLITE_DONE;
+  while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
+    actions.push(read_pending_action(m_allocator, statement));
+  if (step_result != SQLITE_DONE)
+    return make_db_error(m_allocator, m_db,
+                         "Unable to read the pending actions");
   return actions;
 }
 
@@ -393,17 +411,8 @@ fn Store::find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>
   defer { sqlite3_finalize(statement); };
 
   sqlite3_bind_int64(statement, 1, id);
-  if (sqlite3_step(statement) == SQLITE_ROW) {
-    pending_action row{};
-    row.id = sqlite3_column_int64(statement, 0);
-    row.kind = column_string(m_allocator, statement, 1);
-    row.owner = column_string(m_allocator, statement, 2);
-    row.target_slug = column_string(m_allocator, statement, 3);
-    row.payload = column_string(m_allocator, statement, 4);
-    row.created_at = sqlite3_column_int64(statement, 5);
-    row.status = column_string(m_allocator, statement, 6);
-    return Maybe<pending_action>{steal(row)};
-  }
+  if (sqlite3_step(statement) == SQLITE_ROW)
+    return Maybe<pending_action>{read_pending_action(m_allocator, statement)};
   return Maybe<pending_action>{None};
 }
 
