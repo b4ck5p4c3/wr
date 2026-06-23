@@ -35,6 +35,17 @@ fn make_token(Allocator allocator) -> String
   return token;
 }
 
+/* Compare two byte strings without an early exit, so a signature check does not
+   leak the matching prefix length through its timing. */
+fn constant_time_equal(StringView left, StringView right) -> bool
+{
+  if (left.count() != right.count()) return false;
+  unsigned char difference = 0;
+  for (usize i = 0; i < left.count(); i++)
+    difference |= static_cast<unsigned char>(left[i] ^ right[i]);
+  return difference == 0;
+}
+
 } // namespace
 
 fn App::handle_login_github(HttpServerEvent &event) -> void
@@ -176,8 +187,20 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
 
   String computed{m_allocator};
   to_hex(computed, digest, sizeof(digest));
-  if (computed.view() != provided_hash.value().view()) {
+  if (!constant_time_equal(computed.view(), provided_hash.value().view())) {
     reply_message(event, 401, "The Telegram signature did not match");
+    return;
+  }
+
+  /* A valid signature can be replayed forever, so the login is rejected once it
+     is more than a day old. */
+  let const auth_date = find_query_param(query, "auth_date", m_allocator);
+  let const signed_at = auth_date.has_value()
+                            ? static_cast<i64>(std::strtoll(
+                                  auth_date.value().c_str(), nullptr, 10))
+                            : 0;
+  if (signed_at <= 0 || now_seconds() - signed_at > 86400) {
+    reply_message(event, 401, "The Telegram login has expired");
     return;
   }
 
