@@ -121,7 +121,11 @@ fn main(int argc, char **argv) -> int
     return 1;
   }
 
-  CurlClient client{allocator};
+  /* The OAuth exchange runs on a request thread, so the connect phase is
+     bounded to keep a stalled provider from pinning a worker. */
+  CurlClient::Options client_options;
+  client_options.connect_timeout_ms = 10000;
+  CurlClient client{allocator, client_options};
   App app{allocator, store, client, cfg};
 
   MongooseServer server{allocator};
