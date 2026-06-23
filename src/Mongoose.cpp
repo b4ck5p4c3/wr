@@ -123,7 +123,8 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
     HttpServerEvent request_event{HttpServerEvent::Kind::Request, *this,
                                   connection};
     request_event.set_request(to_view(message->method), to_view(message->uri),
-                              to_view(message->body), request_headers);
+                              to_view(message->query), to_view(message->body),
+                              request_headers);
     m_handler(request_event, m_user);
     break;
   }

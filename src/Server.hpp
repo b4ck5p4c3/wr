@@ -32,6 +32,7 @@ public:
   mustuse pure fn kind() const noexcept -> Kind { return m_kind; }
   mustuse pure fn method() const noexcept -> StringView { return m_method; }
   mustuse pure fn uri() const noexcept -> StringView { return m_uri; }
+  mustuse pure fn query() const noexcept -> StringView { return m_query; }
   mustuse pure fn body() const noexcept -> StringView { return m_body; }
   mustuse pure fn error_message() const noexcept -> StringView
   {
@@ -44,11 +45,12 @@ public:
   }
 
   /* Filled by a backend before a Request event is dispatched. */
-  fn set_request(StringView method, StringView uri, StringView body,
-                 const HttpHeaders &headers) noexcept -> void
+  fn set_request(StringView method, StringView uri, StringView query,
+                 StringView body, const HttpHeaders &headers) noexcept -> void
   {
     m_method = method;
     m_uri = uri;
+    m_query = query;
     m_body = body;
     m_request_headers = &headers;
   }
@@ -66,6 +68,7 @@ private:
   opaque *m_connection;
   StringView m_method;
   StringView m_uri;
+  StringView m_query;
   StringView m_body;
   StringView m_error_message;
   const HttpHeaders *m_request_headers{nullptr};

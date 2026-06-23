@@ -120,6 +120,8 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
                    m_options.should_verify_peer ? 1L : 0L);
   curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST,
                    m_options.should_verify_peer ? 2L : 0L);
+  if (m_options.should_verify_peer && m_options.ca_path != nullptr)
+    curl_easy_setopt(handle, CURLOPT_CAINFO, m_options.ca_path);
   curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
   if (m_options.should_follow_redirects)
     curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
