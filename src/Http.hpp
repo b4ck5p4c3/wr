@@ -20,33 +20,83 @@ enum class HttpMethod : u8
   Options,
 };
 
-/* The uppercase token for a method, as it is written on the request line. */
+/* The uppercase request-line token. */
 mustuse fn http_method_name(HttpMethod method) noexcept -> StringView;
 
-/* The common status codes. A response carries the raw u16, so a code outside
-   this set is still represented. */
+/* Every standard HTTP status code. A response carries the raw u16, so a code
+   outside this set is still kept. */
 enum class HttpStatus : u16
 {
+  Continue = 100,
+  SwitchingProtocols = 101,
+  Processing = 102,
+  EarlyHints = 103,
+
   Ok = 200,
   Created = 201,
+  Accepted = 202,
+  NonAuthoritativeInformation = 203,
   NoContent = 204,
+  ResetContent = 205,
+  PartialContent = 206,
+  MultiStatus = 207,
+  AlreadyReported = 208,
+  ImUsed = 226,
+
+  MultipleChoices = 300,
   MovedPermanently = 301,
   Found = 302,
+  SeeOther = 303,
   NotModified = 304,
+  UseProxy = 305,
+  TemporaryRedirect = 307,
+  PermanentRedirect = 308,
+
   BadRequest = 400,
   Unauthorized = 401,
+  PaymentRequired = 402,
   Forbidden = 403,
   NotFound = 404,
   MethodNotAllowed = 405,
+  NotAcceptable = 406,
+  ProxyAuthenticationRequired = 407,
+  RequestTimeout = 408,
+  Conflict = 409,
+  Gone = 410,
+  LengthRequired = 411,
+  PreconditionFailed = 412,
+  ContentTooLarge = 413,
+  UriTooLong = 414,
+  UnsupportedMediaType = 415,
+  RangeNotSatisfiable = 416,
+  ExpectationFailed = 417,
+  ImATeapot = 418,
+  MisdirectedRequest = 421,
+  UnprocessableContent = 422,
+  Locked = 423,
+  FailedDependency = 424,
+  TooEarly = 425,
+  UpgradeRequired = 426,
+  PreconditionRequired = 428,
   TooManyRequests = 429,
+  RequestHeaderFieldsTooLarge = 431,
+  UnavailableForLegalReasons = 451,
+
   InternalServerError = 500,
+  NotImplemented = 501,
   BadGateway = 502,
   ServiceUnavailable = 503,
+  GatewayTimeout = 504,
+  HttpVersionNotSupported = 505,
+  VariantAlsoNegotiates = 506,
+  InsufficientStorage = 507,
+  LoopDetected = 508,
+  NotExtended = 510,
+  NetworkAuthenticationRequired = 511,
 };
 
-/* A case-insensitive header collection over a StringMap. A name is stored
-   lowercased, since an HTTP header name is case-insensitive, and a set
-   overwrites the previous value for that name. */
+/* A case-insensitive header collection. A name is stored lowercased and a set
+   overwrites the previous value. */
 class HttpHeaders
 {
 public:
@@ -54,37 +104,37 @@ public:
 
   fn set(StringView name, StringView value) -> void
   {
-    String key{m_map.allocator()};
-    append_lowercased(key, name);
-    m_map.set(key.view(), value);
+    char buffer[NORMALIZE_CAPACITY];
+    String spill{m_map.allocator()};
+    m_map.set(normalize(name, buffer, spill), value);
   }
 
   mustuse fn get(StringView name) const -> Maybe<StringView>
   {
-    String key{m_map.allocator()};
-    append_lowercased(key, name);
-    if (const String *found = m_map.find(key.view()); found != nullptr)
+    char buffer[NORMALIZE_CAPACITY];
+    String spill{m_map.allocator()};
+    if (const String *found = m_map.find(normalize(name, buffer, spill));
+        found != nullptr)
       return found->view();
     return None;
   }
 
   mustuse fn contains(StringView name) const -> bool
   {
-    String key{m_map.allocator()};
-    append_lowercased(key, name);
-    return m_map.find(key.view()) != nullptr;
+    char buffer[NORMALIZE_CAPACITY];
+    String spill{m_map.allocator()};
+    return m_map.find(normalize(name, buffer, spill)) != nullptr;
   }
 
   fn remove(StringView name) -> void
   {
-    String key{m_map.allocator()};
-    append_lowercased(key, name);
-    m_map.erase(key.view());
+    char buffer[NORMALIZE_CAPACITY];
+    String spill{m_map.allocator()};
+    m_map.erase(normalize(name, buffer, spill));
   }
 
   mustuse pure fn count() const noexcept -> usize { return m_map.count(); }
 
-  /* Invoke the callback with each lowercased name and its value. */
   template <class Fn>
   fn for_each(Fn callback) const -> void
   {
@@ -99,19 +149,32 @@ public:
   }
 
 private:
-  static fn append_lowercased(String &out, StringView text) -> void
+  static constexpr usize NORMALIZE_CAPACITY = 128;
+
+  /* Lowercase a header name into the stack buffer when it fits, so a lookup of
+     a normal-length name allocates nothing. A longer name is lowercased into
+     the spill String instead. */
+  static fn normalize(StringView name, char *buffer, String &spill) noexcept
+      -> StringView
   {
-    for (usize i = 0; i < text.count(); i++) {
-      let const c = text[i];
-      out.push(c >= 'A' && c <= 'Z' ? static_cast<char>(c + 32) : c);
+    if (name.count() <= NORMALIZE_CAPACITY) {
+      for (usize i = 0; i < name.count(); i++) {
+        let const c = name[i];
+        buffer[i] = c >= 'A' && c <= 'Z' ? static_cast<char>(c + 32) : c;
+      }
+      return StringView{buffer, name.count()};
     }
+    for (usize i = 0; i < name.count(); i++) {
+      let const c = name[i];
+      spill.push(c >= 'A' && c <= 'Z' ? static_cast<char>(c + 32) : c);
+    }
+    return spill.view();
   }
 
   StringMap<String> m_map;
 };
 
-/* An owned outbound request. The builder in Client.hpp assembles it, and a
-   client backend consumes it. */
+/* An owned outbound request, assembled by the builder in Client.hpp. */
 class HttpRequest
 {
 public:
@@ -149,8 +212,7 @@ private:
   String m_body;
 };
 
-/* An owned response. A client backend fills the status, the headers, and the
-   body as the transfer completes. */
+/* An owned response, filled by a client backend as the transfer completes. */
 class HttpResponse
 {
 public:
