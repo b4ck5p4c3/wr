@@ -72,6 +72,16 @@ OS_INFO := $(shell . /etc/os-release 2>/dev/null; printf '%s%s' "$${PRETTY_NAME:
 LIBC_INFO := $(shell getconf GNU_LIBC_VERSION 2>/dev/null || ldd --version 2>&1 | head -n 1 || echo 'unknown libc')
 COMMIT_HASH := $(shell git rev-parse HEAD || echo "<no git>")
 
+# The cosmoc++ wrapper rejects an argument that contains a space, so the spaces
+# in the shell derived build strings are replaced for the cosmo modes.
+ifneq ($(filter $(MODE),cosmo cosmo_dbg),)
+t__empty :=
+t__space := $(t__empty) $(t__empty)
+OS_INFO := $(subst $(t__space),_,$(OS_INFO))
+LIBC_INFO := $(subst $(t__space),_,$(LIBC_INFO))
+COMMIT_HASH := $(subst $(t__space),_,$(COMMIT_HASH))
+endif
+
 # Remember CXXFLAGS passed to us from the CLI.
 ENVCXXFLAGS := $(CXXFLAGS)
 CXXFLAGS := # nothing
@@ -87,7 +97,8 @@ DEFINES := \
 INCLUDES := \
 	-I$(VENDOR_DIR)/mongoose \
 	-I$(VENDOR_DIR)/sqlite \
-	-I$(VENDOR_DIR)/curl/include
+	-I$(VENDOR_DIR)/curl/include \
+	-I$(VENDOR_DIR)/mbedtls/include
 
 CXXFLAGS := \
 	-Wall \
