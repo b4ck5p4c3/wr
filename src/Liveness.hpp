@@ -20,7 +20,7 @@ class Liveness
 public:
   Liveness(Allocator allocator, const config &cfg)
       : m_allocator(allocator), m_config(cfg), m_store(allocator),
-        m_client(allocator, redirecting_options())
+        m_client(allocator, probe_options())
   {}
 
   Liveness(const Liveness &) = delete;
@@ -33,11 +33,13 @@ private:
   static constexpr i64 UP_INTERVAL_SECONDS = 300;
   static constexpr i64 DOWN_INTERVAL_SECONDS = 60;
 
-  static fn redirecting_options() -> CurlClient::Options
+  static fn probe_options() -> CurlClient::Options
   {
     CurlClient::Options options;
     options.timeout_ms = 10000;
-    options.should_follow_redirects = true;
+    /* Redirects are not followed, so a public url cannot bounce a probe to a
+       private address. */
+    options.should_follow_redirects = false;
     return options;
   }
 
