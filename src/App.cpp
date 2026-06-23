@@ -9,18 +9,18 @@ namespace {
 
 fn content_type_for(StringView path) -> StringView
 {
-  let const ends_with = [&](StringView suffix) -> bool {
+  let const do_ends_with = [&](StringView suffix) -> bool {
     if (path.count() < suffix.count()) return false;
     return path.substring(path.count() - suffix.count()) == suffix;
   };
-  if (ends_with(".html")) return "text/html; charset=utf-8";
-  if (ends_with(".js")) return "text/javascript; charset=utf-8";
-  if (ends_with(".css")) return "text/css; charset=utf-8";
-  if (ends_with(".json")) return "application/json";
-  if (ends_with(".svg")) return "image/svg+xml";
-  if (ends_with(".png")) return "image/png";
-  if (ends_with(".ico")) return "image/x-icon";
-  if (ends_with(".woff2")) return "font/woff2";
+  if (do_ends_with(".html")) return "text/html; charset=utf-8";
+  if (do_ends_with(".js")) return "text/javascript; charset=utf-8";
+  if (do_ends_with(".css")) return "text/css; charset=utf-8";
+  if (do_ends_with(".json")) return "application/json";
+  if (do_ends_with(".svg")) return "image/svg+xml";
+  if (do_ends_with(".png")) return "image/png";
+  if (do_ends_with(".ico")) return "image/x-icon";
+  if (do_ends_with(".woff2")) return "font/woff2";
   return "application/octet-stream";
 }
 
@@ -56,7 +56,9 @@ fn split_first_segment(StringView path, StringView &rest) -> StringView
 fn contains_double_dot(StringView path) -> bool
 {
   for (usize i = 0; i + 1 < path.count(); i++) {
-    if (path[i] == '.' && path[i + 1] == '.') return true;
+    if (path[i] == '.' && path[i + 1] == '.') {
+      return true;
+    }
   }
   return false;
 }
@@ -77,9 +79,10 @@ fn find_query_param(StringView query, StringView name, Allocator allocator)
     while (equals < pair.count() && pair[equals] != '=')
       equals++;
     let const key = pair.substring_of_length(0, equals);
-    if (key == name && equals < pair.count())
+    if (key == name && equals < pair.count()) {
       return Maybe<String>{
           percent_decode(allocator, pair.substring(equals + 1))};
+    }
 
     i = pair_end + 1;
   }
@@ -101,8 +104,9 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
     usize equals = 0;
     while (equals < pair.count() && pair[equals] != '=')
       equals++;
-    if (pair.substring_of_length(0, equals) == name && equals < pair.count())
+    if (pair.substring_of_length(0, equals) == name && equals < pair.count()) {
       return pair.substring(equals + 1);
+    }
 
     i = pair_end + 1;
   }
@@ -122,8 +126,9 @@ fn write_site_json(JsonWriter &writer, const site &row) -> void
 fn App::on_event(HttpServerEvent &event, opaque *user) -> void
 {
   let const app = static_cast<App *>(user);
-  if (app != nullptr && event.kind() == HttpServerEvent::Kind::Request)
+  if (app != nullptr && event.kind() == HttpServerEvent::Kind::Request) {
     app->dispatch(event);
+  }
 }
 
 fn App::dispatch(HttpServerEvent &event) -> void
@@ -153,6 +158,17 @@ fn App::dispatch(HttpServerEvent &event) -> void
   }
 
   if (path.starts_with("/api/")) {
+    /* A mutation is reached only through POST, so a cross-site GET cannot drive
+       the panel or the admin actions on a signed-in browser. */
+    let const is_mutation =
+        path == "/api/sites/add" || path == "/api/sites/rename" ||
+        path == "/api/admin/site" || path == "/api/admin/pending/approve" ||
+        path == "/api/admin/pending/reject";
+    if (is_mutation && event.method() != "POST") {
+      reply_message(event, 405, "This endpoint requires POST");
+      return;
+    }
+
     if (path == "/api/me") {
       handle_me(event);
     } else if (path == "/api/admin/pending") {
@@ -308,8 +324,8 @@ fn App::serve_static(HttpServerEvent &event) -> void
     return;
   }
 
-  /* The single-page app handles its own routes, so an unknown path falls back
-     to the shell rather than a 404. */
+  /* The single-page app handles its own routes, so an unknown path is served
+     the shell. */
   String index_path{m_allocator};
   index_path.append(m_config.web_root.view());
   index_path.append("/index.html");

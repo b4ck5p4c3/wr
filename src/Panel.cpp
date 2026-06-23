@@ -24,6 +24,14 @@ fn is_valid_slug(StringView slug) -> bool
   return true;
 }
 
+/* A site url is rendered as a link and served as a navigation redirect, so only
+   an http or https scheme is accepted, which keeps a javascript or data url out
+   of the ring. */
+fn is_valid_site_url(StringView url) -> bool
+{
+  return url.starts_with("http://") || url.starts_with("https://");
+}
+
 fn write_panel_site(JsonWriter &writer, const site &row) -> void
 {
   writer.object_begin();
@@ -88,6 +96,10 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
     reply_message(event, 400, "The slug may use only a-z, 0-9, and a dash");
     return;
   }
+  if (!is_valid_site_url(url.value().view())) {
+    reply_message(event, 400, "The url must start with http:// or https://");
+    return;
+  }
 
   JsonWriter payload{m_allocator};
   payload.object_begin();
@@ -149,6 +161,10 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
   let const favicon = json_string_field(m_allocator, body, "favicon");
   if (!slug.has_value() || !name.has_value() || !url.has_value()) {
     reply_message(event, 400, "A slug, a name, and a url are required");
+    return;
+  }
+  if (!is_valid_site_url(url.value().view())) {
+    reply_message(event, 400, "The url must start with http:// or https://");
     return;
   }
 
@@ -236,17 +252,27 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
               .value_or(String{m_allocator});
       row.owner = String{m_allocator, action.owner.view()};
       row.created_at = now_seconds();
-      unused(m_store.upsert_site(row).is_error());
+      let const stored = m_store.upsert_site(row);
+      if (stored.is_error()) {
+        reply_message(event, 500, stored.error().message().view());
+        return;
+      }
     } else if (action.kind == "rename") {
-      unused(
-          m_store.rename_site(action.target_slug.view(), action.payload.view())
-              .is_error());
+      let const renamed =
+          m_store.rename_site(action.target_slug.view(), action.payload.view());
+      if (renamed.is_error()) {
+        reply_message(event, 500, renamed.error().message().view());
+        return;
+      }
     }
   }
 
-  unused(
-      m_store.set_pending_status(id, should_approve ? "approved" : "rejected")
-          .is_error());
+  let const resolved =
+      m_store.set_pending_status(id, should_approve ? "approved" : "rejected");
+  if (resolved.is_error()) {
+    reply_message(event, 500, resolved.error().message().view());
+    return;
+  }
   reply_message(event, 200, should_approve ? "Approved" : "Rejected");
 }
 
