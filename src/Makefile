@@ -4,7 +4,7 @@ MODE ?= dbg
 SOURCES := $(wildcard *.cpp)
 HEADERS := $(wildcard *.hpp)
 
-DIRS := $(wildcard */.)
+DIRS := $(filter-out o/.,$(wildcard */.))
 
 SOURCES += $(wildcard */**.cpp)
 HEADERS += $(wildcard */**.hpp)
@@ -168,7 +168,7 @@ CXXFLAGS += \
 	-fsanitize=address \
 	-fsanitize=undefined \
 	-fno-exceptions
-CFLAGS := \
+CFLAGS += \
 	-O0 \
 	-g3 \
 	-fsanitize=address \
