@@ -10,10 +10,8 @@
 namespace wr {
 
 /* An open-addressing hash table from a string key to a Value over an explicit
-   allocator. Each slot caches a PackedStringKey of the key's leading bytes, so
-   a probe rejects a mismatch with a block compare before the full byte compare.
-   Linear probing, power-of-two capacity, grows past a load of three quarters,
-   and counts tombstones toward the load so an insert is never dropped. */
+   allocator. A slot caches a PackedStringKey, so a probe rejects a mismatch
+   before the full byte compare. Tombstones count toward the load. */
 template <class Value = String>
 class StringMap
 {
@@ -22,8 +20,6 @@ public:
 
   cold StringMap(const StringMap &other) : m_allocator(other.m_allocator)
   {
-    /* An empty source allocates no bucket array, so the copy stays free until
-       the first insert grows it. */
     if (other.m_count == 0) return;
     rehash(other.m_capacity);
     for (usize i = 0; i < other.m_capacity; i++) {
@@ -39,10 +35,7 @@ public:
         m_capacity(other.m_capacity), m_count(other.m_count),
         m_tombstones(other.m_tombstones)
   {
-    other.m_slots = nullptr;
-    other.m_capacity = 0;
-    other.m_count = 0;
-    other.m_tombstones = 0;
+    other.forget_storage();
   }
   fn operator=(StringMap &&other) noexcept -> StringMap &
   {
@@ -53,10 +46,7 @@ public:
       m_capacity = other.m_capacity;
       m_count = other.m_count;
       m_tombstones = other.m_tombstones;
-      other.m_slots = nullptr;
-      other.m_capacity = 0;
-      other.m_count = 0;
-      other.m_tombstones = 0;
+      other.forget_storage();
     }
     return *this;
   }
@@ -73,9 +63,6 @@ public:
 
   mustuse pure fn count() const noexcept -> usize { return m_count; }
 
-  /* Grow the table up front to hold at least expected_count entries without a
-     later rehash. The capacity is sized for the three-quarter load and rounded
-     up to a power of two. */
   cold fn reserve(usize expected_count) -> void
   {
     let const needed = (expected_count * 4 / 3) + 1;
@@ -86,8 +73,7 @@ public:
     if (new_capacity > m_capacity) rehash(new_capacity);
   }
 
-  /* The value for the key, or nullptr when absent. The pointer is stable until
-     the next set that grows the table. */
+  /* nullptr when absent. The pointer is stable until the next growing set. */
   hot mustuse pure fn find(StringView key) const noexcept -> const Value *
   {
     if (m_capacity == 0) return nullptr;
@@ -97,9 +83,8 @@ public:
     for (usize probe = 0; probe < m_capacity; probe++) {
       let const &slot = m_slots[i];
       if (slot.state == slot::Empty) return nullptr;
-      /* The packed compare holds the leading zero-filled bytes, so a key inside
-         the capacity proves equality through the pack and the length alone, and
-         a longer key still confirms through the byte compare. */
+      /* A key inside the capacity is proven equal by the pack and the length, a
+         longer key confirms through the byte compare. */
       if (slot.state == slot::Occupied && slot.packed == wanted &&
           (key.count() <= PackedStringKey::BYTE_CAPACITY
                ? slot.key.count() == key.count()
@@ -127,22 +112,19 @@ public:
     set_value(key, steal(value));
   }
 
-  /* The value for a key, inserting the supplied default when the key is absent,
-     then returning a mutable reference valid until the next set that grows. */
   hot fn get_or_create(StringView key, Value default_value) -> Value &
   {
-    if (const Value *existing = find(key))
+    if (const Value *existing = find(key); existing != nullptr)
       return *const_cast<Value *>(existing);
     return *set_value(key, steal(default_value));
   }
 
-  /* Store a String value built from a view. An existing slot reuses its buffer,
-     so a tight reassignment loop pays no per-turn allocation. A slot that once
-     held a large value and now takes a far smaller one is rebuilt at the right
-     size so the old value does not pin its memory. */
+  /* An existing slot reuses its buffer, so a reassignment loop pays no
+     allocation. A slot holding a far larger value is rebuilt so it does not pin
+     memory. */
   hot fn set(StringView key, StringView value) -> void
   {
-    if (Value *existing = find(key)) {
+    if (Value *existing = find(key); existing != nullptr) {
       let const buffer_is_wasteful =
           existing->count() > 256 && value.length < existing->count() / 2;
       if (!buffer_is_wasteful) {
@@ -168,8 +150,7 @@ public:
                ? slot.key.count() == key.count()
                : slot.key == key))
       {
-        /* The slot objects are kept alive, so a later insert into this
-           tombstone assigns into a live object. */
+        /* The slot objects stay alive, so a later insert assigns into them. */
         slot.key = String{m_allocator};
         slot.value = Value{};
         slot.state = slot::Tombstone;
@@ -209,9 +190,8 @@ private:
 
   hot fn set_value(StringView key, Value value) -> Value *
   {
-    /* Tombstones count toward the load, so the table rehashes before a probe
-       chain fills with deleted slots. An Empty slot stays reachable on every
-       chain and an insert is never dropped. */
+    /* Tombstones count toward the load, so a rehash happens before a probe
+       chain fills with deleted slots and an insert is never dropped. */
     if (m_count + m_tombstones + 1 > (m_capacity >> 1) + (m_capacity >> 2))
         [[unlikely]]
       rehash(m_capacity == 0 ? 16 : m_capacity * 2);
@@ -241,8 +221,6 @@ private:
       i = (i + 1) & mask;
     }
 
-    /* The tombstone-aware load above prevents a full chain, but a found
-       tombstone is reused rather than the insertion lost. */
     if (first_tombstone != m_capacity) {
       m_tombstones--;
       return place(first_tombstone, key, wanted, steal(value));
@@ -287,6 +265,11 @@ private:
     for (usize i = 0; i < m_capacity; i++)
       m_slots[i].~slot();
     if (m_slots != nullptr) m_allocator.free_array(m_slots, m_capacity);
+    forget_storage();
+  }
+
+  fn forget_storage() noexcept -> void
+  {
     m_slots = nullptr;
     m_capacity = 0;
     m_count = 0;

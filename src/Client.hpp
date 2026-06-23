@@ -8,9 +8,8 @@
 
 namespace wr {
 
-/* A fluent builder for an outbound request over an explicit allocator. Each
-   setter returns the builder, so a request is assembled in one chain and moved
-   out by build(). */
+/* A fluent builder for an outbound request. Each setter returns the builder, so
+   a request is assembled in one chain. */
 class HttpRequestBuilder
 {
 public:
@@ -43,9 +42,8 @@ private:
   HttpRequest m_request;
 };
 
-/* The abstract HTTP client, modeled on the backend interface in oo. A concrete
-   backend such as CurlClient performs the request and returns the response, or
-   an Error when the transfer fails. */
+/* The abstract HTTP client. A backend such as CurlClient performs the request
+   and returns the response or an Error. */
 class HttpClient
 {
 public:

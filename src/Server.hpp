@@ -10,10 +10,10 @@ namespace wr {
 
 class HttpServer;
 
-/* One inbound event delivered to the handler. A Request event carries the
-   method, the uri, the body, and the request headers as non-owning views that
-   are valid only for the duration of the handler call. A reply is written back
-   through the originating backend. */
+/* One inbound event for the handler. A Request event carries the method, the
+   uri, the body, and the request headers as non-owning views valid only during
+   the handler call, and a reply is written within that call, since the
+   connection handle is borrowed and is freed once the dispatch returns. */
 class HttpServerEvent
 {
 public:
@@ -73,8 +73,8 @@ private:
 
 using HttpServerHandler = void (*)(HttpServerEvent &event, opaque *user);
 
-/* The abstract HTTP server, modeled on the backend interface in oo. A concrete
-   backend such as MongooseServer binds a listener and pumps the event loop. */
+/* The abstract HTTP server. A backend such as MongooseServer binds a listener
+   and pumps the loop. */
 class HttpServer
 {
 public:
@@ -87,15 +87,13 @@ public:
                             opaque *user) -> ErrorOr<Ok> = 0;
   mustuse virtual fn poll(u32 timeout_ms) -> ErrorOr<Ok> = 0;
 
-  /* Pump the loop until a poll fails. The server runs for the lifetime of the
-     process. */
+  /* Pumps the loop until a poll fails, for the process lifetime. */
   mustuse fn run(u32 poll_interval_ms = 1000) -> ErrorOr<Ok>
   {
     loop { TRY(poll(poll_interval_ms)); }
   }
 
-  /* Write a response on the connection the event came in on. A backend
-     serializes the headers and the body into its own reply. */
+  /* Write a response on the event's connection, serialized by the backend. */
   mustuse virtual fn reply(opaque *connection, u16 status,
                            const HttpHeaders &headers, StringView body)
       -> ErrorOr<Ok> = 0;

@@ -8,8 +8,7 @@
 #include "StringView.hpp"
 
 /* mongoose.h uses fn and noinline as ordinary identifiers, which collide with
-   the macros from Common.hpp. They are neutralized across the include and
-   restored afterward. */
+   the Common.hpp macros, so they are neutralized across the include. */
 #pragma push_macro("fn")
 #pragma push_macro("noinline")
 #undef fn
@@ -20,10 +19,8 @@
 
 namespace wr {
 
-/* The mongoose-backed HTTP server. The event manager is owned by value and is
-   pumped through poll. An accepted connection inherits the listener's user
-   pointer, so the static trampoline recovers this server from the connection.
- */
+/* The mongoose-backed HTTP server. An accepted connection inherits the
+   listener's user pointer, so the static trampoline recovers this server. */
 class MongooseServer final : public HttpServer
 {
 public:

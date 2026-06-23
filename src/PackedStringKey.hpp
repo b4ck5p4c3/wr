@@ -6,9 +6,8 @@
 namespace wr {
 
 /* A short byte string packed into sixty-four bytes over eight words, compared
-   with a couple of vector instructions in a hash probe. A key longer than the
-   capacity keeps only its leading bytes here and falls back to a full byte
-   compare to disambiguate. */
+   with a couple of vector instructions. A longer key keeps its leading bytes
+   and falls back to a full byte compare. */
 class PackedStringKey
 {
 public:
@@ -31,8 +30,7 @@ public:
   hot mustuse pure fn operator==(const PackedStringKey &other) const noexcept
       -> bool
   {
-    /* The difference is reduced without a branch, so the loop lowers to a
-       vector xor over the whole block rather than a chain of word compares. */
+    /* The branchless reduction lowers to a vector xor over the whole block. */
     u64 difference = 0;
     for (usize i = 0; i < WORD_COUNT; i++)
       difference |= words[i] ^ other.words[i];
