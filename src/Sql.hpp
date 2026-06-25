@@ -14,8 +14,10 @@ class SqlDatabase;
 class SqlStatement
 {
 public:
-  SqlStatement(SqlDatabase &database, opaque *handle, Allocator allocator)
-      : m_database(&database), m_handle(handle), m_allocator(allocator)
+  SqlStatement(SqlDatabase &database, opaque *handle, Allocator allocator,
+               bool is_cached = false)
+      : m_database(&database), m_handle(handle), m_allocator(allocator),
+        m_is_cached(is_cached)
   {}
   ~SqlStatement();
 
@@ -38,6 +40,7 @@ private:
   SqlDatabase *m_database;
   opaque *m_handle;
   Allocator m_allocator;
+  bool m_is_cached = false;
   int m_next_bind_position = 1;
   int m_next_column_position = 0;
 };
@@ -64,6 +67,7 @@ protected:
   friend class SqlStatement;
 
   virtual fn finalize(opaque *handle) noexcept -> void = 0;
+  virtual fn reset_statement(opaque *handle) noexcept -> void = 0;
   virtual fn bind_text(opaque *handle, int index, StringView text) -> void = 0;
   virtual fn bind_int(opaque *handle, int index, i64 value) -> void = 0;
   mustuse virtual fn step(opaque *handle) -> ErrorOr<bool> = 0;
@@ -74,12 +78,17 @@ protected:
 
 inline SqlStatement::~SqlStatement()
 {
-  if (m_handle != nullptr) m_database->finalize(m_handle);
+  if (m_handle == nullptr) return;
+
+  if (m_is_cached)
+    m_database->reset_statement(m_handle);
+  else
+    m_database->finalize(m_handle);
 }
 
 inline SqlStatement::SqlStatement(SqlStatement &&other) noexcept
     : m_database(other.m_database), m_handle(other.m_handle),
-      m_allocator(other.m_allocator)
+      m_allocator(other.m_allocator), m_is_cached(other.m_is_cached)
 {
   other.m_handle = nullptr;
 }
@@ -87,10 +96,16 @@ inline SqlStatement::SqlStatement(SqlStatement &&other) noexcept
 inline SqlStatement &SqlStatement::operator=(SqlStatement &&other) noexcept
 {
   if (this != &other) {
-    if (m_handle != nullptr) m_database->finalize(m_handle);
+    if (m_handle != nullptr) {
+      if (m_is_cached)
+        m_database->reset_statement(m_handle);
+      else
+        m_database->finalize(m_handle);
+    }
     m_database = other.m_database;
     m_handle = other.m_handle;
     m_allocator = other.m_allocator;
+    m_is_cached = other.m_is_cached;
     other.m_handle = nullptr;
   }
   return *this;

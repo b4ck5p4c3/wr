@@ -7,6 +7,9 @@ namespace wr {
 
 Sqlite::~Sqlite()
 {
+  for (let const &entry : m_statement_cache)
+    sqlite3_finalize(entry.handle);
+
   if (m_connection != nullptr) sqlite3_close(m_connection);
 }
 
@@ -47,17 +50,58 @@ fn Sqlite::execute(StringView sql) -> ErrorOr<Ok>
 
 fn Sqlite::prepare(StringView sql) -> ErrorOr<SqlStatement>
 {
-  let const statement = String{m_allocator, sql};
+  let const handle = TRY(acquire_statement(sql));
+  return SqlStatement{*this, handle, m_allocator, true};
+}
+
+fn Sqlite::acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>
+{
+  m_use_count++;
+
+  for (cached_statement &entry : m_statement_cache)
+    if (entry.sql.view() == sql) {
+      entry.last_used_count = m_use_count;
+      return entry.handle;
+    }
+
+  let const text = String{m_allocator, sql};
   sqlite3_stmt *handle = nullptr;
-  if (sqlite3_prepare_v2(m_connection, statement.c_str(), -1, &handle,
-                         nullptr) != SQLITE_OK)
+  if (sqlite3_prepare_v2(m_connection, text.c_str(), -1, &handle, nullptr) !=
+      SQLITE_OK)
     return make_error("Unable to prepare the statement");
-  return SqlStatement{*this, handle, m_allocator};
+
+  if (m_statement_cache.count() < STATEMENT_CACHE_CAPACITY) {
+    m_statement_cache.push(cached_statement{
+        String{m_allocator, sql},
+        handle, m_use_count
+    });
+    return handle;
+  }
+
+  usize evicted_index = 0;
+  for (usize i = 1; i < m_statement_cache.count(); i++)
+    if (m_statement_cache[i].last_used_count <
+        m_statement_cache[evicted_index].last_used_count)
+      evicted_index = i;
+
+  sqlite3_finalize(m_statement_cache[evicted_index].handle);
+  m_statement_cache[evicted_index] = cached_statement{
+      String{m_allocator, sql},
+      handle, m_use_count
+  };
+  return handle;
 }
 
 fn Sqlite::finalize(opaque *handle) noexcept -> void
 {
   sqlite3_finalize(static_cast<sqlite3_stmt *>(handle));
+}
+
+fn Sqlite::reset_statement(opaque *handle) noexcept -> void
+{
+  let const statement = static_cast<sqlite3_stmt *>(handle);
+  sqlite3_reset(statement);
+  sqlite3_clear_bindings(statement);
 }
 
 fn Sqlite::bind_text(opaque *handle, int index, StringView text) -> void
