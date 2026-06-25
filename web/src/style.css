@@ -50,21 +50,59 @@
   --down: #ff7a7a;
 }
 
+/* The reset is copied from the fennec.support site. */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  gap: 0;
 }
 
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+/* One font size is shared across every element, the terminal look wants no
+   scale. */
 * {
   font-family: "Terminus", monospace;
+  font-size: 16px;
   font-variant-numeric: tabular-nums lining-nums;
   text-shadow: 0 0 8px var(--crt-glow);
 }
 
 html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: var(--background-start);
   color: var(--text-primary);
   scrollbar-width: thin;
@@ -195,7 +233,6 @@ main,
 
 .bar .logo {
   font-weight: 700;
-  font-size: 22px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.1ch;
@@ -228,7 +265,6 @@ main {
 /* The buttons are small and square, with compact padding. */
 button {
   font: inherit;
-  font-size: 14px;
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.25);
   color: var(--text-primary);
@@ -325,7 +361,6 @@ code {
 
 .hint {
   color: var(--footer-text);
-  font-size: 14px;
 }
 
 .error {
@@ -376,7 +411,6 @@ code {
 footer {
   text-align: center;
   color: var(--footer-text);
-  font-size: 14px;
   line-height: 1.3;
   padding-top: 2ch;
 }
