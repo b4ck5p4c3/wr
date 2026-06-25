@@ -95,7 +95,8 @@ fn Store::migrate() -> ErrorOr<Ok>
                      "  is_reachable INTEGER NOT NULL DEFAULT 1,"
                      "  last_seen_at INTEGER NOT NULL DEFAULT 0,"
                      "  owner TEXT NOT NULL DEFAULT '',"
-                     "  created_at INTEGER NOT NULL DEFAULT 0);"
+                     "  created_at INTEGER NOT NULL DEFAULT 0,"
+                     "  is_deleted INTEGER NOT NULL DEFAULT 0);"
                      "CREATE TABLE IF NOT EXISTS accounts ("
                      "  identity TEXT PRIMARY KEY,"
                      "  display_name TEXT NOT NULL DEFAULT '',"
@@ -115,6 +116,24 @@ fn Store::migrate() -> ErrorOr<Ok>
 
   if (sqlite3_exec(m_db, schema, nullptr, nullptr, nullptr) != SQLITE_OK)
     return make_db_error(m_allocator, m_db, "Unable to run the migration");
+
+  /* The hot read paths filter the owner, the reachability, and the pending
+     status, so each gets a covering index. The slug and the identity are
+     already indexed as primary keys. */
+  let const indexes =
+      "CREATE INDEX IF NOT EXISTS index_sites_owner ON sites(owner);"
+      "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
+      "CREATE INDEX IF NOT EXISTS index_pending_owner "
+      "ON pending_actions(owner);"
+      "CREATE INDEX IF NOT EXISTS index_pending_status "
+      "ON pending_actions(status);"
+      "CREATE INDEX IF NOT EXISTS index_sessions_expires "
+      "ON sessions(expires_at);";
+
+  if (sqlite3_exec(m_db, indexes, nullptr, nullptr, nullptr) != SQLITE_OK)
+    return make_db_error(m_allocator, m_db, "Unable to create the indexes");
+
+  LOG(Debug, "migration ran, the tables and the indexes are present");
   return Success;
 }
 
@@ -146,18 +165,21 @@ fn Store::query_sites(const char *filter_sql, Maybe<StringView> owner) const
 
 fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
 {
-  return query_sites("WHERE is_reachable = 1 ORDER BY created_at, slug;", None);
+  return query_sites(
+      "WHERE is_reachable = 1 AND is_deleted = 0 ORDER BY created_at, slug;",
+      None);
 }
 
 fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
 {
-  return query_sites("ORDER BY created_at, slug;", None);
+  return query_sites("WHERE is_deleted = 0 ORDER BY created_at, slug;", None);
 }
 
 fn Store::list_sites_for_owner(StringView owner) const
     -> ErrorOr<ArrayList<site>>
 {
-  return query_sites("WHERE owner = ? ORDER BY created_at, slug;", owner);
+  return query_sites(
+      "WHERE owner = ? AND is_deleted = 0 ORDER BY created_at, slug;", owner);
 }
 
 fn Store::find_site(StringView slug) const -> ErrorOr<Maybe<site>>
@@ -165,7 +187,7 @@ fn Store::find_site(StringView slug) const -> ErrorOr<Maybe<site>>
   String sql{m_allocator};
   sql.append("SELECT ");
   sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites WHERE slug = ?;");
+  sql.append(" FROM sites WHERE slug = ? AND is_deleted = 0;");
 
   sqlite3_stmt *statement = nullptr;
   if (sqlite3_prepare_v2(m_db, sql.c_str(), -1, &statement, nullptr) !=
@@ -186,7 +208,8 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
       "(slug, name, url, favicon, is_reachable, last_seen_at, owner, "
       "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
       "ON CONFLICT(slug) DO UPDATE SET name = excluded.name, "
-      "url = excluded.url, favicon = excluded.favicon, owner = excluded.owner;";
+      "url = excluded.url, favicon = excluded.favicon, owner = excluded.owner, "
+      "is_deleted = 0;";
 
   sqlite3_stmt *statement = nullptr;
   if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK)
@@ -204,6 +227,10 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
 
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to store the site");
+
+  LOG(Info, "site upserted, slug=%s owner=%s",
+      String{m_allocator, row.slug.view()}.c_str(),
+      String{m_allocator, row.owner.view()}.c_str());
   return Success;
 }
 
@@ -219,12 +246,17 @@ fn Store::rename_site(StringView slug, StringView name) -> ErrorOr<Ok>
   bind_text(statement, 2, slug);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to rename the site");
+
+  LOG(Info, "site renamed, slug=%s name=%s", String{m_allocator, slug}.c_str(),
+      String{m_allocator, name}.c_str());
   return Success;
 }
 
 fn Store::delete_site(StringView slug) -> ErrorOr<Ok>
 {
-  let const sql = "DELETE FROM sites WHERE slug = ?;";
+  /* A removal marks the row deleted, so the history and the navigation links
+     that pointed at the site survive an admin mistake. */
+  let const sql = "UPDATE sites SET is_deleted = 1 WHERE slug = ?;";
   sqlite3_stmt *statement = nullptr;
   if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK)
     return make_db_error(m_allocator, m_db, "Unable to delete the site");
@@ -233,6 +265,8 @@ fn Store::delete_site(StringView slug) -> ErrorOr<Ok>
   bind_text(statement, 1, slug);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to delete the site");
+
+  LOG(Info, "site marked deleted, slug=%s", String{m_allocator, slug}.c_str());
   return Success;
 }
 
@@ -251,6 +285,9 @@ fn Store::set_site_reachability(StringView slug, bool is_reachable,
   bind_text(statement, 3, slug);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to update reachability");
+
+  LOG(Debug, "site reachability set, slug=%s is_reachable=%d",
+      String{m_allocator, slug}.c_str(), is_reachable ? 1 : 0);
   return Success;
 }
 
@@ -290,6 +327,9 @@ fn Store::upsert_account(StringView identity, StringView display_name,
   sqlite3_bind_int(statement, 3, is_admin ? 1 : 0);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to store the account");
+
+  LOG(Info, "account upserted, identity=%s is_admin=%d",
+      String{m_allocator, identity}.c_str(), is_admin ? 1 : 0);
   return Success;
 }
 
@@ -308,6 +348,9 @@ fn Store::create_session(StringView token, StringView identity, i64 expires_at)
   sqlite3_bind_int64(statement, 3, expires_at);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to open the session");
+
+  LOG(Info, "session opened for identity=%s",
+      String{m_allocator, identity}.c_str());
   return Success;
 }
 
@@ -342,6 +385,8 @@ fn Store::delete_session(StringView token) -> ErrorOr<Ok>
   bind_text(statement, 1, token);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to close the session");
+
+  LOG(Info, "session closed");
   return Success;
 }
 
@@ -356,6 +401,31 @@ fn Store::list_pending() const -> ErrorOr<ArrayList<pending_action>>
     return make_db_error(m_allocator, m_db,
                          "Unable to list the pending actions");
   defer { sqlite3_finalize(statement); };
+
+  int step_result = SQLITE_DONE;
+  while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
+    actions.push(read_pending_action(m_allocator, statement));
+  if (step_result != SQLITE_DONE)
+    return make_db_error(m_allocator, m_db,
+                         "Unable to read the pending actions");
+  return actions;
+}
+
+fn Store::list_pending_for_owner(StringView owner) const
+    -> ErrorOr<ArrayList<pending_action>>
+{
+  ArrayList<pending_action> actions{m_allocator};
+  let const sql =
+      "SELECT id, kind, owner, target_slug, payload, created_at, status "
+      "FROM pending_actions WHERE owner = ? AND status = 'pending' "
+      "ORDER BY created_at;";
+  sqlite3_stmt *statement = nullptr;
+  if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK)
+    return make_db_error(m_allocator, m_db,
+                         "Unable to list the pending actions");
+  defer { sqlite3_finalize(statement); };
+
+  bind_text(statement, 1, owner);
 
   int step_result = SQLITE_DONE;
   while ((step_result = sqlite3_step(statement)) == SQLITE_ROW)
@@ -384,6 +454,10 @@ fn Store::add_pending(StringView kind, StringView owner, StringView target_slug,
   sqlite3_bind_int64(statement, 5, created_at);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to record the action");
+
+  LOG(Info, "pending action recorded, kind=%s owner=%s target=%s",
+      String{m_allocator, kind}.c_str(), String{m_allocator, owner}.c_str(),
+      String{m_allocator, target_slug}.c_str());
   return Success;
 }
 
@@ -415,6 +489,9 @@ fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>
   sqlite3_bind_int64(statement, 2, id);
   if (sqlite3_step(statement) != SQLITE_DONE)
     return make_db_error(m_allocator, m_db, "Unable to update the action");
+
+  LOG(Info, "pending action %lld set to %s", static_cast<long long>(id),
+      String{m_allocator, status}.c_str());
   return Success;
 }
 

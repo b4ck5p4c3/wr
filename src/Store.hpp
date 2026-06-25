@@ -88,6 +88,8 @@ public:
   fn delete_session(StringView token) -> ErrorOr<Ok>;
 
   mustuse fn list_pending() const -> ErrorOr<ArrayList<pending_action>>;
+  mustuse fn list_pending_for_owner(StringView owner) const
+      -> ErrorOr<ArrayList<pending_action>>;
   fn add_pending(StringView kind, StringView owner, StringView target_slug,
                  StringView payload, i64 created_at) -> ErrorOr<Ok>;
   mustuse fn find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>;
