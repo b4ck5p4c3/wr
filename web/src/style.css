@@ -380,6 +380,37 @@ li.pending {
   opacity: 0.8;
 }
 
+/* The reachability label is pushed to the trailing edge of a site row. */
+li.site .up,
+li.site .down {
+  margin-left: auto;
+}
+
+/* A pulsing placeholder bar stands in for a value that has not loaded. */
+.ghost-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 1ch;
+}
+
+.ghost {
+  display: inline-block;
+  height: 1ch;
+  border-radius: 0.25ch;
+  background: var(--bg-secondary);
+  animation: ghostPulse 2s ease-in-out infinite;
+}
+
+@keyframes ghostPulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* The error page centers a big glowing status code over the CRT slab. */
 .notfound {
   text-align: center;

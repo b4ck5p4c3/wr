@@ -17,6 +17,22 @@ function useRoute() {
   return [path, navigate];
 }
 
+// A pulsing placeholder bar shown where a value has not loaded yet, borrowed
+// from the fennec.support ghost line.
+function GhostLine({ width = "100%" }) {
+  return <span class="ghost" style={{ width }} />;
+}
+
+function Loading() {
+  return (
+    <div class="ghost-lines">
+      <GhostLine width="55%" />
+      <GhostLine width="90%" />
+      <GhostLine width="70%" />
+    </div>
+  );
+}
+
 function Header({ navigate, me, onLogin, onLogout }) {
   return (
     <header class="bar">
@@ -134,7 +150,7 @@ function Landing({ navigate, me, reload }) {
       {error ? (
         <p class="error">{error}</p>
       ) : sites === null ? (
-        <p>Loading...</p>
+        <Loading />
       ) : sites.length === 0 ? (
         <p>No sites are in the ring yet.</p>
       ) : (
@@ -386,7 +402,7 @@ function Admin({ onLogin }) {
   if (me === undefined)
     return (
       <main>
-        <p>Loading...</p>
+        <Loading />
       </main>
     );
   if (me === null || !me.is_admin)
