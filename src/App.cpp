@@ -23,6 +23,7 @@ fn content_type_for(StringView path) -> StringView
       {".json",  "application/json"              },
       {".svg",   "image/svg+xml"                 },
       {".png",   "image/png"                     },
+      {".webp",  "image/webp"                    },
       {".ico",   "image/x-icon"                  },
       {".woff2", "font/woff2"                    },
   };
