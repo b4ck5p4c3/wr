@@ -140,13 +140,15 @@ export function Carousel({ sites }) {
   const count = sites.length;
   const anglePerCard = 360 / count;
   const radius = Math.round(150 / Math.tan(Math.PI / Math.max(count, 2))) + 40;
+  // The drift slows as the count grows to keep the cards readable.
+  const idleSpeed = Math.min(0.18, 0.36 / count);
 
   useEffect(() => {
     let frame;
     const tick = () => {
       const motion = motionRef.current;
       if (!motion.isDragging) {
-        motion.rotation += motion.velocity || 0.12;
+        motion.rotation += motion.velocity || idleSpeed;
         motion.velocity *= 0.94;
         if (Math.abs(motion.velocity) < 0.05) motion.velocity = 0;
       }
