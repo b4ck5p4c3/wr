@@ -526,7 +526,9 @@ export function App() {
           >
             Shit and sticks
           </a>
-          {", Copyright "}
+        </p>
+        <p>
+          Copyright{" "}
           <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
             B4cksp4ce
           </a>
