@@ -53,47 +53,6 @@
   --telegram-blue: #58a2f2;
 }
 
-/* The reset is copied from the fennec.support site. */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  gap: 0;
-}
-
-img,
-picture,
-video,
-canvas,
-svg {
-  display: block;
-  max-width: 100%;
-}
-
-input,
-button,
-textarea,
-select {
-  font: inherit;
-}
-
-p,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  overflow-wrap: break-word;
-}
-
-ul,
-ol {
-  list-style: none;
-}
-
 /* One font size is shared across every element, the terminal look wants no
    scale. */
 * {
@@ -264,12 +223,12 @@ main,
 }
 
 .bar nav a {
-  color: var(--text-primary);
+  color: var(--accent);
   text-transform: lowercase;
 }
 
 .bar nav a:hover {
-  color: var(--accent);
+  color: var(--a-strong);
 }
 
 /* The content slabs stack their children on one vertical rhythm, so every
@@ -399,16 +358,6 @@ li.site .down {
   border-radius: 0.25ch;
   background: var(--bg-secondary);
   animation: ghostPulse 2s ease-in-out infinite;
-}
-
-@keyframes ghostPulse {
-  0%,
-  100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 1;
-  }
 }
 
 /* The error page centers a big glowing status code over the CRT slab. */
