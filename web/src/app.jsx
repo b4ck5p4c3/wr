@@ -101,7 +101,9 @@ function LoginModal({ onClose, config }) {
 function SiteCard({ site }) {
   return (
     <li class="site">
-      {site.favicon ? <img src={site.favicon} alt="" width="16" height="16" /> : null}
+      {site.favicon ? (
+        <img src={site.favicon} alt="" width="16" height="16" />
+      ) : null}
       <a href={site.url} target="_blank" rel="noopener noreferrer">
         {site.name}
       </a>
@@ -187,7 +189,11 @@ function About() {
       <h1>about</h1>
       <p>wr is a webring by b4cksp4ce.</p>
       <p>
-        <a href="https://t.me/b4cksp4ce_issues/762" target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://t.me/b4cksp4ce_issues/762"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           See original issue
         </a>
       </p>
@@ -201,9 +207,15 @@ function About() {
 }
 
 function AddSiteForm({ onAdded, submitLabel = "Submit for review", onSubmit }) {
-  const [form, setForm] = useState({ slug: "", name: "", url: "", favicon: "" });
+  const [form, setForm] = useState({
+    slug: "",
+    name: "",
+    url: "",
+    favicon: "",
+  });
   const [message, setMessage] = useState(null);
-  const field = (name) => (event) => setForm({ ...form, [name]: event.target.value });
+  const field = (name) => (event) =>
+    setForm({ ...form, [name]: event.target.value });
 
   const submit = async (event) => {
     event.preventDefault();
@@ -222,8 +234,16 @@ function AddSiteForm({ onAdded, submitLabel = "Submit for review", onSubmit }) {
       <h3>add a site</h3>
       <input placeholder="slug" value={form.slug} onInput={field("slug")} />
       <input placeholder="name" value={form.name} onInput={field("name")} />
-      <input placeholder="https://your.site" value={form.url} onInput={field("url")} />
-      <input placeholder="favicon url (optional)" value={form.favicon} onInput={field("favicon")} />
+      <input
+        placeholder="https://your.site"
+        value={form.url}
+        onInput={field("url")}
+      />
+      <input
+        placeholder="favicon url (optional)"
+        value={form.favicon}
+        onInput={field("favicon")}
+      />
       <button class="primary" type="submit">
         {submitLabel}
       </button>
@@ -249,7 +269,9 @@ function OwnedSite({ site, onRenamed }) {
       <span class="slug">/{site.slug}</span>
       <input value={name} onInput={(e) => setName(e.target.value)} />
       <button onClick={rename}>rename</button>
-      <span class={site.is_reachable ? "up" : "down"}>{site.is_reachable ? "up" : "down"}</span>
+      <span class={site.is_reachable ? "up" : "down"}>
+        {site.is_reachable ? "up" : "down"}
+      </span>
       {message ? <span class="hint">{message}</span> : null}
     </li>
   );
@@ -271,7 +293,9 @@ function PendingRow({ action, onResolved }) {
       <span class="slug">/{action.target_slug}</span>
       <code>{action.payload}</code>
       <Submitter owner={action.owner} name={action.owner_display_name} />
-      <button class="primary" onClick={() => resolve(true)}>approve</button>
+      <button class="primary" onClick={() => resolve(true)}>
+        approve
+      </button>
       <button onClick={() => resolve(false)}>reject</button>
     </li>
   );
@@ -283,7 +307,12 @@ function Submitter({ owner, name }) {
   const label = name || owner;
   if (owner && owner.startsWith("github:")) {
     return (
-      <a class="submitter" href={"https://github.com/" + label} target="_blank" rel="noopener noreferrer">
+      <a
+        class="submitter"
+        href={"https://github.com/" + label}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         {label}
       </a>
     );
@@ -294,7 +323,8 @@ function Submitter({ owner, name }) {
 function AdminSite({ site, onSaved, onDeleted }) {
   const [form, setForm] = useState({ ...site });
   const [message, setMessage] = useState(null);
-  const field = (name) => (event) => setForm({ ...form, [name]: event.target.value });
+  const field = (name) => (event) =>
+    setForm({ ...form, [name]: event.target.value });
   const save = async () => {
     try {
       await api.adminEditSite(form);
@@ -319,8 +349,12 @@ function AdminSite({ site, onSaved, onDeleted }) {
       <input value={form.name} onInput={field("name")} />
       <input value={form.url} onInput={field("url")} />
       <button onClick={save}>save</button>
-      <button class="danger" onClick={remove}>delete</button>
-      <span class={site.is_reachable ? "up" : "down"}>{site.is_reachable ? "up" : "down"}</span>
+      <button class="danger" onClick={remove}>
+        delete
+      </button>
+      <span class={site.is_reachable ? "up" : "down"}>
+        {site.is_reachable ? "up" : "down"}
+      </span>
       {message ? <span class="hint error">{message}</span> : null}
     </li>
   );
@@ -330,20 +364,33 @@ function Admin({ onLogin }) {
   const [me, setMe] = useState(undefined);
   const [pending, setPending] = useState([]);
   const reload = () => {
-    api.me().then(setMe).catch(() => setMe(null));
-    api.adminPending().then(setPending).catch(() => setPending([]));
+    api
+      .me()
+      .then(setMe)
+      .catch(() => setMe(null));
+    api
+      .adminPending()
+      .then(setPending)
+      .catch(() => setPending([]));
   };
   useEffect(() => {
     reload();
   }, []);
 
-  if (me === undefined) return <main><p>Loading...</p></main>;
+  if (me === undefined)
+    return (
+      <main>
+        <p>Loading...</p>
+      </main>
+    );
   if (me === null || !me.is_admin)
     return (
       <main>
         <h1>admin</h1>
         <p>You need an admin account.</p>
-        <button class="primary" onClick={onLogin}>login</button>
+        <button class="primary" onClick={onLogin}>
+          login
+        </button>
       </main>
     );
 
@@ -364,7 +411,12 @@ function Admin({ onLogin }) {
       <h2>all sites</h2>
       <ul class="sites">
         {me.sites.map((site) => (
-          <AdminSite key={site.slug} site={site} onSaved={reload} onDeleted={reload} />
+          <AdminSite
+            key={site.slug}
+            site={site}
+            onSaved={reload}
+            onDeleted={reload}
+          />
         ))}
       </ul>
       <AddSiteForm
@@ -384,10 +436,17 @@ export function App() {
 
   // Fetch the current account on mount and after a change so the header and the
   // home panel stay in sync.
-  const reloadMe = () => api.me().then(setMe).catch(() => setMe(null));
+  const reloadMe = () =>
+    api
+      .me()
+      .then(setMe)
+      .catch(() => setMe(null));
   useEffect(() => {
     reloadMe();
-    api.config().then(setConfig).catch(() => {});
+    api
+      .config()
+      .then(setConfig)
+      .catch(() => {});
   }, []);
 
   const onLogin = () => setShowLogin(true);
@@ -408,7 +467,12 @@ export function App() {
 
   return (
     <div class="app">
-      <Header navigate={navigate} me={me} onLogin={onLogin} onLogout={onLogout} />
+      <Header
+        navigate={navigate}
+        me={me}
+        onLogin={onLogin}
+        onLogout={onLogout}
+      />
       {page}
       {showLogin ? (
         <LoginModal config={config} onClose={() => setShowLogin(false)} />
@@ -416,7 +480,11 @@ export function App() {
       <footer>
         <p>
           running on{" "}
-          <a href="https://github.com/b4ck5p4c3/wr" target="_blank" rel="noopener noreferrer">
+          <a
+            href="https://github.com/b4ck5p4c3/wr"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Shit and sticks
           </a>
           {", Copyright "}
