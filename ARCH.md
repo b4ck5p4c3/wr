@@ -1,49 +1,34 @@
 # wr architecture
 
-wr is a C++ and C webring backend. A dynamic page lists the member sites, a user
-panel and an admin panel are served behind a session, GitHub and Telegram drive
-the login, and a periodic liveness check keeps the ring honest. The dynamic
-frontend is a Preact bundle, and the boundary between the server and the frontend
-is a JSON API.
+wr is a C++ webring backend. It lists member sites and contains a user panel
+and an admin panel behind GitHub and Telegram sign-ins. Preact is used on the
+frontend.
 
-This document describes the target architecture. Each part is marked with its
-status. The build follows this document as the design reference.
-
-## Status
-
-- Implemented, the HTTP abstraction and its curl and mongoose backends, the
-  container and allocator foundation, the StringMap, the CLI, the error types,
-  the logger, the vendoring of mongoose, curl, mbedtls, and sqlite, the sqlite
-  store and the schema, the routing layer, the public navigation API, the
-  sessions, the GitHub and Telegram auth, the user and admin panel API, the
-  pending-action workflow, the liveness sweep, the static asset serving, and the
-  Preact frontend.
-- Pending, the cosmo build of the outbound curl layer, since curl is not yet
-  compiled under the cosmopolitan toolchain.
+This document describes the architecture.
 
 ## Components
 
-The server core opens the store, builds the mongoose event manager, registers
-the routes and the liveness timer, and runs the loop. The outbound layer wraps
-curl over mbedtls for the liveness probes and the OAuth token exchange. The
-inbound layer wraps mongoose for the HTTP server. The store owns the sqlite
-connection, the migration, and the prepared statements. The frontend is a static
-Preact bundle served as an asset.
+The server core opens the store, builds the event manager, registers the routes
+and the liveness timer, and runs the loop. The outbound layer uses a generic HTTP
+client for the liveness probes and the OAuth token exchange. The store owns the
+SQL database connection, the migration, and the prepared statements.
+
+The frontend is a static Preact bundle served as an asset.
 
 ```mermaid
 flowchart TD
   subgraph browser [Browser]
-    spa[Preact bundle, planned]
+    spa[Preact bundle]
   end
 
   subgraph server [wr server]
-    core[Server core and routing, planned]
-    httpabs[HTTP abstraction, implemented]
-    mongoose[Mongoose server backend, implemented]
-    curl[Curl client backend, implemented]
-    store[Sqlite store, planned]
-    liveness[Liveness sweep, planned]
-    assets[Static asset handler, planned]
+    core[Server core and routing]
+    httpabs[HTTP abstraction]
+    mongoose[HTTP server backend]
+    curl[HTTP client backend]
+    store[SQL store]
+    liveness[Liveness sweep]
+    assets[Static asset handler]
   end
 
   subgraph external [External]
@@ -68,23 +53,6 @@ flowchart TD
   spa -->|login widget| telegram
 ```
 
-## Frontend
-
-The frontend is a Preact application under the web directory, and its build is
-served by mongoose as a static asset. The server renders no HTML beyond the
-bootstrap shell.
-
-- The landing page lists the active member sites and carries the login button in
-  the top bar.
-- The about page holds the project text and the links to b4cksp4ce.
-- The user control panel and the admin control panel are views behind the
-  session cookie, and they share one template.
-
-The login button opens a modal that offers the GitHub OAuth and the Telegram
-login widget. The account is matched against the store, and an admin is routed to
-the admin panel while every other account is routed to the user panel. A visitor
-lands on a panel based on the rows the store holds for the account.
-
 ## Login and OAuth
 
 A login starts in the modal and ends with a session cookie. The account is looked
@@ -96,7 +64,7 @@ sequenceDiagram
   participant SPA as Preact modal
   participant WR as wr server
   participant P as GitHub or Telegram
-  participant DB as Sqlite store
+  participant DB as SQL store
 
   User->>SPA: Click login
   SPA->>WR: Start auth
@@ -104,7 +72,7 @@ sequenceDiagram
   P->>User: Ask for consent
   User->>P: Approve
   P->>WR: Callback with code or widget hash
-  WR->>P: Exchange code for a token through curl
+  WR->>P: Exchange code for a token through the HTTP client
   P->>WR: Identity
   WR->>DB: Look up the account by identity
   DB->>WR: Account and role
@@ -129,17 +97,15 @@ The store holds five kinds of rows.
 - A pending action holds a kind that is an add or a rename, the owner who
   requested it, the target site, the requested payload, and a status.
 
-A site is added to the ring only after an admin approves a pending action, and
-the approval writes the slug, the url, and the pretty name the user supplied.
+A site is added to the ring only after an admin approves a pending action.
 
 ## Panels and the pending-action workflow
 
 The user panel shows only the sites the caller owns, and it offers a rename and
-an add. Either action is written as a pending action rather than applied
-directly. The admin panel shows every site and every pending action. An admin
-edits any site, and an admin approves or rejects a pending action. An approval
-writes the site into the store and the site joins the ring once the liveness
-sweep sees it reachable.
+an add. Either action is written as a pending action. The admin panel shows
+every site and every pending action. An admin edits any site, and an admin
+approves or rejects a pending action. An approval writes the site into the
+store and the site joins the ring once the liveness sweep sees it reachable.
 
 ```mermaid
 flowchart LR
@@ -169,27 +135,16 @@ flowchart TD
   nav -->|/{slug}/next and /prev and /random| step[Step the ring]
 ```
 
-The Sites and Navigation endpoints are these.
+### API
 
-- GET /sites lists the active sites.
-- GET /{slug} redirects to the site.
-- GET /{slug}/data returns the site data with the navigation.
-- GET /{slug}/next and GET /{slug}/prev and GET /{slug}/random redirect to the
-  neighbour or to a random site.
-- GET /{slug}/next/data and /{slug}/prev/data and /{slug}/random/data return that
-  site's data instead of redirecting.
-
-The schemas are these. A WebringWebsite holds a slug, a name, a url, and an
-optional favicon. A WebringWebsiteNavigationData holds a previous, a current, and
-a next, each a PublicSite.
+The JSON API is described in [openapi.yaml](openapi.yaml).
 
 ## Liveness sweep
 
-The server probes each approved site on a periodic mongoose timer through the
-curl client. An up site is probed every five minutes. A failed probe moves the
-site down and takes it out of the ring, and a down site is then probed every
-minute. A 200 restores the site to the ring. The reachability and the last seen
-time are recorded on every probe.
+The server probes each approved site on a timer. An up site is probed every
+five minutes. A failed probe moves the site down and takes it out of the ring,
+and a down site is then probed every minute. A 200 restores the failed site to
+the ring. The reachability and the last seen time are recorded on every probe.
 
 ```mermaid
 stateDiagram-v2
@@ -203,8 +158,7 @@ stateDiagram-v2
 ## Build and deploy
 
 The build is exceptionless and ships a static release binary, with the debug,
-release, coverage, and cosmopolitan modes driven by the Makefile. The vendored
-mongoose, sqlite, curl, and mbedtls C sources are compiled into the same object
-tree. The release binary is shipped to the inventory hosts by an ansible
-playbook. The detail of the modes, the vendoring, and the deploy is held in
-CLAUDE.md.
+release, coverage, and cosmopolitan modes. The vendored mongoose, sqlite, curl,
+and mbedtls C sources are compiled into the same object tree. The release
+binary is shipped to the inventory hosts by an ansible playbook. The detail of
+the modes, the vendoring, and the deploy is held in CLAUDE.md.

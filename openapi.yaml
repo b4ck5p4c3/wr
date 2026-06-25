@@ -1,0 +1,579 @@
+openapi: 3.1.0
+info:
+  title: wr webring API
+  version: "1.0.0"
+  description: >-
+    The JSON API of the wr webring backend. The public navigation routes serve
+    the ring, the auth routes open a session, and the panel and admin routes
+    manage the member sites behind the session cookie.
+servers:
+  - url: /
+    description: The server origin, every call is same-origin.
+tags:
+  - name: navigation
+    description: The read-only ring, open to anyone.
+  - name: auth
+    description: The sign-in flow and the session cookie.
+  - name: panel
+    description: The user panel behind the session cookie.
+  - name: admin
+    description: The admin panel behind the session cookie and the admin role.
+paths:
+  /sites:
+    get:
+      tags: [navigation]
+      summary: List the active sites.
+      description: The active member sites are returned as an array.
+      security: []
+      responses:
+        "200":
+          description: The active sites.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebringWebsite"
+  /{slug}:
+    get:
+      tags: [navigation]
+      summary: Redirect to a site.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "302":
+          description: A redirect to the site url.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /{slug}/data:
+    get:
+      tags: [navigation]
+      summary: Return the navigation around a site.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: The previous, the current, and the next site.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebringWebsiteNavigationData"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /{slug}/{step}:
+    get:
+      tags: [navigation]
+      summary: Step the ring and redirect.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Step"
+      responses:
+        "302":
+          description: A redirect to the stepped site url.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /{slug}/{step}/data:
+    get:
+      tags: [navigation]
+      summary: Step the ring and return the navigation.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/Step"
+      responses:
+        "200":
+          description: The navigation around the stepped site.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebringWebsiteNavigationData"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /auth/github:
+    get:
+      tags: [auth]
+      summary: Start the GitHub sign-in.
+      description: >-
+        A redirect to GitHub is returned, and the wr_oauth_state cookie is set
+        to guard the callback.
+      security: []
+      responses:
+        "302":
+          description: A redirect to the GitHub authorize page.
+          headers:
+            Set-Cookie:
+              description: The wr_oauth_state cookie.
+              schema:
+                type: string
+  /auth/github/callback:
+    get:
+      tags: [auth]
+      summary: Finish the GitHub sign-in.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The authorization code from GitHub.
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The state echoed back from GitHub.
+      responses:
+        "302":
+          description: >-
+            A redirect to the panel or the admin panel, with the wr_session
+            cookie set.
+          headers:
+            Set-Cookie:
+              description: The wr_session cookie.
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/telegram/callback:
+    get:
+      tags: [auth]
+      summary: Finish the Telegram sign-in.
+      security: []
+      parameters:
+        - name: hash
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The HMAC the widget signs the fields with.
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The Telegram user id.
+        - name: auth_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The unix time the widget signed the login at.
+        - name: first_name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The display name from Telegram.
+      responses:
+        "302":
+          description: A redirect with the wr_session cookie set.
+          headers:
+            Set-Cookie:
+              description: The wr_session cookie.
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: End the session.
+      description: The session row is deleted and the cookie is cleared.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/me:
+    get:
+      tags: [panel]
+      summary: Return the current account.
+      description: >-
+        The account behind the session cookie is returned with its sites. An
+        admin sees every site, a user sees only the sites it owns.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The current account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PanelAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/sites/add:
+    post:
+      tags: [panel]
+      summary: Submit a site for review.
+      description: >-
+        The request is written as a pending add and waits for an admin to
+        approve it.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiteInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/sites/rename:
+    post:
+      tags: [panel]
+      summary: Submit a rename for review.
+      description: >-
+        The request is written as a pending rename of a site the caller owns.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/admin/pending:
+    get:
+      tags: [admin]
+      summary: List the pending actions.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The pending actions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PendingAction"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/pending/approve:
+    post:
+      tags: [admin]
+      summary: Approve a pending action.
+      description: >-
+        An approved add writes the site into the store, and an approved rename
+        applies the new name.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/admin/pending/reject:
+    post:
+      tags: [admin]
+      summary: Reject a pending action.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/admin/site:
+    post:
+      tags: [admin]
+      summary: Edit a site.
+      description: An admin writes the site directly, without the pending workflow.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiteInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/admin/site/add:
+    post:
+      tags: [admin]
+      summary: Add a site.
+      description: An admin add bypasses the pending workflow and owns the site.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiteInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/admin/site/delete:
+    post:
+      tags: [admin]
+      summary: Remove a site.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlugInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: wr_session
+      description: The session cookie set on a sign-in.
+  parameters:
+    Slug:
+      name: slug
+      in: path
+      required: true
+      description: The site slug, lowercase a-z, 0-9, and a dash.
+      schema:
+        type: string
+    Step:
+      name: step
+      in: path
+      required: true
+      description: The navigation step.
+      schema:
+        type: string
+        enum: [next, prev, random]
+  responses:
+    Message:
+      description: A plain message.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    NotFound:
+      description: The slug is unknown or the ring is empty.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    BadRequest:
+      description: A required field is missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    Unauthorized:
+      description: The caller is not signed in.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    Forbidden:
+      description: The caller may not perform the action.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    MethodNotAllowed:
+      description: The endpoint requires POST.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+  schemas:
+    WebringWebsite:
+      type: object
+      description: A public site in the ring.
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+        favicon:
+          type: string
+          description: A favicon url, an empty string when none is known.
+      required: [slug, name, url, favicon]
+    WebringWebsiteNavigationData:
+      type: object
+      description: The neighbours around a site.
+      properties:
+        previous:
+          $ref: "#/components/schemas/WebringWebsite"
+        current:
+          $ref: "#/components/schemas/WebringWebsite"
+        next:
+          $ref: "#/components/schemas/WebringWebsite"
+      required: [previous, current, next]
+    PanelSite:
+      type: object
+      description: A site as the panel sees it, with the liveness fields.
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+        favicon:
+          type: string
+        is_reachable:
+          type: boolean
+        last_seen_at:
+          type: integer
+          format: int64
+          description: The unix time of the last successful probe.
+        owner:
+          type: string
+          description: The identity that owns the site.
+      required: [slug, name, url, favicon, is_reachable, last_seen_at, owner]
+    PanelAccount:
+      type: object
+      description: The signed-in account with its sites.
+      properties:
+        identity:
+          type: string
+          description: The provider identity, like github or telegram and the id.
+        display_name:
+          type: string
+        is_admin:
+          type: boolean
+        sites:
+          type: array
+          items:
+            $ref: "#/components/schemas/PanelSite"
+      required: [identity, display_name, is_admin, sites]
+    PendingAction:
+      type: object
+      description: An add or a rename that waits for an admin.
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [add, rename]
+        owner:
+          type: string
+        target_slug:
+          type: string
+        payload:
+          type: string
+          description: >-
+            The requested data, a JSON object for an add and the new name for a
+            rename.
+      required: [id, kind, owner, target_slug, payload]
+    SiteInput:
+      type: object
+      description: The fields for an add or an edit.
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          description: An http or https url.
+        favicon:
+          type: string
+      required: [slug, name, url]
+    RenameInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required: [slug, name]
+    IdInput:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+      required: [id]
+    SlugInput:
+      type: object
+      properties:
+        slug:
+          type: string
+      required: [slug]
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]

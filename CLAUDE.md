@@ -1,6 +1,6 @@
 # wr project notes
 
-wr is a C++ and C webring backend. A dynamic page that lists the member sites is
+wr is a C++ webring backend. A dynamic page that lists the member sites is
 served, alongside a user panel, an admin panel, GitHub and Telegram auth, and a
 periodic liveness check.
 
@@ -54,7 +54,7 @@ periodic liveness check.
 
 ## Architecture
 
-- The database is opened, the mongoose event manager is built, the liveness timer is registered, and the loop is run by src/Main.cpp.
+- The database is opened, the event manager is built, the liveness timer is registered, and the loop is run by src/Main.cpp.
 - A request is routed by the HTTP layer to the page renderer, the JSON API, the auth endpoints, or the static asset handler.
 - The HTTP layer is a generic interface over pluggable backends, modeled on the backend pattern in the oo project. The shared value types HttpMethod, HttpStatus, HttpHeaders, HttpRequest, and HttpResponse are held in src/Http. The abstract HttpClient and the HttpRequestBuilder are held in src/Client, and the abstract HttpServer with its HttpServerEvent is held in src/Server. The curl client backend CurlClient is held in src/Curl, and the mongoose server backend MongooseServer is held in src/Mongoose. A type that owns memory takes an explicit Allocator in its constructor.
 - The application context App in src/App owns the dispatch and the request helpers, and it routes a request to the public navigation API, the auth endpoints, the panel API, or the static asset handler. The JSON responses are built by the writer in src/Json, and a request body or an OAuth response is parsed once into the Json value class there. A member is read through operator[] and a leaf is converted through to, backed by the rapidjson SAX reader. The GitHub and Telegram auth, the sessions, and the current-account lookup are in src/Auth. The user and admin panel handlers are in src/Panel. The liveness sweep runs on its own thread from src/Liveness with its own store connection and curl client.
@@ -81,7 +81,7 @@ and written to the active sink.
 
 ## Concurrency
 
-The state shared between the mongoose event loop and the liveness worker thread
+The state shared between the event loop and the liveness worker thread
 is guarded by a synchronized map.
 
 - The shared state is guarded behind a lock, and the underlying map is private.
@@ -93,14 +93,14 @@ is guarded by a synchronized map.
 
 ## Frontend
 
-- The dynamic engine is Preact, and the built bundle is served by mongoose as a static asset.
+- The dynamic engine is Preact, and the built bundle is served as a static asset.
 - The boundary between the server and the frontend is the JSON API, and no HTML beyond the bootstrap shell is rendered by the server.
 - The user panel and the admin panel are Preact views behind the session cookie.
 - The frontend source and its build live under the web directory.
 
 ## Deploy
 
-- An ansible setup is held in the deploy directory at deploy/ansible, with ansible.cfg, inventory, playbooks, and files.
+- An ansible setup is held in the deploy directory, with ansible.cfg, inventory, playbooks, and files.
 - The static release binary is built locally and shipped to the inventory hosts by `make deploy`, which builds through `make MODE=rel` and then runs the playbook.
 - ../wr is copied to /usr/local/bin/wr by the playbook, the unit is installed, and the service is started.
 - The service is run as a dedicated system user under a system unit in /etc/systemd/system, with `Restart=always` and `WantedBy=multi-user.target`.
@@ -126,5 +126,5 @@ change per commit.
 ## Finishing a change
 
 - This CLAUDE.md and the README are updated before a plan is finished.
-- A new endpoint, a new auth provider, a new store table, or a renamed flag touches the architecture notes here.
-- A deploy change touches the playbook and the unit template under deploy/ansible.
+- A new endpoint, a new auth provider, a new store table, or a renamed flag touches the architecture notes here, and a new or changed endpoint touches the API spec in openapi.yaml.
+- A deploy change touches the playbook and the unit template under deploy.
