@@ -16,7 +16,7 @@ FLAG_LIST_DECL();
 HELP_DESCRIPTION_DECL("wr, a webring server backend.");
 HELP_SYNOPSIS_DECL("[options]");
 
-FLAG(HELP, Bool, 'h', "help", "Show this help and exit.");
+FLAG(HELP, Bool, '\0', "help", "Show this help and exit.");
 FLAG(VERSION, Bool, '\0', "version", "Show the version and exit.");
 FLAG(LISTEN, String, 'l', "listen", Server,
      "URL to listen on, like http://0.0.0.0:8000 (required).");

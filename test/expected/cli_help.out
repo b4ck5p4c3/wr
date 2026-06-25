@@ -4,7 +4,7 @@ SYNOPSIS
   wr, a webring server backend.
 
 OPTIONS
-  -h, --help              Show this help and exit.
+      --help              Show this help and exit.
       --version           Show the version and exit.
 
 SERVER OPTIONS
