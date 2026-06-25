@@ -4,7 +4,7 @@
 #include "Containers.hpp"
 #include "ErrorOr.hpp"
 #include "Path.hpp"
-#include "Thread.hpp"
+#include "Pthread.hpp"
 
 #include <ctime>
 
@@ -65,7 +65,7 @@ inline fn log_timestamp(char *buffer, usize length) noexcept -> const char *
 
 constexpr usize LOG_RING_CAPACITY = 256;
 
-inline Mutex LOG_RING_MUTEX{};
+inline PthreadMutex LOG_RING_MUTEX{};
 inline String LOG_RING_LINES[LOG_RING_CAPACITY]{};
 inline usize LOG_RING_HEAD = 0;
 inline usize LOG_RING_COUNT = 0;

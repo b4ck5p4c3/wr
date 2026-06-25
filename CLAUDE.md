@@ -93,7 +93,7 @@ guarded by a shared lock.
 - The event loop and the liveness sweep each open a separate sqlite connection, so no in-process state is shared between the threads.
 - The write-ahead log journal mode lets a read on one connection run while the other connection writes, and a 5000 ms busy timeout absorbs contention, both set in Sqlite::open.
 - The worker runs on a Thread, and its only synchronization with the main thread is a bool stop flag in src/Liveness read and written through the atomic builtins, set by Liveness::stop and polled in the sweep loop.
-- pthread is named only in src/Thread, which wraps it as Mutex, ScopedLock, and Thread, so a port to another threading backend touches that header alone.
+- The threading primitives are a generic interface in src/Thread, the abstract Mutex, the ScopedLock guard, and the abstract Thread, and pthread is named only in the PthreadMutex and PthreadThread backend in src/Pthread, modeled on the HTTP and SQL backend pattern.
 - After the server loop returns, the worker thread is joined and the connections are closed on the way out.
 
 ## Frontend
