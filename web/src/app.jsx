@@ -428,6 +428,21 @@ function Admin({ onLogin }) {
   );
 }
 
+function NotFound({ navigate }) {
+  return (
+    <main class="notfound">
+      <p class="status">404</p>
+      <h1>lost in the ring</h1>
+      <p>This page hopped off the webring, or it never joined.</p>
+      <p>
+        <a href="/" onClick={link(navigate, "/")}>
+          back to the ring
+        </a>
+      </p>
+    </main>
+  );
+}
+
 export function App() {
   const [path, navigate] = useRoute();
   const [showLogin, setShowLogin] = useState(false);
@@ -463,7 +478,9 @@ export function App() {
   let page;
   if (path === "/about") page = <About />;
   else if (path === "/admin") page = <Admin onLogin={onLogin} />;
-  else page = <Landing navigate={navigate} me={me} reload={reloadMe} />;
+  else if (path === "/" || path === "/panel")
+    page = <Landing navigate={navigate} me={me} reload={reloadMe} />;
+  else page = <NotFound navigate={navigate} />;
 
   return (
     <div class="app">

@@ -322,13 +322,24 @@ fn App::handle_config(HttpServerEvent &event) -> void
 fn App::handle_navigation(HttpServerEvent &event, StringView slug,
                           StringView step, bool wants_data) -> void
 {
+  /* A browser navigation is served the single-page shell on any failure, so the
+     styled error page is rendered. The data form keeps the JSON error for an
+     API consumer. */
   let const sites_or = m_store.list_active_sites();
   if (sites_or.is_error()) {
+    if (!wants_data) {
+      serve_static(event);
+      return;
+    }
     reply_message(event, 500, sites_or.error().message().view());
     return;
   }
   let const &sites = sites_or.value();
   if (sites.is_empty()) {
+    if (!wants_data) {
+      serve_static(event);
+      return;
+    }
     reply_message(event, 404, "The ring is empty");
     return;
   }
@@ -341,6 +352,10 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
     }
   }
   if (current == sites.count()) {
+    if (!wants_data) {
+      serve_static(event);
+      return;
+    }
     reply_message(event, 404, "No such site");
     return;
   }
