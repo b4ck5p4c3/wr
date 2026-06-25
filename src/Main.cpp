@@ -118,6 +118,20 @@ fn main(int argc, char **argv) -> int
   LOG(Info, "wr is starting up");
   if (cfg.is_dev_mode) LOG(Info, "dev mode is on, the login bypass is enabled");
 
+  /* Without a provider a non-dev server can authenticate nobody. */
+  let const has_github = !cfg.github_client_id.view().is_empty() &&
+                         !cfg.github_client_secret.view().is_empty();
+  let const has_telegram = !cfg.telegram_bot_token.view().is_empty();
+  if (!cfg.is_dev_mode && !has_github && !has_telegram) {
+    String message{allocator};
+    message.append("error: No login provider is configured. Set one of:\n");
+    message.append("  WR_GITHUB_CLIENT_ID and WR_GITHUB_CLIENT_SECRET\n");
+    message.append("  WR_TELEGRAM_BOT_TOKEN\n");
+    message.append("\nOr pass --dev to run with the login bypass.");
+    show_message(message.view());
+    return 1;
+  }
+
   Store store{allocator};
   let store_result = store.open(Path{cfg.database_path});
   if (store_result.is_error()) {
