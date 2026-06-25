@@ -233,7 +233,7 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
   cookie.append("; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000");
 
   HttpHeaders headers{m_allocator};
-  headers.set("Location", was_admin ? "/admin" : "/panel");
+  headers.set("Location", was_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "login for %s", String{m_allocator, identity}.c_str());
   unused(event.reply(302, headers, "").is_error());

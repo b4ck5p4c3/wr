@@ -30,9 +30,6 @@ function Header({ navigate, me, onLogin, onLogout }) {
         <a href="/about" onClick={link(navigate, "/about")}>
           about
         </a>
-        <a href="/panel" onClick={link(navigate, "/panel")}>
-          panel
-        </a>
         {me ? (
           <button class="secondary" onClick={onLogout}>
             logout
@@ -59,7 +56,7 @@ function LoginModal({ onClose }) {
   return (
     <div class="modal-backdrop" onClick={onClose}>
       <div class="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Sign in</h2>
+        <h2>sign in</h2>
         <p>Pick a provider to manage your sites.</p>
         <a class="provider github" href="/auth/github">
           Continue with GitHub
@@ -78,9 +75,7 @@ function LoginModal({ onClose }) {
           >
             Continue with Telegram
           </a>
-        ) : (
-          <p class="hint">Telegram login is set up at deploy time.</p>
-        )}
+        ) : null}
         <button class="close" onClick={onClose}>
           close
         </button>
@@ -101,7 +96,7 @@ function SiteCard({ site }) {
   );
 }
 
-function Landing() {
+function Landing({ navigate, me, reload }) {
   const [sites, setSites] = useState(null);
   const [error, setError] = useState(null);
   useEffect(() => {
@@ -110,8 +105,7 @@ function Landing() {
 
   return (
     <main>
-      <h1>The B4CKSP4CE WebRing</h1>
-      <p>A webring of member sites. Hop between them, or join with a panel.</p>
+      <h1>the b4cksp4ce webring</h1>
       {error ? <p class="error">{error}</p> : null}
       {sites === null ? (
         <p>Loading...</p>
@@ -124,6 +118,29 @@ function Landing() {
           ))}
         </ul>
       )}
+
+      {me && me.is_admin ? (
+        <p>
+          <a href="/admin" onClick={link(navigate, "/admin")}>
+            Open the admin panel
+          </a>
+        </p>
+      ) : me ? (
+        <>
+          <h2>your sites</h2>
+          <p>Signed in as {me.display_name}.</p>
+          {me.sites.length === 0 ? (
+            <p>You have no sites yet.</p>
+          ) : (
+            <ul class="sites">
+              {me.sites.map((site) => (
+                <OwnedSite key={site.slug} site={site} onRenamed={reload} />
+              ))}
+            </ul>
+          )}
+          <AddSiteForm onAdded={reload} />
+        </>
+      ) : null}
     </main>
   );
 }
@@ -131,20 +148,18 @@ function Landing() {
 function About() {
   return (
     <main>
-      <h1>About</h1>
-      <p>wr is a webring by b4cksp4ce, a hacker space community.</p>
-      <ul>
-        <li>
-          <a href="https://t.me/b4cksp4ce_issues/762" target="_blank" rel="noopener noreferrer">
-            The original issue
-          </a>
-        </li>
-        <li>
-          <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
-            b4cksp4ce
-          </a>
-        </li>
-      </ul>
+      <h1>about</h1>
+      <p>wr is a webring by b4cksp4ce.</p>
+      <p>
+        <a href="https://t.me/b4cksp4ce_issues/762" target="_blank" rel="noopener noreferrer">
+          See original issue
+        </a>
+      </p>
+      <p>
+        <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
+          Learn about b4cksp4ce
+        </a>
+      </p>
     </main>
   );
 }
@@ -168,7 +183,7 @@ function AddSiteForm({ onAdded, submitLabel = "Submit for review", onSubmit }) {
 
   return (
     <form class="card" onSubmit={submit}>
-      <h3>Add a site</h3>
+      <h3>add a site</h3>
       <input placeholder="slug" value={form.slug} onInput={field("slug")} />
       <input placeholder="name" value={form.name} onInput={field("name")} />
       <input placeholder="https://your.site" value={form.url} onInput={field("url")} />
@@ -201,43 +216,6 @@ function OwnedSite({ site, onRenamed }) {
       <span class={site.is_reachable ? "up" : "down"}>{site.is_reachable ? "up" : "down"}</span>
       {message ? <span class="hint">{message}</span> : null}
     </li>
-  );
-}
-
-function Panel({ navigate, onLogin }) {
-  const [me, setMe] = useState(undefined);
-  const reload = () => api.me().then(setMe).catch(() => setMe(null));
-  useEffect(() => {
-    reload();
-  }, []);
-
-  if (me === undefined) return <main><p>Loading...</p></main>;
-  if (me === null)
-    return (
-      <main>
-        <h1>Your panel</h1>
-        <p>You are not signed in.</p>
-        <button class="primary" onClick={onLogin}>
-          login
-        </button>
-      </main>
-    );
-  if (me.is_admin) {
-    navigate("/admin");
-    return null;
-  }
-
-  return (
-    <main>
-      <h1>Your sites</h1>
-      <p>Signed in as {me.display_name}.</p>
-      <ul class="sites">
-        {me.sites.map((site) => (
-          <OwnedSite key={site.slug} site={site} onRenamed={reload} />
-        ))}
-      </ul>
-      <AddSiteForm onAdded={reload} />
-    </main>
   );
 }
 
@@ -312,7 +290,7 @@ function Admin({ onLogin }) {
   if (me === null || !me.is_admin)
     return (
       <main>
-        <h1>Admin</h1>
+        <h1>admin</h1>
         <p>You need an admin account.</p>
         <button class="primary" onClick={onLogin}>login</button>
       </main>
@@ -320,9 +298,9 @@ function Admin({ onLogin }) {
 
   return (
     <main>
-      <h1>Admin</h1>
+      <h1>admin</h1>
       <p>Signed in as {me.display_name}.</p>
-      <h2>Pending actions</h2>
+      <h2>pending actions</h2>
       {pending.length === 0 ? (
         <p>Nothing is waiting for review.</p>
       ) : (
@@ -332,7 +310,7 @@ function Admin({ onLogin }) {
           ))}
         </ul>
       )}
-      <h2>All sites</h2>
+      <h2>all sites</h2>
       <ul class="sites">
         {me.sites.map((site) => (
           <AdminSite key={site.slug} site={site} onSaved={reload} onDeleted={reload} />
@@ -352,9 +330,11 @@ export function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [me, setMe] = useState(undefined);
 
-  // Fetch the current account once on mount so the header can show login/logout.
+  // Fetch the current account on mount and after a change so the header and the
+  // home panel stay in sync.
+  const reloadMe = () => api.me().then(setMe).catch(() => setMe(null));
   useEffect(() => {
-    api.me().then(setMe).catch(() => setMe(null));
+    reloadMe();
   }, []);
 
   const onLogin = () => setShowLogin(true);
@@ -370,9 +350,8 @@ export function App() {
 
   let page;
   if (path === "/about") page = <About />;
-  else if (path === "/panel") page = <Panel navigate={navigate} onLogin={onLogin} />;
   else if (path === "/admin") page = <Admin onLogin={onLogin} />;
-  else page = <Landing />;
+  else page = <Landing navigate={navigate} me={me} reload={reloadMe} />;
 
   return (
     <div class="app">
@@ -380,11 +359,14 @@ export function App() {
       {page}
       {showLogin ? <LoginModal onClose={() => setShowLogin(false)} /> : null}
       <footer>
-        <p class="tagline">running on shit and sticks</p>
         <p>
-          Copyright{" "}
+          running on{" "}
+          <a href="https://github.com/b4ck5p4c3/wr" target="_blank" rel="noopener noreferrer">
+            Shit and sticks
+          </a>
+          {", Copyright "}
           <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
-            b4cksp4ce
+            B4cksp4ce
           </a>
           , 2026
         </p>
