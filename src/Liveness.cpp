@@ -15,7 +15,7 @@ fn Liveness::start() -> ErrorOr<Ok>
 {
   TRY(m_database.open(m_config.database_path.view()));
 
-  let const code = pthread_create(&m_thread, nullptr, &thread_main, this);
+  let const code = m_thread.start(&thread_main, this);
   if (code != 0) {
     String message{m_allocator};
     message.append("Unable to start the liveness thread, ");
@@ -31,7 +31,7 @@ fn Liveness::stop() -> void
 {
   if (!m_is_running) return;
   __atomic_store_n(&m_should_stop, true, __ATOMIC_SEQ_CST);
-  pthread_join(m_thread, nullptr);
+  m_thread.join();
   m_is_running = false;
 }
 

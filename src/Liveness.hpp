@@ -6,8 +6,7 @@
 #include "ErrorOr.hpp"
 #include "Sqlite.hpp"
 #include "Store.hpp"
-
-#include <pthread.h>
+#include "Thread.hpp"
 
 namespace wr {
 
@@ -44,7 +43,7 @@ private:
   Sqlite m_database;
   Store m_store;
   HttpClient &m_client;
-  pthread_t m_thread{};
+  Thread m_thread{};
   bool m_is_running{false};
   /* The worker polls the flag and the server sets it, so it is read and written
      through the atomic builtins. */
