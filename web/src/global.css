@@ -251,7 +251,7 @@ img {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.75));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.95));
   box-shadow:
     0 0 0 1px var(--panel-outline),
     inset 0 0 24px var(--panel-glow-inset),
