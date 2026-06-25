@@ -423,7 +423,9 @@ export function OwnedSite({ site, onRenamed }) {
     <li class="site">
       <span class="slug">/{site.slug}</span>
       <input value={name} onInput={(e) => setName(e.target.value)} />
-      <button onClick={rename}>rename..</button>
+      <div class="row-actions">
+        <button onClick={rename}>rename..</button>
+      </div>
       <span class={site.is_reachable ? "up" : "down"}>
         {site.is_reachable ? "up" : "down"}
       </span>
@@ -448,7 +450,7 @@ export function PendingRow({ action, onResolved }) {
       <span class="slug">/{action.target_slug}</span>
       <code>{action.payload}</code>
       <Submitter owner={action.owner} name={action.owner_display_name} />
-      <div class="pending-actions">
+      <div class="row-actions">
         <button class="primary" onClick={() => resolve(true)}>
           approve..
         </button>
@@ -505,15 +507,17 @@ export function AdminSite({ site, onSaved, onDeleted }) {
       <span class="slug">/{site.slug}</span>
       <input value={form.name} onInput={field("name")} />
       <input value={form.url} onInput={field("url")} />
-      <input
+      <textarea
         placeholder="description"
         value={form.description || ""}
         onInput={field("description")}
       />
-      <button onClick={save}>save..</button>
-      <button class="danger" onClick={remove}>
-        delete..
-      </button>
+      <div class="row-actions">
+        <button onClick={save}>save..</button>
+        <button class="danger" onClick={remove}>
+          delete..
+        </button>
+      </div>
       <span class={site.is_reachable ? "up" : "down"}>
         {site.is_reachable ? "up" : "down"}
       </span>

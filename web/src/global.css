@@ -428,7 +428,8 @@ textarea {
 
 textarea {
   resize: vertical;
-  min-height: 6ch;
+  min-height: 14ch;
+  line-height: 1.4;
 }
 
 input:focus,
@@ -469,8 +470,12 @@ li.site .down {
   margin-left: auto;
 }
 
-/* The approve and reject buttons drop to their own line below the request. */
-.pending-actions {
+li.site input,
+li.site textarea {
+  flex: 1 1 100%;
+}
+
+.row-actions {
   flex-basis: 100%;
   display: flex;
   gap: 1ch;
