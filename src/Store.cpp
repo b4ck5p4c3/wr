@@ -255,6 +255,20 @@ fn Store::set_site_reachability(StringView slug, bool is_reachable,
   return Success;
 }
 
+fn Store::schedule_recheck(StringView slug) -> ErrorOr<Ok>
+{
+  /* A zero last_seen_at is always due, so the next sweep re-probes the site
+     instead of waiting out its interval. */
+  let statement = TRY(
+      m_database.prepare("UPDATE sites SET last_seen_at = 0 WHERE slug = ?;"));
+  statement.bind(slug);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "site scheduled for a recheck, slug=%.*s",
+      static_cast<int>(slug.count()), slug.data);
+  return Success;
+}
+
 fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>
 {
   let statement = TRY(m_database.prepare(

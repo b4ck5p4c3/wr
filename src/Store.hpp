@@ -73,6 +73,7 @@ public:
   fn delete_site(StringView slug) -> ErrorOr<Ok>;
   fn set_site_reachability(StringView slug, bool is_reachable, i64 last_seen_at)
       -> ErrorOr<Ok>;
+  fn schedule_recheck(StringView slug) -> ErrorOr<Ok>;
 
   mustuse fn find_account(StringView identity) const -> ErrorOr<Maybe<account>>;
   fn upsert_account(StringView identity, StringView display_name, bool is_admin)

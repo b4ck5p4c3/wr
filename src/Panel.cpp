@@ -318,6 +318,13 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
     reply_message(event, 500, stored.error().message().view());
     return;
   }
+
+  /* The edit may point the site at a new url, so it is queued for an immediate
+     recheck instead of waiting out its reachability interval. */
+  if (m_store.schedule_recheck(input.slug).is_error())
+    LOG(Info, "recheck schedule dropped for %.*s",
+        static_cast<int>(input.slug.count()), input.slug.data);
+
   reply_message(event, 200, "Saved");
 }
 
