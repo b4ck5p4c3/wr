@@ -1,0 +1,3 @@
+a-prev: 302 https://b.example/
+a-random-status: 302
+b-next-data: {"previous":{"slug":"b","name":"Site B","url":"https://b.example","favicon":""},"current":{"slug":"a","name":"Site A","url":"https://a.example","favicon":""},"next":{"slug":"b","name":"Site B","url":"https://b.example","favicon":""}}

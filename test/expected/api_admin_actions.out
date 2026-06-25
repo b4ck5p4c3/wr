@@ -1,0 +1,6 @@
+add-direct: {"message":"Site added"}
+sites: [{"slug":"d","name":"D","url":"https://d.example","favicon":""}]
+edit: {"message":"Saved"}
+sites-after-edit: [{"slug":"d","name":"D2","url":"https://d2.example","favicon":""}]
+delete: {"message":"Site removed"}
+sites-after-delete: []

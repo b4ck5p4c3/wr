@@ -1,0 +1,5 @@
+add: {"message":"Your site was submitted for review"}
+sites-before: []
+me-pending: {"identity":"dev:user","display_name":"dev user","is_admin":false,"sites":[],"pending":[{"id":1,"kind":"add","target_slug":"mine","payload":"{\"name\":\"My Site\",\"url\":\"https://mine.example\",\"favicon\":\"\"}"}]}
+approve: {"message":"Approved"}
+sites-after: [{"slug":"mine","name":"My Site","url":"https://mine.example","favicon":""}]

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# The error paths each answer with the right status. An unknown endpoint is 404,
+# a mutation reached through GET is 405, an admin route without a session is
+# refused, the current account without a session is 401, and an unknown slug is
+# 404.
+set -u
+PORT=18768
+DB=$(mktemp -u /tmp/wr_err_XXXXXX.db)
+WEB=$(mktemp -d)
+printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
+
+timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
+server=$!
+disown
+curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/config"
+
+echo "unknown-endpoint: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/nope")"
+echo "mutation-get: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/sites/add")"
+echo "admin-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/admin/pending")"
+echo "me-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/me")"
+echo "unknown-slug: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/zzz")"
+
+kill "$server" 2>/dev/null
+rm -rf "$WEB" "$DB"

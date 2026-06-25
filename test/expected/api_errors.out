@@ -1,0 +1,5 @@
+unknown-endpoint: 404
+mutation-get: 405
+admin-unauth: 403
+me-unauth: 401
+unknown-slug: 404

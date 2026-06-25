@@ -1,0 +1,3 @@
+logs-unauth: 403
+logs-status: 200
+logs-isarray: yes
