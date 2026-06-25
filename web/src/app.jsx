@@ -119,7 +119,13 @@ function Landing({ navigate, me, reload }) {
     api
       .listSites()
       .then(setSites)
-      .catch((e) => setError(e.message + ". Check your internet connection."));
+      .catch((e) =>
+        setError(
+          e.isNetworkError
+            ? e.message + ". Check your internet connection."
+            : e.message,
+        ),
+      );
   }, []);
 
   return (

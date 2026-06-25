@@ -1,8 +1,21 @@
 // The JSON API client. Every call is same-origin, so the session cookie rides
 // along on its own.
 
+// A failed fetch is a transport problem, so it is tagged for the caller to
+// distinguish it from a server that answered with an error status.
+function networkError() {
+  const error = new Error("Unable to reach the server");
+  error.isNetworkError = true;
+  return error;
+}
+
 async function getJson(path) {
-  const response = await fetch(path, { credentials: "same-origin" });
+  let response;
+  try {
+    response = await fetch(path, { credentials: "same-origin" });
+  } catch (_) {
+    throw networkError();
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(data.message || "request failed with " + response.status);
@@ -10,12 +23,17 @@ async function getJson(path) {
 }
 
 async function postJson(path, body) {
-  const response = await fetch(path, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (_) {
+    throw networkError();
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.message || "request failed");
   return data;
