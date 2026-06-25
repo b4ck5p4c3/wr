@@ -10,7 +10,7 @@ periodic liveness check.
 - ../wr-dbg is written by `make MODE=dbg` with AddressSanitizer and UndefinedBehaviorSanitizer, and dbg is the default.
 - ../wr-cov is written by `make MODE=cov` with coverage instrumentation.
 - The portable ../wr-cosmo.com and ../wr-cosmo_dbg.com are written by `make MODE=cosmo` and `make MODE=cosmo_dbg` through the cosmopolitan toolchain. The cosmo modes compile the foundation and the server core, but the outbound curl layer is not compiled under the cosmopolitan toolchain yet, so the curl-dependent server links only in the dbg, rel, and cov modes.
-- The frontend is built under the web directory by `bun install` and `bun run build`, or the npm equivalent, which writes web/dist. The server serves that directory through the `-w` flag.
+- The frontend is built under the web directory by `bun install` and `bun run build`, or the npm equivalent, which writes web/dist. A bare `make web` from the root runs the `bun run build` step. The server serves that directory through the `-w` flag.
 - The dbg, rel, and cov modes are built exceptionless with -fno-exceptions, while the cosmo modes are built with -fexceptions, since the cosmopolitan toolchain requires it. The source stays exception-free in every mode.
 - UndefinedBehaviorSanitizer is kept on in the release build, and the release is compiled at -O2.
 - A bare `make` builds the wr target, since the object tree under src/o/$(MODE) is created as an order-only prerequisite.

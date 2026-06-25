@@ -16,6 +16,10 @@ wr:
 	echo Building...
 	$(MAKE) -C src wr
 
+web:
+	echo Building the frontend...
+	cd web && bun run build
+
 install:
 	echo Installing...
 	$(MAKE) -C src install
@@ -48,4 +52,4 @@ clean:
 	echo Cleaning up...
 	$(MAKE) -C src clean
 
-.PHONY: all wr install uninstall deploy tidy fmt test refill_tests clean
+.PHONY: all wr web install uninstall deploy tidy fmt test refill_tests clean
