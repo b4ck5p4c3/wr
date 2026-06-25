@@ -15,3 +15,5 @@ SERVER OPTIONS
 
 DEBUG OPTIONS
   -L, --log-file=<...>    Append the log to FILE instead of standard error.
+  -D, --dev               Run in dev mode with a login bypass for an admin and a
+                          user.
