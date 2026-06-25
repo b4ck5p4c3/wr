@@ -167,7 +167,8 @@ static fn find_flag(const ArrayList<Flag *> &flags, const char *flag_start,
 
         if (flag_length > longest_length &&
             std::strncmp(flags[i]->long_name().data, flag_start, flag_length) ==
-                0)
+                0 &&
+            (flag_start[flag_length] == '\0' || flag_start[flag_length] == '='))
         {
           *result_flag = flags[i];
           *value_start = flag_start + flag_length;

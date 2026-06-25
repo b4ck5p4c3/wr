@@ -48,6 +48,41 @@ fn write_panel_site(JsonWriter &writer, const site &row) -> void
   writer.object_end();
 }
 
+struct site_input
+{
+  StringView slug;
+  StringView name;
+  StringView url;
+  StringView favicon;
+};
+
+/* Read and validate the add or edit fields out of a parsed body. The returned
+   views alias the document, which the caller keeps alive. A non-null return is
+   the 400 message to reply with. */
+fn validate_site_input(const Json &document, site_input &out) -> const char *
+{
+  let const slug = document["slug"].to<StringView>();
+  let const name = document["name"].to<StringView>();
+  let const url = document["url"].to<StringView>();
+  let const favicon = document["favicon"].to<StringView>();
+
+  if (!slug.has_value() || !name.has_value() || !url.has_value())
+    return "A slug, a name, and a url are required";
+  if (!is_valid_slug(slug.value()))
+    return "The slug may use only a-z, 0-9, and a dash";
+  if (!is_valid_site_url(url.value()))
+    return "The url must start with http:// or https://";
+
+  out.favicon = favicon.has_value() ? favicon.value() : StringView{};
+  if (!out.favicon.is_empty() && !is_valid_site_url(out.favicon))
+    return "The favicon must start with http:// or https://";
+
+  out.slug = slug.value();
+  out.name = name.value();
+  out.url = url.value();
+  return nullptr;
+}
+
 } // namespace
 
 fn App::handle_me(HttpServerEvent &event) -> void
@@ -108,32 +143,34 @@ fn App::handle_me(HttpServerEvent &event) -> void
 fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
 {
   let const document = Json::from(m_allocator, event.body());
-  let const slug = document["slug"].to<StringView>();
-  let const name = document["name"].to<StringView>();
-  let const url = document["url"].to<StringView>();
-  let const favicon = document["favicon"].to<StringView>();
-  if (!slug.has_value() || !name.has_value() || !url.has_value()) {
-    reply_message(event, 400, "A slug, a name, and a url are required");
+  site_input input{};
+  if (let const error = validate_site_input(document, input); error != nullptr)
+  {
+    reply_message(event, 400, error);
     return;
   }
-  if (!is_valid_slug(slug.value())) {
-    reply_message(event, 400, "The slug may use only a-z, 0-9, and a dash");
+
+  /* A submission for a slug already live in the ring is refused, so an add
+     cannot be used to reassign someone else's site on approval. */
+  let const existing = m_store.find_site(input.slug);
+  if (existing.is_error()) {
+    reply_message(event, 500, existing.error().message().view());
     return;
   }
-  if (!is_valid_site_url(url.value())) {
-    reply_message(event, 400, "The url must start with http:// or https://");
+  if (existing.value().has_value()) {
+    reply_message(event, 409, "That slug is already taken");
     return;
   }
 
   JsonWriter payload{m_allocator};
   payload.object_begin();
-  payload.field("name", name.value());
-  payload.field("url", url.value());
-  payload.field("favicon", favicon.has_value() ? favicon.value() : "");
+  payload.field("name", input.name);
+  payload.field("url", input.url);
+  payload.field("favicon", input.favicon);
   payload.object_end();
 
   let const recorded = m_store.add_pending(
-      "add", who.identity.view(), slug.value(), payload.view(), now_seconds());
+      "add", who.identity.view(), input.slug, payload.view(), now_seconds());
   if (recorded.is_error()) {
     reply_message(event, 500, recorded.error().message().view());
     return;
@@ -170,37 +207,34 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
 
 fn App::handle_admin_add(HttpServerEvent &event) -> void
 {
-  let const who = current_account(event);
-  if (!who.has_value() || !who.value().is_admin) {
-    reply_message(event, 403, "Admins only");
+  let const who = require_admin(event);
+  if (!who.has_value()) return;
+
+  let const document = Json::from(m_allocator, event.body());
+  site_input input{};
+  if (let const error = validate_site_input(document, input); error != nullptr)
+  {
+    reply_message(event, 400, error);
     return;
   }
 
-  let const document = Json::from(m_allocator, event.body());
-  let const slug = document["slug"].to<StringView>();
-  let const name = document["name"].to<StringView>();
-  let const url = document["url"].to<StringView>();
-  let const favicon = document["favicon"].to<StringView>();
-  if (!slug.has_value() || !name.has_value() || !url.has_value()) {
-    reply_message(event, 400, "A slug, a name, and a url are required");
+  let const existing = m_store.find_site(input.slug);
+  if (existing.is_error()) {
+    reply_message(event, 500, existing.error().message().view());
     return;
   }
-  if (!is_valid_slug(slug.value())) {
-    reply_message(event, 400, "The slug may use only a-z, 0-9, and a dash");
-    return;
-  }
-  if (!is_valid_site_url(url.value())) {
-    reply_message(event, 400, "The url must start with http:// or https://");
+  if (existing.value().has_value()) {
+    reply_message(event, 409, "That slug is already taken");
     return;
   }
 
   /* An admin add bypasses the pending-action workflow and writes the site
      directly to the store, with the admin's identity as the owner. */
   site row{};
-  row.slug = String{m_allocator, slug.value()};
-  row.name = String{m_allocator, name.value()};
-  row.url = String{m_allocator, url.value()};
-  row.favicon = String{m_allocator, favicon.has_value() ? favicon.value() : ""};
+  row.slug = String{m_allocator, input.slug};
+  row.name = String{m_allocator, input.name};
+  row.url = String{m_allocator, input.url};
+  row.favicon = String{m_allocator, input.favicon};
   row.owner = String{m_allocator, who.value().identity.view()};
   row.created_at = now_seconds();
 
@@ -214,11 +248,7 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
 
 fn App::handle_admin_delete(HttpServerEvent &event) -> void
 {
-  let const who = current_account(event);
-  if (!who.has_value() || !who.value().is_admin) {
-    reply_message(event, 403, "Admins only");
-    return;
-  }
+  if (!require_admin(event).has_value()) return;
 
   let const document = Json::from(m_allocator, event.body());
   let const slug = document["slug"].to<StringView>();
@@ -243,36 +273,36 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
 
 fn App::handle_admin_edit(HttpServerEvent &event) -> void
 {
-  let const who = current_account(event);
-  if (!who.has_value() || !who.value().is_admin) {
-    reply_message(event, 403, "Admins only");
-    return;
-  }
+  if (!require_admin(event).has_value()) return;
 
   let const document = Json::from(m_allocator, event.body());
-  let const slug = document["slug"].to<StringView>();
-  let const name = document["name"].to<StringView>();
-  let const url = document["url"].to<StringView>();
-  let const favicon = document["favicon"].to<StringView>();
-  if (!slug.has_value() || !name.has_value() || !url.has_value()) {
-    reply_message(event, 400, "A slug, a name, and a url are required");
-    return;
-  }
-  if (!is_valid_slug(slug.value())) {
-    reply_message(event, 400, "The slug may use only a-z, 0-9, and a dash");
-    return;
-  }
-  if (!is_valid_site_url(url.value())) {
-    reply_message(event, 400, "The url must start with http:// or https://");
+  site_input input{};
+  if (let const error = validate_site_input(document, input); error != nullptr)
+  {
+    reply_message(event, 400, error);
     return;
   }
 
+  /* The existing row is loaded so the owner and the creation time are
+     preserved, since the upsert would otherwise overwrite the owner. */
+  let const existing = m_store.find_site(input.slug);
+  if (existing.is_error()) {
+    reply_message(event, 500, existing.error().message().view());
+    return;
+  }
+  if (!existing.value().has_value()) {
+    reply_message(event, 404, "No such site");
+    return;
+  }
+  let const &current = existing.value().value();
+
   site row{};
-  row.slug = String{m_allocator, slug.value()};
-  row.name = String{m_allocator, name.value()};
-  row.url = String{m_allocator, url.value()};
-  row.favicon = String{m_allocator, favicon.has_value() ? favicon.value() : ""};
-  row.created_at = now_seconds();
+  row.slug = String{m_allocator, input.slug};
+  row.name = String{m_allocator, input.name};
+  row.url = String{m_allocator, input.url};
+  row.favicon = String{m_allocator, input.favicon};
+  row.owner = String{m_allocator, current.owner.view()};
+  row.created_at = current.created_at;
 
   let const stored = m_store.upsert_site(row);
   if (stored.is_error()) {
@@ -284,11 +314,7 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
 
 fn App::handle_admin_pending(HttpServerEvent &event) -> void
 {
-  let const who = current_account(event);
-  if (!who.has_value() || !who.value().is_admin) {
-    reply_message(event, 403, "Admins only");
-    return;
-  }
+  if (!require_admin(event).has_value()) return;
 
   let const actions_or = m_store.list_pending();
   if (actions_or.is_error()) {
@@ -324,11 +350,7 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
 fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
     -> void
 {
-  let const who = current_account(event);
-  if (!who.has_value() || !who.value().is_admin) {
-    reply_message(event, 403, "Admins only");
-    return;
-  }
+  if (!require_admin(event).has_value()) return;
 
   let const request = Json::from(m_allocator, event.body());
   let const id_or = request["id"].to<i64>();
@@ -347,6 +369,20 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
 
   if (should_approve) {
     if (action.kind == "add") {
+      /* A slug taken by another owner since the submission is not reassigned by
+         an approval. */
+      let const taken = m_store.find_site(action.target_slug.view());
+      if (taken.is_error()) {
+        reply_message(event, 500, taken.error().message().view());
+        return;
+      }
+      if (taken.value().has_value() &&
+          taken.value().value().owner != action.owner)
+      {
+        reply_message(event, 409, "That slug is already taken");
+        return;
+      }
+
       let const payload = Json::from(m_allocator, action.payload.view());
       site row{};
       row.slug = String{m_allocator, action.target_slug.view()};

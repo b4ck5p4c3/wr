@@ -192,7 +192,10 @@ fn Json::from(Allocator allocator, StringView text) -> Json
   JsonBuilder builder{allocator};
   rapidjson::Reader reader;
   rapidjson::MemoryStream stream{text.data, text.count()};
-  reader.Parse(stream, builder);
+
+  /* The iterative parser is selected so a deeply nested body cannot overflow
+     the stack, since a request body is parsed before any auth. */
+  reader.Parse<rapidjson::kParseIterativeFlag>(stream, builder);
 
   if (reader.HasParseError() || !builder.m_has_root) return Json{};
   return steal(builder.m_result);

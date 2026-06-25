@@ -83,6 +83,7 @@ private:
                   StringView display_name, Maybe<bool> force_admin = {})
       -> void;
   mustuse fn current_account(HttpServerEvent &event) -> Maybe<account>;
+  mustuse fn require_admin(HttpServerEvent &event) -> Maybe<account>;
 
   Allocator m_allocator;
   Store &m_store;

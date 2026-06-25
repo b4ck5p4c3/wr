@@ -271,12 +271,22 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
 
   let const session_row = m_store.find_session(token.value());
   if (session_row.is_error() || !session_row.value().has_value()) return None;
-  if (session_row.value().value().expires_at < now_seconds()) return None;
+  let const &session = session_row.value().value();
+  if (session.expires_at < now_seconds()) return None;
 
-  let const found =
-      m_store.find_account(session_row.value().value().identity.view());
+  let const found = m_store.find_account(session.identity.view());
   if (found.is_error()) return None;
   return found.value();
+}
+
+fn App::require_admin(HttpServerEvent &event) -> Maybe<account>
+{
+  let who = current_account(event);
+  if (!who.has_value() || !who.value().is_admin) {
+    reply_message(event, 403, "Admins only");
+    return None;
+  }
+  return who;
 }
 
 } // namespace wr
