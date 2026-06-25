@@ -8,10 +8,12 @@ This document describes the architecture.
 
 ## Components
 
-The server core opens the store, builds the event manager, registers the routes
-and the liveness timer, and runs the loop. The outbound layer uses a generic HTTP
-client for the liveness probes and the OAuth token exchange. The store owns the
-SQL database connection, the migration, and the prepared statements.
+The server core opens the database, builds the server, starts the liveness sweep
+on its own thread, and runs the loop. The outbound layer uses a generic HTTP
+client for the liveness probes and the OAuth token exchange. The store maps the
+rows over an abstract SQL database, and the concrete sqlite backend owns the
+connection and the prepared statements. The store runs the migration over the
+borrowed backend.
 
 The frontend is a static Preact bundle served as an asset.
 
@@ -90,7 +92,8 @@ sequenceDiagram
 The store holds five kinds of rows.
 
 - A site holds a slug, a pretty name, a url, an optional favicon, a reachability
-  state, a last seen time, and an owner. The slug keys the navigation.
+  state, a last seen time, an owner, and a deleted flag. The slug keys the
+  navigation, and a removal sets the deleted flag rather than dropping the row.
 - A panel user holds an identity from a provider and a display name.
 - An admin holds an identity that is allowed into the admin panel.
 - A session holds a token, the identity it belongs to, and an expiry.
@@ -120,7 +123,9 @@ flowchart LR
 
 The HTTP layer routes a request to the page renderer, the JSON API, the auth
 endpoints, or the static asset handler. The navigation API is read-only and
-serves the ring.
+serves the ring. The public navigation API is documented at /docs, separate from
+the internal panel API. A textual client such as curl is answered with the JSON
+form of a route while a browser is given the page.
 
 ```mermaid
 flowchart TD
@@ -129,11 +134,17 @@ flowchart TD
   router -->|/{slug} and variants| nav[Navigation]
   router -->|/auth and /oauth| auth[Auth endpoints]
   router -->|/api/panel| panel[Panel API behind the session]
+  router -->|/docs| docs[Public API docs page]
   router -->|everything else| asset[Static asset]
   nav -->|/{slug}| redirect[Redirect to the site]
   nav -->|/{slug}/data| data[Navigation data]
   nav -->|/{slug}/next and /prev and /random| step[Step the ring]
 ```
+
+A dev mode is turned on by the `--dev` flag. It exposes a login bypass at
+/auth/dev for an admin or a user, and the client reads the dev state and the
+configured providers from /api/config. Outside dev mode the server refuses to
+start without a login provider and a session key.
 
 ### API
 
@@ -141,10 +152,11 @@ The JSON API is described in [openapi.yaml](openapi.yaml).
 
 ## Liveness sweep
 
-The server probes each approved site on a timer. An up site is probed every
-five minutes. A failed probe moves the site down and takes it out of the ring,
-and a down site is then probed every minute. A 200 restores the failed site to
-the ring. The reachability and the last seen time are recorded on every probe.
+The sweep runs on its own thread and wakes every minute. An up site is probed
+every five minutes. A failed probe marks the site down and takes it out of the
+active ring, and a down site is then probed every minute. A 200 restores the
+failed site to the ring. The reachability and the last seen time are recorded on
+every probe.
 
 ```mermaid
 stateDiagram-v2

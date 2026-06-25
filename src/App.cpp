@@ -463,8 +463,8 @@ fn App::serve_static(HttpServerEvent &event) -> void
 fn App::emit(HttpServerEvent &event, u16 status, const HttpHeaders &headers,
              StringView body) -> void
 {
-  /* Every response funnels through here, so the access line traces each
-     pageview and every http error at the default verbosity. */
+  /* The reply helpers funnel through here, so a pageview and an http error are
+     traced. The auth redirects reply directly and are not traced here. */
   let const method = event.method();
   let const uri = event.uri();
   LOG(Info, "%.*s %.*s -> %u", static_cast<int>(method.count()), method.data,
