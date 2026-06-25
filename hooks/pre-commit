@@ -1,10 +1,21 @@
 #!/bin/sh
-# Pre-commit hook. The source is formatted through `make fmt` before a commit
-# lands so the tree stays clang-format clean. Only the files that were already
-# staged are restaged, so an unrelated working tree change is never added.
+# Pre-commit hook. The source is formatted before a commit lands so the tree
+# stays clang-format and prettier clean, and a leftover checkin marker is
+# rejected. Only the files that were already staged are restaged, so an
+# unrelated working tree change is never added.
 set -e
 
 repo_root=$(git rev-parse --show-toplevel)
+
+# A leftover marker is a deliberate do-not-commit guard, so a staged file that
+# carries it aborts the commit. The hook itself names the marker, so it is
+# excluded from the scan.
+marker=$(printf 'no%s' 'checkin')
+if git grep --cached -n -I -e "$marker" -- ':!hooks/pre-commit' >/dev/null 2>&1; then
+	echo "pre-commit: a '$marker' marker is staged, aborting:" >&2
+	git grep --cached -n -I -e "$marker" -- ':!hooks/pre-commit' >&2
+	exit 1
+fi
 
 make -C "$repo_root/src" fmt >/dev/null
 
@@ -12,3 +23,15 @@ git diff --cached --name-only --diff-filter=ACM -- 'src/*.cpp' 'src/*.hpp' |
 	while read -r path; do
 		git add -- "$repo_root/$path"
 	done
+
+# The frontend is formatted through prettier when a web source is staged and bun
+# is available.
+web_staged=$(git diff --cached --name-only --diff-filter=ACM \
+	-- 'web/src/*.js' 'web/src/*.jsx' 'web/src/*.css')
+if [ -n "$web_staged" ] && command -v bun >/dev/null 2>&1; then
+	(cd "$repo_root/web" && bun run format >/dev/null)
+	echo "$web_staged" |
+		while read -r path; do
+			git add -- "$repo_root/$path"
+		done
+fi
