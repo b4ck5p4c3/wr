@@ -89,8 +89,8 @@ inline String value_to_log_string(char value)
 }
 
 template <class T>
-  requires __is_integral
-(T) String value_to_log_string(T value)
+  requires(__is_integral(T))
+String value_to_log_string(T value)
 {
   char buffer[32];
   if constexpr (__is_signed(T)) {
@@ -104,8 +104,8 @@ template <class T>
 }
 
 template <class T>
-  requires __is_floating_point
-(T) String value_to_log_string(T value)
+  requires(__is_floating_point(T))
+String value_to_log_string(T value)
 {
   char buffer[64];
   std::snprintf(buffer, sizeof(buffer), "%g", static_cast<double>(value));
@@ -113,8 +113,8 @@ template <class T>
 }
 
 template <class T>
-  requires __is_pointer
-(T) String value_to_log_string(T value)
+  requires(__is_pointer(T))
+String value_to_log_string(T value)
 {
   char buffer[32];
   std::snprintf(buffer, sizeof(buffer), "%p", static_cast<const void *>(value));
