@@ -530,6 +530,22 @@ export function App() {
           <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
             B4cksp4ce
           </a>
+          {", "}
+          <a
+            href="https://github.com/toiletbril"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            toiletbril
+          </a>
+          {" and "}
+          <a
+            href="https://github.com/b4ck5p4c3/wr/graphs/contributors"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            project contributors
+          </a>
           , 2026
         </p>
       </footer>
