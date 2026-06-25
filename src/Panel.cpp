@@ -48,7 +48,7 @@ fn write_panel_site(JsonWriter &writer, const site &row) -> void
   writer.field("slug", row.slug.view());
   writer.field("name", row.name.view());
   writer.field("url", row.url.view());
-  writer.field("favicon", row.favicon.view());
+  writer.field("description", row.description.view());
   writer.key("is_reachable");
   writer.boolean(row.is_reachable);
   writer.key("last_seen_at");
@@ -62,7 +62,7 @@ struct site_input
   StringView slug;
   StringView name;
   StringView url;
-  StringView favicon;
+  StringView description;
 };
 
 /* Read and validate the add or edit fields out of a parsed body. The returned
@@ -73,7 +73,7 @@ fn validate_site_input(const Json &document, site_input &out) -> const char *
   let const slug = document["slug"].to<StringView>();
   let const name = document["name"].to<StringView>();
   let const url = document["url"].to<StringView>();
-  let const favicon = document["favicon"].to<StringView>();
+  let const description = document["description"].to<StringView>();
 
   if (!slug.has_value() || !name.has_value() || !url.has_value())
     return "A slug, a name, and a url are required";
@@ -82,9 +82,10 @@ fn validate_site_input(const Json &document, site_input &out) -> const char *
   if (!is_valid_site_url(url.value()))
     return "The url must start with http:// or https://";
 
-  out.favicon = favicon.has_value() ? favicon.value() : StringView{};
-  if (!out.favicon.is_empty() && !is_valid_site_url(out.favicon))
-    return "The favicon must start with http:// or https://";
+  out.description =
+      description.has_value() ? description.value() : StringView{};
+  if (out.description.count() > 280)
+    return "The description must be 280 characters or fewer";
 
   out.slug = slug.value();
   out.name = name.value();
@@ -175,7 +176,7 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
   payload.object_begin();
   payload.field("name", input.name);
   payload.field("url", input.url);
-  payload.field("favicon", input.favicon);
+  payload.field("description", input.description);
   payload.object_end();
 
   let const recorded = m_store.add_pending(
@@ -243,7 +244,7 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   row.slug = String{m_allocator, input.slug};
   row.name = String{m_allocator, input.name};
   row.url = String{m_allocator, input.url};
-  row.favicon = String{m_allocator, input.favicon};
+  row.description = String{m_allocator, input.description};
   row.owner = String{m_allocator, who.value().identity.view()};
   row.created_at = now_seconds();
 
@@ -309,7 +310,7 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
   row.slug = String{m_allocator, input.slug};
   row.name = String{m_allocator, input.name};
   row.url = String{m_allocator, input.url};
-  row.favicon = String{m_allocator, input.favicon};
+  row.description = String{m_allocator, input.description};
   row.owner = String{m_allocator, current.owner.view()};
   row.created_at = current.created_at;
 
@@ -437,8 +438,8 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
             String{m_allocator, payload["name"].to<StringView>().value_or({})};
         row.url =
             String{m_allocator, payload["url"].to<StringView>().value_or({})};
-        row.favicon = String{m_allocator,
-                             payload["favicon"].to<StringView>().value_or({})};
+        row.description = String{
+            m_allocator, payload["description"].to<StringView>().value_or({})};
         row.owner = String{m_allocator, action.owner.view()};
         row.created_at = now_seconds();
         let const stored = m_store.upsert_site(row);

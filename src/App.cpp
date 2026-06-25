@@ -144,7 +144,7 @@ fn write_site_json(JsonWriter &writer, const site &row) -> void
   writer.field("slug", row.slug.view());
   writer.field("name", row.name.view());
   writer.field("url", row.url.view());
-  writer.field("favicon", row.favicon.view());
+  writer.field("description", row.description.view());
   writer.object_end();
 }
 

@@ -1,4 +1,4 @@
-sites: [{"slug":"a","name":"Site A","url":"https://a.example","favicon":""},{"slug":"b","name":"Site B","url":"https://b.example","favicon":""}]
-a-data: {"previous":{"slug":"b","name":"Site B","url":"https://b.example","favicon":""},"current":{"slug":"a","name":"Site A","url":"https://a.example","favicon":""},"next":{"slug":"b","name":"Site B","url":"https://b.example","favicon":""}}
+sites: [{"slug":"a","name":"Site A","url":"https://a.example","description":""},{"slug":"b","name":"Site B","url":"https://b.example","description":""}]
+a-data: {"previous":{"slug":"b","name":"Site B","url":"https://b.example","description":""},"current":{"slug":"a","name":"Site A","url":"https://a.example","description":""},"next":{"slug":"b","name":"Site B","url":"https://b.example","description":""}}
 a-next: 302 https://b.example/
 me-unauth: 401

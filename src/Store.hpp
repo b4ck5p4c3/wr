@@ -14,7 +14,7 @@ struct site
   String slug;
   String name;
   String url;
-  String favicon;
+  String description;
   bool is_reachable{true};
   i64 last_seen_at{0};
   String owner;

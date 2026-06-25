@@ -15,7 +15,7 @@ disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/config"
 
 curl -s -c "$UJAR" -o /dev/null "http://127.0.0.1:$PORT/auth/dev?role=user"
-echo "add: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"mine","name":"My Site","url":"https://mine.example","favicon":""}' "http://127.0.0.1:$PORT/api/sites/add")"
+echo "add: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"mine","name":"My Site","url":"https://mine.example","description":"a personal site"}' "http://127.0.0.1:$PORT/api/sites/add")"
 echo "sites-before: $(curl -s "http://127.0.0.1:$PORT/sites")"
 echo "me-pending: $(curl -s -b "$UJAR" "http://127.0.0.1:$PORT/api/me")"
 

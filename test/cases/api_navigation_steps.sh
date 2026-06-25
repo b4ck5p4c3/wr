@@ -10,7 +10,7 @@ WEB=$(mktemp -d)
 printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 
 timeout 2 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1
-sqlite3 "$DB" "INSERT INTO sites (slug,name,url,favicon,is_reachable,last_seen_at,owner,created_at) VALUES ('a','Site A','https://a.example','',1,9999999999,'x',1),('b','Site B','https://b.example','',1,9999999999,'x',2);"
+sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('a','Site A','https://a.example','',1,9999999999,'x',1),('b','Site B','https://b.example','',1,9999999999,'x',2);"
 
 timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
 server=$!

@@ -12,7 +12,7 @@ fn read_site(SqlStatement &statement) -> site
   row.slug = statement.get<String>();
   row.name = statement.get<String>();
   row.url = statement.get<String>();
-  row.favicon = statement.get<String>();
+  row.description = statement.get<String>();
   row.is_reachable = statement.get<i64>() != 0;
   row.last_seen_at = statement.get<i64>();
   row.owner = statement.get<String>();
@@ -33,8 +33,8 @@ fn read_pending_action(SqlStatement &statement) -> pending_action
   return row;
 }
 
-const StringView SITE_COLUMNS =
-    "slug, name, url, favicon, is_reachable, last_seen_at, owner, created_at";
+const StringView SITE_COLUMNS = "slug, name, url, description, is_reachable, "
+                                "last_seen_at, owner, created_at";
 
 } // namespace
 
@@ -77,6 +77,9 @@ static const char *const SCHEMA_MIGRATIONS[] = {
     "sessions(expires_at);",
 
     "ALTER TABLE sites ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0;",
+
+    ("ALTER TABLE sites ADD COLUMN description TEXT NOT NULL DEFAULT ''; "
+     "ALTER TABLE sites DROP COLUMN favicon;"),
 };
 
 fn Store::schema_version() const -> ErrorOr<i64>
@@ -191,17 +194,17 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
 {
   let const sql =
       "INSERT INTO sites "
-      "(slug, name, url, favicon, is_reachable, last_seen_at, owner, "
+      "(slug, name, url, description, is_reachable, last_seen_at, owner, "
       "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
       "ON CONFLICT(slug) DO UPDATE SET name = excluded.name, "
-      "url = excluded.url, favicon = excluded.favicon, owner = excluded.owner, "
-      "is_deleted = 0;";
+      "url = excluded.url, description = excluded.description, "
+      "owner = excluded.owner, is_deleted = 0;";
 
   let statement = TRY(m_database.prepare(sql));
   statement.bind(row.slug.view());
   statement.bind(row.name.view());
   statement.bind(row.url.view());
-  statement.bind(row.favicon.view());
+  statement.bind(row.description.view());
   statement.bind(row.is_reachable);
   statement.bind(row.last_seen_at);
   statement.bind(row.owner.view());
