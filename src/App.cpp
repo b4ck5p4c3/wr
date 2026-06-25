@@ -71,6 +71,22 @@ fn contains_double_dot(StringView path) -> bool
   return false;
 }
 
+/* A textual client identifies itself by a user agent prefix, so it is served
+   the JSON form of a route instead of the page a browser is given. */
+fn prefers_json(HttpServerEvent &event) -> bool
+{
+  let const user_agent = event.request_headers().get("user-agent");
+  if (!user_agent.has_value()) return false;
+
+  static const StringView TEXTUAL_AGENT_PREFIXES[] = {
+      "curl/",           "Wget/",        "HTTPie/", "python-requests/",
+      "Go-http-client/", "libwww-perl/", "okhttp/"};
+  for (let const prefix : TEXTUAL_AGENT_PREFIXES)
+    if (user_agent.value().starts_with(prefix)) return true;
+
+  return false;
+}
+
 } // namespace
 
 fn find_query_param(StringView query, StringView name, Allocator allocator)
@@ -323,11 +339,12 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
                           StringView step, bool wants_data) -> void
 {
   /* A browser navigation is served the single-page shell on any failure, so the
-     styled error page is rendered. The data form keeps the JSON error for an
-     API consumer. */
+     styled error page is rendered. The data form and a textual client keep the
+     JSON error. */
+  let const wants_page = !wants_data && !prefers_json(event);
   let const sites_or = m_store.list_active_sites();
   if (sites_or.is_error()) {
-    if (!wants_data) {
+    if (wants_page) {
       serve_static(event);
       return;
     }
@@ -336,7 +353,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
   }
   let const &sites = sites_or.value();
   if (sites.is_empty()) {
-    if (!wants_data) {
+    if (wants_page) {
       serve_static(event);
       return;
     }
@@ -352,7 +369,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
     }
   }
   if (current == sites.count()) {
-    if (!wants_data) {
+    if (wants_page) {
       serve_static(event);
       return;
     }
@@ -426,6 +443,12 @@ fn App::serve_static(HttpServerEvent &event) -> void
   if (contents.has_value()) {
     reply_text(event, 200, content_type_for(file_path.view()),
                contents.value().view());
+    return;
+  }
+
+  /* A textual client is given a JSON not-found rather than the page shell. */
+  if (prefers_json(event)) {
+    reply_message(event, 404, "Not found");
     return;
   }
 
