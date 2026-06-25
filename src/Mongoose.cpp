@@ -18,6 +18,24 @@ mustuse pure fn to_view(mg_str text) noexcept -> StringView
   return StringView{text.buf, text.len};
 }
 
+/* The reason phrase for the status line, since the mongoose helper is private.
+ */
+pure fn reason_phrase(u16 status) noexcept -> const char *
+{
+  switch (status) {
+  case 200: return "OK";
+  case 302: return "Found";
+  case 400: return "Bad Request";
+  case 401: return "Unauthorized";
+  case 403: return "Forbidden";
+  case 404: return "Not Found";
+  case 405: return "Method Not Allowed";
+  case 413: return "Payload Too Large";
+  case 500: return "Internal Server Error";
+  default: return "OK";
+  }
+}
+
 /* The logger verbosity drives the mongoose level, so one knob controls both. */
 pure fn mongoose_level_for(verbosity level) noexcept -> int
 {
@@ -106,14 +124,15 @@ fn MongooseServer::reply(opaque *connection, u16 status,
     header_block.append("\r\n");
   });
 
-  /* The length-bounded conversion keeps a percent sign in the body from being
-     read as a format directive. The precision is an int, so the body length is
-     bounded below INT_MAX, which every served payload satisfies. */
-  ASSERT(body.count() <= 0x7fffffffULL,
-         "reply body too large for mg_http_reply");
-  mg_http_reply(mongoose_connection, static_cast<int>(status),
-                header_block.c_str(), "%.*s", static_cast<int>(body.count()),
-                body.data);
+  /* mongoose printf reads the body through %s, which stops at the first null
+     byte and truncates a binary asset such as a woff2 font or a webp image. The
+     head is printed and the body is sent as raw bytes. */
+  mg_printf(mongoose_connection,
+            "HTTP/1.1 %d %s\r\n%sContent-Length: %lu\r\n\r\n",
+            static_cast<int>(status), reason_phrase(status),
+            header_block.c_str(), static_cast<unsigned long>(body.count()));
+  mg_send(mongoose_connection, body.data, body.count());
+  mongoose_connection->is_resp = 0;
   return Success;
 }
 
