@@ -214,11 +214,6 @@ h2,
 h3 {
   color: var(--text-secondary);
   font-weight: 700;
-  margin-bottom: 0.5ch;
-}
-
-p {
-  margin: 0.5ch 0;
 }
 
 img {
@@ -277,19 +272,28 @@ main,
   color: var(--accent);
 }
 
+/* The content slabs stack their children on one vertical rhythm, so every
+   section, list, and form is spaced the same. */
+main,
+.panel,
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5ch;
+}
+
 main {
   padding: 3ch;
 }
 
 .card {
   padding: 2.5ch;
-  display: block;
+  gap: 1ch;
 }
 
 /* The management entry is a slab set apart at the foot of the home page. */
 .panel {
   padding: 2.5ch;
-  margin-top: 3ch;
 }
 
 /* The buttons are small and square, with compact padding. */
@@ -343,7 +347,6 @@ input {
   color: var(--text-primary);
   border: 1px solid var(--border);
   padding: 0.6ch 1ch;
-  margin: 0.4ch 0.6ch 0.4ch 0;
 }
 
 input:focus {
@@ -355,7 +358,9 @@ ul.sites,
 ul.pendings {
   list-style: none;
   padding: 0;
-  margin-top: 1.5ch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8ch;
 }
 
 li.site,
@@ -365,7 +370,6 @@ li.pending {
   align-items: center;
   gap: 1.2ch;
   padding: 1.2ch;
-  margin: 0.8ch 0;
   border: 1px solid var(--panel-outline);
   background: rgba(0, 0, 0, 0.18);
 }
