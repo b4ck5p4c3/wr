@@ -253,7 +253,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
   /* The SPA owns the bare app routes and any asset, so they are served as
      static files before a top-level segment is read as a navigation slug. */
   if (path == "/" || path == "/about" || path == "/panel" || path == "/admin" ||
-      path.starts_with("/assets/"))
+      path == "/docs" || path.starts_with("/assets/"))
   {
     serve_static(event);
     return;
@@ -414,7 +414,10 @@ fn App::serve_static(HttpServerEvent &event) -> void
 
   String file_path{m_allocator};
   file_path.append(m_config.web_root.view());
-  if (path == "/" || path == "/about" || path == "/panel" || path == "/admin")
+  if (path == "/docs")
+    file_path.append("/docs.html");
+  else if (path == "/" || path == "/about" || path == "/panel" ||
+           path == "/admin")
     file_path.append("/index.html");
   else
     file_path.append(path);
