@@ -3,33 +3,23 @@
 A small, cute and simple webring backend.
 See [original issue](https://t.me/b4cksp4ce_issues/762).
 
-## Build
-
-The server builds with clang at C++23.
-
-```
-export MODE=dbg/rel/cov
-make MODE=dbg
-```
-
-The frontend builds under the web directory.
+## Quickstart
 
 ```
 cd web
-bun install
-bun run build # writes bundle to ./web/dist
+bun run install
+export MODE=dbg/rel/cov
+make web
+make
 ```
 
-## Run
-
+then run:
 ```
 ./wr --listen http://0.0.0.0:8000 --database wr.db --web-root web/dist \
      --public-url https://your.ring
 ```
 
-The OAuth secrets and the session key are read from the environment, so they are
-never passed on the command line.
-
+Environment:
 ```
 WR_GITHUB_CLIENT_ID, WR_GITHUB_CLIENT_SECRET, WR_TELEGRAM_BOT_TOKEN, WR_SESSION_KEY
 ```
