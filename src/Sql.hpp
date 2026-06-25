@@ -24,18 +24,22 @@ public:
   SqlStatement(SqlStatement &&other) noexcept;
   SqlStatement &operator=(SqlStatement &&other) noexcept;
 
-  fn bind(int index, StringView text) -> void;
-  fn bind(int index, i64 value) -> void;
+  fn bind(StringView text) -> void;
+  fn bind(i64 value) -> void;
 
   mustuse fn step() -> ErrorOr<bool>;
 
-  mustuse fn text(int column) const -> String;
-  mustuse fn integer(int column) const -> i64;
+  /* The column is read in select order, so the position advances on every call
+     and resets on the next step. */
+  template <class T>
+  mustuse fn get() -> T;
 
 private:
   SqlDatabase *m_database;
   opaque *m_handle;
   Allocator m_allocator;
+  int m_next_bind_position = 1;
+  int m_next_column_position = 0;
 };
 
 /* The abstract SQL database. A backend such as Sqlite owns the connection,
@@ -92,29 +96,33 @@ inline SqlStatement &SqlStatement::operator=(SqlStatement &&other) noexcept
   return *this;
 }
 
-inline fn SqlStatement::bind(int index, StringView text) -> void
+inline fn SqlStatement::bind(StringView text) -> void
 {
-  m_database->bind_text(m_handle, index, text);
+  m_database->bind_text(m_handle, m_next_bind_position++, text);
 }
 
-inline fn SqlStatement::bind(int index, i64 value) -> void
+inline fn SqlStatement::bind(i64 value) -> void
 {
-  m_database->bind_int(m_handle, index, value);
+  m_database->bind_int(m_handle, m_next_bind_position++, value);
 }
 
 inline fn SqlStatement::step() -> ErrorOr<bool>
 {
+  m_next_column_position = 0;
   return m_database->step(m_handle);
 }
 
-inline fn SqlStatement::text(int column) const -> String
+template <>
+inline fn SqlStatement::get<String>() -> String
 {
-  return m_database->column_text(m_handle, column, m_allocator);
+  return m_database->column_text(m_handle, m_next_column_position++,
+                                 m_allocator);
 }
 
-inline fn SqlStatement::integer(int column) const -> i64
+template <>
+inline fn SqlStatement::get<i64>() -> i64
 {
-  return m_database->column_int(m_handle, column);
+  return m_database->column_int(m_handle, m_next_column_position++);
 }
 
 } // namespace wr

@@ -6,30 +6,30 @@ namespace wr {
 
 namespace {
 
-fn read_site(const SqlStatement &statement) -> site
+fn read_site(SqlStatement &statement) -> site
 {
   site row{};
-  row.slug = statement.text(0);
-  row.name = statement.text(1);
-  row.url = statement.text(2);
-  row.favicon = statement.text(3);
-  row.is_reachable = statement.integer(4) != 0;
-  row.last_seen_at = statement.integer(5);
-  row.owner = statement.text(6);
-  row.created_at = statement.integer(7);
+  row.slug = statement.get<String>();
+  row.name = statement.get<String>();
+  row.url = statement.get<String>();
+  row.favicon = statement.get<String>();
+  row.is_reachable = statement.get<i64>() != 0;
+  row.last_seen_at = statement.get<i64>();
+  row.owner = statement.get<String>();
+  row.created_at = statement.get<i64>();
   return row;
 }
 
-fn read_pending_action(const SqlStatement &statement) -> pending_action
+fn read_pending_action(SqlStatement &statement) -> pending_action
 {
   pending_action row{};
-  row.id = statement.integer(0);
-  row.kind = statement.text(1);
-  row.owner = statement.text(2);
-  row.target_slug = statement.text(3);
-  row.payload = statement.text(4);
-  row.created_at = statement.integer(5);
-  row.status = statement.text(6);
+  row.id = statement.get<i64>();
+  row.kind = statement.get<String>();
+  row.owner = statement.get<String>();
+  row.target_slug = statement.get<String>();
+  row.payload = statement.get<String>();
+  row.created_at = statement.get<i64>();
+  row.status = statement.get<String>();
   return row;
 }
 
@@ -98,7 +98,7 @@ fn Store::query_sites(const char *filter_sql, Maybe<StringView> owner) const
   sql.append(filter_sql);
 
   let statement = TRY(m_database.prepare(sql.view()));
-  if (owner.has_value()) statement.bind(1, owner.value());
+  if (owner.has_value()) statement.bind(owner.value());
 
   while (TRY(statement.step()))
     sites.push(read_site(statement));
@@ -132,7 +132,7 @@ fn Store::find_site(StringView slug) const -> ErrorOr<Maybe<site>>
   sql.append(" FROM sites WHERE slug = ? AND is_deleted = 0;");
 
   let statement = TRY(m_database.prepare(sql.view()));
-  statement.bind(1, slug);
+  statement.bind(slug);
   if (TRY(statement.step())) return Maybe<site>{read_site(statement)};
   return Maybe<site>{None};
 }
@@ -148,14 +148,14 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
       "is_deleted = 0;";
 
   let statement = TRY(m_database.prepare(sql));
-  statement.bind(1, row.slug.view());
-  statement.bind(2, row.name.view());
-  statement.bind(3, row.url.view());
-  statement.bind(4, row.favicon.view());
-  statement.bind(5, static_cast<i64>(row.is_reachable));
-  statement.bind(6, row.last_seen_at);
-  statement.bind(7, row.owner.view());
-  statement.bind(8, row.created_at);
+  statement.bind(row.slug.view());
+  statement.bind(row.name.view());
+  statement.bind(row.url.view());
+  statement.bind(row.favicon.view());
+  statement.bind(static_cast<i64>(row.is_reachable));
+  statement.bind(row.last_seen_at);
+  statement.bind(row.owner.view());
+  statement.bind(row.created_at);
   unused(TRY(statement.step()));
 
   LOG(Info, "site upserted, slug=%s owner=%s", row.slug.c_str(),
@@ -167,8 +167,8 @@ fn Store::rename_site(StringView slug, StringView name) -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
       "UPDATE sites SET name = ? WHERE slug = ? AND is_deleted = 0;"));
-  statement.bind(1, name);
-  statement.bind(2, slug);
+  statement.bind(name);
+  statement.bind(slug);
   unused(TRY(statement.step()));
 
   LOG(Info, "site renamed, slug=%.*s name=%.*s", static_cast<int>(slug.count()),
@@ -182,7 +182,7 @@ fn Store::delete_site(StringView slug) -> ErrorOr<Ok>
      that pointed at the site survive an admin mistake. */
   let statement = TRY(
       m_database.prepare("UPDATE sites SET is_deleted = 1 WHERE slug = ?;"));
-  statement.bind(1, slug);
+  statement.bind(slug);
   unused(TRY(statement.step()));
 
   LOG(Info, "site marked deleted, slug=%.*s", static_cast<int>(slug.count()),
@@ -195,9 +195,9 @@ fn Store::set_site_reachability(StringView slug, bool is_reachable,
 {
   let statement = TRY(m_database.prepare(
       "UPDATE sites SET is_reachable = ?, last_seen_at = ? WHERE slug = ?;"));
-  statement.bind(1, static_cast<i64>(is_reachable));
-  statement.bind(2, last_seen_at);
-  statement.bind(3, slug);
+  statement.bind(static_cast<i64>(is_reachable));
+  statement.bind(last_seen_at);
+  statement.bind(slug);
   unused(TRY(statement.step()));
 
   LOG(Debug, "site reachability set, slug=%.*s is_reachable=%d",
@@ -210,12 +210,12 @@ fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>
   let statement = TRY(m_database.prepare(
       "SELECT identity, display_name, is_admin FROM accounts "
       "WHERE identity = ?;"));
-  statement.bind(1, identity);
+  statement.bind(identity);
   if (TRY(statement.step())) {
     account row{};
-    row.identity = statement.text(0);
-    row.display_name = statement.text(1);
-    row.is_admin = statement.integer(2) != 0;
+    row.identity = statement.get<String>();
+    row.display_name = statement.get<String>();
+    row.is_admin = statement.get<i64>() != 0;
     return Maybe<account>{steal(row)};
   }
   return Maybe<account>{None};
@@ -229,9 +229,9 @@ fn Store::upsert_account(StringView identity, StringView display_name,
                              "is_admin) VALUES (?, ?, ?) "
                              "ON CONFLICT(identity) DO UPDATE SET "
                              "display_name = excluded.display_name;"));
-  statement.bind(1, identity);
-  statement.bind(2, display_name);
-  statement.bind(3, static_cast<i64>(is_admin));
+  statement.bind(identity);
+  statement.bind(display_name);
+  statement.bind(static_cast<i64>(is_admin));
   unused(TRY(statement.step()));
 
   LOG(Info, "account upserted, identity=%.*s is_admin=%d",
@@ -244,9 +244,9 @@ fn Store::create_session(StringView token, StringView identity, i64 expires_at)
 {
   let statement = TRY(m_database.prepare(
       "INSERT INTO sessions (token, identity, expires_at) VALUES (?, ?, ?);"));
-  statement.bind(1, token);
-  statement.bind(2, identity);
-  statement.bind(3, expires_at);
+  statement.bind(token);
+  statement.bind(identity);
+  statement.bind(expires_at);
   unused(TRY(statement.step()));
 
   LOG(Info, "session opened for identity=%.*s",
@@ -258,12 +258,12 @@ fn Store::find_session(StringView token) const -> ErrorOr<Maybe<session>>
 {
   let statement = TRY(m_database.prepare(
       "SELECT token, identity, expires_at FROM sessions WHERE token = ?;"));
-  statement.bind(1, token);
+  statement.bind(token);
   if (TRY(statement.step())) {
     session row{};
-    row.token = statement.text(0);
-    row.identity = statement.text(1);
-    row.expires_at = statement.integer(2);
+    row.token = statement.get<String>();
+    row.identity = statement.get<String>();
+    row.expires_at = statement.get<i64>();
     return Maybe<session>{steal(row)};
   }
   return Maybe<session>{None};
@@ -273,7 +273,7 @@ fn Store::delete_session(StringView token) -> ErrorOr<Ok>
 {
   let statement =
       TRY(m_database.prepare("DELETE FROM sessions WHERE token = ?;"));
-  statement.bind(1, token);
+  statement.bind(token);
   unused(TRY(statement.step()));
 
   LOG(Info, "session closed");
@@ -300,7 +300,7 @@ fn Store::list_pending_for_owner(StringView owner) const
       "SELECT id, kind, owner, target_slug, payload, created_at, status "
       "FROM pending_actions WHERE owner = ? AND status = 'pending' "
       "ORDER BY created_at;"));
-  statement.bind(1, owner);
+  statement.bind(owner);
 
   while (TRY(statement.step()))
     actions.push(read_pending_action(statement));
@@ -313,11 +313,11 @@ fn Store::add_pending(StringView kind, StringView owner, StringView target_slug,
   let statement = TRY(m_database.prepare(
       "INSERT INTO pending_actions (kind, owner, target_slug, payload, "
       "created_at, status) VALUES (?, ?, ?, ?, ?, 'pending');"));
-  statement.bind(1, kind);
-  statement.bind(2, owner);
-  statement.bind(3, target_slug);
-  statement.bind(4, payload);
-  statement.bind(5, created_at);
+  statement.bind(kind);
+  statement.bind(owner);
+  statement.bind(target_slug);
+  statement.bind(payload);
+  statement.bind(created_at);
   unused(TRY(statement.step()));
 
   LOG(Info, "pending action recorded, kind=%.*s owner=%.*s target=%.*s",
@@ -332,7 +332,7 @@ fn Store::find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>
   let statement = TRY(m_database.prepare(
       "SELECT id, kind, owner, target_slug, payload, created_at, status "
       "FROM pending_actions WHERE id = ?;"));
-  statement.bind(1, id);
+  statement.bind(id);
   if (TRY(statement.step()))
     return Maybe<pending_action>{read_pending_action(statement)};
   return Maybe<pending_action>{None};
@@ -342,8 +342,8 @@ fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
       "UPDATE pending_actions SET status = ? WHERE id = ?;"));
-  statement.bind(1, status);
-  statement.bind(2, id);
+  statement.bind(status);
+  statement.bind(id);
   unused(TRY(statement.step()));
 
   LOG(Info, "pending action %lld set to %.*s", static_cast<long long>(id),
