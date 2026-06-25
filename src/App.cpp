@@ -424,11 +424,23 @@ fn App::serve_static(HttpServerEvent &event) -> void
   reply_message(event, 404, "Not found");
 }
 
+fn App::emit(HttpServerEvent &event, u16 status, const HttpHeaders &headers,
+             StringView body) -> void
+{
+  /* Every response funnels through here, so the access line traces each
+     pageview and every http error at the default verbosity. */
+  let const method = String{m_allocator, event.method()};
+  let const uri = String{m_allocator, event.uri()};
+  LOG(Info, "%s %s -> %u", method.c_str(), uri.c_str(), status);
+
+  unused(event.reply(status, headers, body).is_error());
+}
+
 fn App::reply_json(HttpServerEvent &event, u16 status, StringView json) -> void
 {
   HttpHeaders headers{m_allocator};
   headers.set("Content-Type", "application/json");
-  unused(event.reply(status, headers, json).is_error());
+  emit(event, status, headers, json);
 }
 
 fn App::reply_text(HttpServerEvent &event, u16 status, StringView content_type,
@@ -436,14 +448,14 @@ fn App::reply_text(HttpServerEvent &event, u16 status, StringView content_type,
 {
   HttpHeaders headers{m_allocator};
   headers.set("Content-Type", content_type);
-  unused(event.reply(status, headers, body).is_error());
+  emit(event, status, headers, body);
 }
 
 fn App::reply_redirect(HttpServerEvent &event, StringView location) -> void
 {
   HttpHeaders headers{m_allocator};
   headers.set("Location", location);
-  unused(event.reply(302, headers, "").is_error());
+  emit(event, 302, headers, "");
 }
 
 fn App::reply_message(HttpServerEvent &event, u16 status, StringView message)
