@@ -1,29 +1,30 @@
 /* The look is borrowed from the fennec.support site, a CRT terminal theme set in
-   Terminus over a scanline and a noise overlay. */
+   Terminus over a scanline and a noise overlay. The fonts are bundled from the
+   static dir so the build fingerprints them. */
 
 @font-face {
   font-display: swap;
   font-family: "Terminus";
-  src: url("/font/woff2/terminus.woff2") format("woff2");
+  src: url("../static/font/woff2/terminus.woff2") format("woff2");
   font-weight: 400;
 }
 @font-face {
   font-display: swap;
   font-family: "Terminus";
-  src: url("/font/woff2/terminus-bold.woff2") format("woff2");
+  src: url("../static/font/woff2/terminus-bold.woff2") format("woff2");
   font-weight: 700;
 }
 @font-face {
   font-display: swap;
   font-family: "Terminus";
-  src: url("/font/woff2/terminus-italic.woff2") format("woff2");
+  src: url("../static/font/woff2/terminus-italic.woff2") format("woff2");
   font-weight: 400;
   font-style: italic;
 }
 @font-face {
   font-display: swap;
   font-family: "Terminus";
-  src: url("/font/woff2/terminus-bold-italic.woff2") format("woff2");
+  src: url("../static/font/woff2/terminus-bold-italic.woff2") format("woff2");
   font-weight: 700;
   font-style: italic;
 }
@@ -47,29 +48,6 @@
   --scanline: rgba(0, 0, 0, 0.25);
   --up: #82e882;
   --down: #ff7a7a;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg-primary: #78b890;
-    --bg-secondary: #68a880;
-    --text-primary: #0a3520;
-    --text-secondary: #8a4510;
-    --accent: #c54508;
-    --border: #7a9d8a;
-    --background-start: #98c888;
-    --background-middle: #88bc98;
-    --crt-glow: #852f0581;
-    --a-main: #ff6820e7;
-    --a-strong: #f41600;
-    --footer-text: #1a4a48;
-    --panel-glow-inset: rgba(197, 69, 8, 0.12);
-    --panel-outline: rgba(46, 23, 6, 0.08);
-    --tui-shadow: rgba(0, 0, 0, 0.3);
-    --scanline: rgba(0, 0, 0, 0.05);
-    --up: #0d9040;
-    --down: #c51818;
-  }
 }
 
 *,
@@ -130,14 +108,7 @@ html::after {
   transform: translateZ(0);
 }
 
-@media (prefers-color-scheme: light) {
-  html::after {
-    opacity: 0.2;
-  }
-}
-
 body {
-  margin: 0;
   min-height: 100vh;
   font: 16px/1.6 "Terminus", monospace;
   background:
@@ -206,7 +177,7 @@ main,
 .card,
 .modal {
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.32));
   box-shadow:
@@ -254,13 +225,15 @@ main {
   display: block;
 }
 
+/* The buttons are small pills, compact padding and a fully rounded edge. */
 button {
   font: inherit;
+  font-size: 14px;
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.25);
   color: var(--text-primary);
-  border-radius: 3px;
-  padding: 0.6ch 1.4ch;
+  border-radius: 999px;
+  padding: 0.2ch 1.4ch;
   cursor: pointer;
   text-shadow: 0 0 8px var(--crt-glow);
   transition:
@@ -304,7 +277,7 @@ input {
   background: rgba(0, 0, 0, 0.35);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 10px;
   padding: 0.6ch 1ch;
   margin: 0.4ch 0.6ch 0.4ch 0;
 }
@@ -330,7 +303,7 @@ li.pending {
   padding: 1.2ch;
   margin: 0.8ch 0;
   border: 1px solid var(--panel-outline);
-  border-radius: 3px;
+  border-radius: 12px;
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -383,7 +356,7 @@ code {
   padding: 1.2ch;
   margin: 1ch 0;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 12px;
   color: var(--text-primary);
 }
 
