@@ -38,10 +38,18 @@ private:
                          opaque *event_data) -> void;
   fn dispatch(mg_connection *connection, int event, opaque *event_data) -> void;
 
+  /* The mongoose sink hands one character at a time, so a line is buffered here
+     and flushed to the logger on a newline. */
+  static fn log_sink(char character, opaque *user) -> void;
+
+  static constexpr usize MAX_LOG_LINE_LENGTH = 1024;
+
   Allocator m_allocator;
   mg_mgr m_manager;
   HttpServerHandler m_handler{nullptr};
   opaque *m_user{nullptr};
+  char m_log_line[MAX_LOG_LINE_LENGTH];
+  usize m_log_line_length{0};
 };
 
 } // namespace wr

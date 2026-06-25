@@ -18,11 +18,47 @@ mustuse pure fn to_view(mg_str text) noexcept -> StringView
   return StringView{text.buf, text.len};
 }
 
+/* The logger verbosity drives the mongoose level, so one knob controls both. */
+pure fn mongoose_level_for(verbosity level) noexcept -> int
+{
+  switch (level) {
+  case verbosity::Nothing: return MG_LL_NONE;
+  case verbosity::Info: return MG_LL_ERROR;
+  case verbosity::Debug: return MG_LL_INFO;
+  case verbosity::All: return MG_LL_VERBOSE;
+  }
+  return MG_LL_ERROR;
+}
+
 } // namespace
 
 MongooseServer::MongooseServer(Allocator allocator) : m_allocator(allocator)
 {
   mg_mgr_init(&m_manager);
+
+  /* The default mongoose sink prints a per-connection trace to standard output
+     and ignores the -L log file. The sink is redirected into the logger and the
+     level is taken from the logger verbosity. */
+  mg_log_set(mongoose_level_for(LOGGER_VERBOSITY));
+  mg_log_set_fn(&MongooseServer::log_sink, this);
+}
+
+fn MongooseServer::log_sink(char character, opaque *user) -> void
+{
+  let const server = static_cast<MongooseServer *>(user);
+  if (server == nullptr) return;
+
+  if (character == '\n') {
+    if (server->m_log_line_length > 0) {
+      LOG(Info, "mongoose: %.*s", static_cast<int>(server->m_log_line_length),
+          server->m_log_line);
+      server->m_log_line_length = 0;
+    }
+    return;
+  }
+
+  if (server->m_log_line_length < MAX_LOG_LINE_LENGTH)
+    server->m_log_line[server->m_log_line_length++] = character;
 }
 
 MongooseServer::~MongooseServer() { mg_mgr_free(&m_manager); }
