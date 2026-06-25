@@ -68,7 +68,7 @@ periodic liveness check.
 - A user owns sites through the user panel, and an admin approves a site, removes a site, and manages the users through the admin panel.
 - Authentication is run through GitHub OAuth and the Telegram login widget, and a session row is opened and the session cookie is set on a login.
 - The `--dev` flag turns on dev mode, which exposes a login bypass at /auth/dev for an admin or a user. The client reads the dev state and the available providers from /api/config. Outside dev mode the server refuses to start unless at least one auth provider is configured, GitHub through both the client id and secret or Telegram through the bot token, and unless WR_SESSION_KEY is set.
-- Each site is probed by the liveness sweep, which wakes every 60 seconds and re-probes an up site after 300 seconds and a down site after 60 seconds. The reachability and the last seen time are recorded.
+- Each site is probed by the liveness sweep, which wakes every 60 seconds and re-probes an up site after 300 seconds and a down site after 60 seconds. The reachability and the last seen time are recorded. An admin edit zeroes the last seen time through Store::schedule_recheck, so the next sweep re-probes the site at once, and the request thread signals the sweep through the shared database rather than shared memory.
 - A site that fails the probe is marked down rather than removed. An admin removal is a soft delete that sets the is_deleted column, so the row and its history survive.
 
 ## Logging
