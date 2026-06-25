@@ -52,7 +52,9 @@ fn read_file(Allocator allocator, Path path) -> Maybe<String>
 fn split_first_segment(StringView path, StringView &rest) -> StringView
 {
   usize start = 0;
-  if (path.count() > 0 && path[0] == '/') start = 1;
+  if (path.count() > 0 && path[0] == '/') {
+    start = 1;
+  }
   usize end = start;
   while (end < path.count() && path[end] != '/')
     end++;

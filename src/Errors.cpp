@@ -2,7 +2,7 @@
 
 namespace wr {
 
-ErrorBase::ErrorBase() {}
+ErrorBase::ErrorBase() = default;
 
 ErrorBase::ErrorBase(StringView message) : m_message(message) {}
 
@@ -10,13 +10,13 @@ ErrorBase::ErrorBase(Allocator allocator, StringView message)
     : m_message(allocator, message)
 {}
 
-ErrorBase::~ErrorBase() {}
+ErrorBase::~ErrorBase() = default;
 
 fn ErrorBase::message() const -> String { return m_message; }
 
 fn ErrorBase::to_string() const -> String { return m_message; }
 
-Error::Error() {}
+Error::Error() = default;
 
 Error::Error(StringView message) : ErrorBase(message) {}
 

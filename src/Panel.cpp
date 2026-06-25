@@ -11,7 +11,9 @@ namespace {
    colliding with a reserved route or escaping a path. */
 fn is_valid_slug(StringView slug) -> bool
 {
-  if (slug.is_empty() || slug.count() > 64) return false;
+  if (slug.is_empty() || slug.count() > 64) {
+    return false;
+  }
   for (usize i = 0; i < slug.count(); i++) {
     let const c = slug[i];
     let const is_allowed =
