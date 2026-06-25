@@ -138,14 +138,18 @@ function Landing({ navigate, me, reload }) {
       )}
 
       {me && me.is_admin ? (
-        <p>
-          <a href="/admin" onClick={link(navigate, "/admin")}>
-            Open the admin panel
-          </a>
-        </p>
+        <section class="panel">
+          <h2>admin panel</h2>
+          <p>Signed in as {me.display_name}.</p>
+          <p>
+            <a href="/admin" onClick={link(navigate, "/admin")}>
+              open admin panel
+            </a>
+          </p>
+        </section>
       ) : me ? (
-        <>
-          <h2>your sites</h2>
+        <section class="panel">
+          <h2>your panel</h2>
           <p>Signed in as {me.display_name}.</p>
           {me.sites.length === 0 ? (
             <p>You have no sites yet.</p>
@@ -171,7 +175,7 @@ function Landing({ navigate, me, reload }) {
             </>
           ) : null}
           <AddSiteForm onAdded={reload} />
-        </>
+        </section>
       ) : null}
     </main>
   );

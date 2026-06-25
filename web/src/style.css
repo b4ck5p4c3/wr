@@ -231,6 +231,7 @@ img {
 .bar,
 main,
 .card,
+.panel,
 .modal {
   border: 1px solid var(--border);
   background:
@@ -276,6 +277,12 @@ main {
 .card {
   padding: 2.5ch;
   display: block;
+}
+
+/* The management entry is a slab set apart at the foot of the home page. */
+.panel {
+  padding: 2.5ch;
+  margin-top: 3ch;
 }
 
 /* The buttons are small and square, with compact padding. */
