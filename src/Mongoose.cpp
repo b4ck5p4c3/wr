@@ -68,7 +68,7 @@ fn MongooseServer::log_sink(char character, opaque *user) -> void
 
   if (character == '\n') {
     if (server->m_log_line_length > 0) {
-      LOG(Info, "mongoose: %.*s", static_cast<int>(server->m_log_line_length),
+      LOG(Debug, "mongoose: %.*s", static_cast<int>(server->m_log_line_length),
           server->m_log_line);
       server->m_log_line_length = 0;
     }
