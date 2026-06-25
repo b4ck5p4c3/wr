@@ -28,6 +28,7 @@ public:
 
   fn bind(StringView text) -> void;
   fn bind(i64 value) -> void;
+  fn bind(bool value) -> void;
 
   mustuse fn step() -> ErrorOr<bool>;
 
@@ -119,6 +120,12 @@ inline fn SqlStatement::bind(StringView text) -> void
 inline fn SqlStatement::bind(i64 value) -> void
 {
   m_database->bind_int(m_handle, m_next_bind_position++, value);
+}
+
+inline fn SqlStatement::bind(bool value) -> void
+{
+  m_database->bind_int(m_handle, m_next_bind_position++,
+                       static_cast<i64>(value));
 }
 
 inline fn SqlStatement::step() -> ErrorOr<bool>

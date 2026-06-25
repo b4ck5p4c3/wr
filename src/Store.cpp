@@ -152,7 +152,7 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
   statement.bind(row.name.view());
   statement.bind(row.url.view());
   statement.bind(row.favicon.view());
-  statement.bind(static_cast<i64>(row.is_reachable));
+  statement.bind(row.is_reachable);
   statement.bind(row.last_seen_at);
   statement.bind(row.owner.view());
   statement.bind(row.created_at);
@@ -195,7 +195,7 @@ fn Store::set_site_reachability(StringView slug, bool is_reachable,
 {
   let statement = TRY(m_database.prepare(
       "UPDATE sites SET is_reachable = ?, last_seen_at = ? WHERE slug = ?;"));
-  statement.bind(static_cast<i64>(is_reachable));
+  statement.bind(is_reachable);
   statement.bind(last_seen_at);
   statement.bind(slug);
   unused(TRY(statement.step()));
@@ -231,7 +231,7 @@ fn Store::upsert_account(StringView identity, StringView display_name,
                              "display_name = excluded.display_name;"));
   statement.bind(identity);
   statement.bind(display_name);
-  statement.bind(static_cast<i64>(is_admin));
+  statement.bind(is_admin);
   unused(TRY(statement.step()));
 
   LOG(Info, "account upserted, identity=%.*s is_admin=%d",
