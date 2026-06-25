@@ -48,7 +48,9 @@ private:
 
   static constexpr usize STATEMENT_CACHE_CAPACITY = 32;
 
-  mustuse fn make_error(StringView context) const -> Error;
+  mustuse fn make_error(StringView context,
+                        ErrorBase::Severity severity =
+                            ErrorBase::Severity::Recoverable) const -> Error;
   mustuse fn acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>;
 
   Allocator m_allocator;

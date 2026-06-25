@@ -13,13 +13,17 @@ Sqlite::~Sqlite()
   if (m_connection != nullptr) sqlite3_close(m_connection);
 }
 
-fn Sqlite::make_error(StringView context) const -> Error
+fn Sqlite::make_error(StringView context, ErrorBase::Severity severity) const
+    -> Error
 {
   String message{m_allocator};
   message.append(context);
   message.append(", ");
   message.append(sqlite3_errmsg(m_connection));
-  return Error{message.view()};
+
+  Error error{message.view()};
+  if (severity == ErrorBase::Severity::Critical) error.as_critical();
+  return error;
 }
 
 fn Sqlite::open(StringView connection_string) -> ErrorOr<Ok>
@@ -27,7 +31,8 @@ fn Sqlite::open(StringView connection_string) -> ErrorOr<Ok>
   let const path = String{m_allocator, connection_string};
   let const flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
   if (sqlite3_open_v2(path.c_str(), &m_connection, flags, nullptr) != SQLITE_OK)
-    return make_error("Unable to open the database");
+    return make_error("Unable to open the database",
+                      ErrorBase::Severity::Critical);
 
   sqlite3_busy_timeout(m_connection, 5000);
 
