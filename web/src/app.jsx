@@ -156,6 +156,20 @@ function Landing({ navigate, me, reload }) {
               ))}
             </ul>
           )}
+          {me.pending && me.pending.length > 0 ? (
+            <>
+              <h3>awaiting review</h3>
+              <ul class="pendings">
+                {me.pending.map((action) => (
+                  <li class="pending" key={action.id}>
+                    <span class="kind">{action.kind}</span>
+                    <span class="slug">/{action.target_slug}</span>
+                    <code>{action.payload}</code>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
           <AddSiteForm onAdded={reload} />
         </>
       ) : null}
@@ -252,10 +266,25 @@ function PendingRow({ action, onResolved }) {
       <span class="kind">{action.kind}</span>
       <span class="slug">/{action.target_slug}</span>
       <code>{action.payload}</code>
+      <Submitter owner={action.owner} name={action.owner_display_name} />
       <button class="primary" onClick={() => resolve(true)}>approve</button>
       <button onClick={() => resolve(false)}>reject</button>
     </li>
   );
+}
+
+// The owner identity carries the provider, so a github submitter is linked to
+// the profile while a telegram submitter shows the name to search.
+function Submitter({ owner, name }) {
+  const label = name || owner;
+  if (owner && owner.startsWith("github:")) {
+    return (
+      <a class="submitter" href={"https://github.com/" + label} target="_blank" rel="noopener noreferrer">
+        {label}
+      </a>
+    );
+  }
+  return <span class="submitter">{label}</span>;
 }
 
 function AdminSite({ site, onSaved, onDeleted }) {

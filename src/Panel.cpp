@@ -70,6 +70,12 @@ fn App::handle_me(HttpServerEvent &event) -> void
     return;
   }
 
+  let const pending_or = m_store.list_pending_for_owner(me.identity.view());
+  if (pending_or.is_error()) {
+    reply_message(event, 500, pending_or.error().message().view());
+    return;
+  }
+
   JsonWriter writer{m_allocator};
   writer.object_begin();
   writer.field("identity", me.identity.view());
@@ -80,6 +86,20 @@ fn App::handle_me(HttpServerEvent &event) -> void
   writer.array_begin();
   for (usize i = 0; i < sites_or.value().count(); i++)
     write_panel_site(writer, sites_or.value()[i]);
+  writer.array_end();
+
+  writer.key("pending");
+  writer.array_begin();
+  let const &pending = pending_or.value();
+  for (usize i = 0; i < pending.count(); i++) {
+    writer.object_begin();
+    writer.key("id");
+    writer.number(pending[i].id);
+    writer.field("kind", pending[i].kind.view());
+    writer.field("target_slug", pending[i].target_slug.view());
+    writer.field("payload", pending[i].payload.view());
+    writer.object_end();
+  }
   writer.array_end();
   writer.object_end();
   reply_json(event, 200, writer.view());
@@ -285,6 +305,14 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
     writer.number(actions[i].id);
     writer.field("kind", actions[i].kind.view());
     writer.field("owner", actions[i].owner.view());
+
+    /* The owner identity is opaque, so the submitter display name is attached
+       for the admin to reach the person behind a request. */
+    let const submitter = m_store.find_account(actions[i].owner.view());
+    let const has_name = !submitter.is_error() && submitter.value().has_value();
+    writer.field("owner_display_name",
+                 has_name ? submitter.value().value().display_name.view() : "");
+
     writer.field("target_slug", actions[i].target_slug.view());
     writer.field("payload", actions[i].payload.view());
     writer.object_end();
