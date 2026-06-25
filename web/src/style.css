@@ -30,20 +30,20 @@
 }
 
 :root {
-  --bg-primary: #1a2c24;
-  --bg-secondary: #31493b;
-  --text-primary: #f7faff;
-  --text-secondary: #ffc6a8;
-  --accent: #ffb878d6;
-  --border: #436453;
-  --background-start: #2a401d;
-  --background-middle: #1f4a2a;
-  --crt-glow: #ffb878a8;
-  --a-main: #ffc6a8d8;
-  --a-strong: #ff9c60;
-  --footer-text: #9dc0c4;
-  --panel-glow-inset: rgba(255, 170, 102, 0.1);
-  --panel-outline: rgba(255, 184, 148, 0.1);
+  --bg-primary: #1e1832;
+  --bg-secondary: #2e2348;
+  --text-primary: #f7f5ff;
+  --text-secondary: #ffd089;
+  --accent: #ffc266d6;
+  --border: #5a4a7a;
+  --background-start: #241a3a;
+  --background-middle: #2c2150;
+  --crt-glow: #ffc266a8;
+  --a-main: #ffd089d8;
+  --a-strong: #ffb24d;
+  --footer-text: #b9a8d0;
+  --panel-glow-inset: rgba(255, 190, 100, 0.1);
+  --panel-outline: rgba(255, 200, 130, 0.1);
   --tui-shadow: rgba(0, 0, 0, 0.4);
   --scanline: rgba(0, 0, 0, 0.25);
   --up: #82e882;
@@ -102,7 +102,7 @@ html::after {
     radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 1) 100%);
   opacity: 0.4;
   background-blend-mode: normal, overlay, overlay;
-  filter: sepia(1) hue-rotate(180deg) saturate(2);
+  filter: sepia(1) hue-rotate(230deg) saturate(2);
   z-index: 10001;
   contain: strict;
   transform: translateZ(0);
@@ -115,7 +115,7 @@ body {
   background:
     radial-gradient(
       ellipse 80% 60% at 50% 40%,
-      rgba(30, 70, 40, 0.3) 0%,
+      rgba(96, 56, 140, 0.3) 0%,
       transparent 50%
     ),
     linear-gradient(
@@ -178,7 +178,6 @@ main,
 .card,
 .modal {
   border: 1px solid var(--border);
-  border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.32));
   box-shadow:
@@ -226,14 +225,13 @@ main {
   display: block;
 }
 
-/* The buttons are small pills, compact padding and a fully rounded edge. */
+/* The buttons are small and square, with compact padding. */
 button {
   font: inherit;
   font-size: 14px;
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.25);
   color: var(--text-primary);
-  border-radius: 999px;
   padding: 0.2ch 1.4ch;
   cursor: pointer;
   text-shadow: 0 0 8px var(--crt-glow);
@@ -278,7 +276,6 @@ input {
   background: rgba(0, 0, 0, 0.35);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 10px;
   padding: 0.6ch 1ch;
   margin: 0.4ch 0.6ch 0.4ch 0;
 }
@@ -304,7 +301,6 @@ li.pending {
   padding: 1.2ch;
   margin: 0.8ch 0;
   border: 1px solid var(--panel-outline);
-  border-radius: 12px;
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -357,7 +353,6 @@ code {
   padding: 1.2ch;
   margin: 1ch 0;
   border: 1px solid var(--border);
-  border-radius: 12px;
   color: var(--text-primary);
 }
 
