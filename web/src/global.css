@@ -217,6 +217,14 @@ img {
 .tui-window {
   position: absolute;
   inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* Each card carries a front and a back face, so a card turned away shows its
+   back rather than the empty space behind a one-sided card. */
+.tui-face {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -226,6 +234,10 @@ img {
     inset 0 0 24px var(--panel-glow-inset),
     0 12px 32px var(--tui-shadow);
   backface-visibility: hidden;
+}
+
+.tui-back {
+  transform: rotateY(180deg);
 }
 
 .tui-bar {
@@ -254,11 +266,21 @@ img {
 .tui-body {
   flex: 1;
   display: flex;
+  flex-wrap: wrap;
+  align-content: center;
   align-items: center;
   justify-content: center;
   gap: 1ch;
   padding: 2ch;
   text-align: center;
+}
+
+.tui-desc {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--footer-text);
+  font-size: 13px;
+  text-shadow: none;
 }
 
 /* A big panel is the shared block, a bordered slab with the warm inset glow. */
@@ -372,7 +394,8 @@ button.danger:hover {
   color: var(--background-start);
 }
 
-input {
+input,
+textarea {
   font: inherit;
   background: rgba(0, 0, 0, 0.35);
   color: var(--text-primary);
@@ -380,7 +403,13 @@ input {
   padding: 0.6ch 1ch;
 }
 
-input:focus {
+textarea {
+  resize: vertical;
+  min-height: 6ch;
+}
+
+input:focus,
+textarea:focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -415,6 +444,13 @@ li.pending {
 li.site .up,
 li.site .down {
   margin-left: auto;
+}
+
+/* The approve and reject buttons drop to their own line below the request. */
+.pending-actions {
+  flex-basis: 100%;
+  display: flex;
+  gap: 1ch;
 }
 
 /* A pulsing placeholder bar stands in for a value that has not loaded. */

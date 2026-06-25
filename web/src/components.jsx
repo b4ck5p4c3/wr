@@ -114,10 +114,20 @@ export function LoginModal({ onClose, config }) {
   );
 }
 
+// The favicon is taken from the site itself at its well-known path.
+export function faviconFor(url) {
+  try {
+    return new URL(url).origin + "/favicon.ico";
+  } catch (_) {
+    return null;
+  }
+}
+
 // The ring is a carousel of terminal windows seated on a 3D cylinder. The ring
 // drifts on its own and a pointer drag grabs it and spins it, with the throw
 // velocity carried on release. The transform is mutated through the ref so a
-// frame never costs a render.
+// frame never costs a render. Each card is double sided, so a card facing away
+// shows its back rather than vanishing when the count is small.
 export function Carousel({ sites }) {
   const ringRef = useRef(null);
   const motionRef = useRef({
@@ -178,35 +188,54 @@ export function Carousel({ sites }) {
       onPointerLeave={onPointerUp}
     >
       <div class="ring" ref={ringRef}>
-        {sites.map((site, i) => (
-          <article
-            class="tui-window"
-            key={site.slug}
-            style={{
-              transform:
-                "rotateY(" +
-                i * anglePerCard +
-                "deg) translateZ(" +
-                radius +
-                "px)",
-            }}
-          >
-            <header class="tui-bar">
-              <span class="tui-dot" />
-              <span class="tui-dot" />
-              <span class="tui-dot" />
-              <span class="tui-title">/{site.slug}</span>
-            </header>
-            <div class="tui-body">
-              {site.favicon ? (
-                <img src={site.favicon} alt="" width="16" height="16" />
-              ) : null}
-              <a href={site.url} target="_blank" rel="noopener noreferrer">
-                {site.name}
-              </a>
-            </div>
-          </article>
-        ))}
+        {sites.map((site, i) => {
+          const icon = faviconFor(site.url);
+          const content = () => (
+            <>
+              <header class="tui-bar">
+                <span class="tui-dot" />
+                <span class="tui-dot" />
+                <span class="tui-dot" />
+                <span class="tui-title">/{site.slug}</span>
+              </header>
+              <div class="tui-body">
+                {icon ? (
+                  <img
+                    class="tui-favicon"
+                    src={icon}
+                    alt=""
+                    width="16"
+                    height="16"
+                    onError={(e) => (e.currentTarget.style.display = "none")}
+                  />
+                ) : null}
+                <a href={site.url} target="_blank" rel="noopener noreferrer">
+                  {site.name}
+                </a>
+                {site.description ? (
+                  <p class="tui-desc">{site.description}</p>
+                ) : null}
+              </div>
+            </>
+          );
+          return (
+            <article
+              class="tui-window"
+              key={site.slug}
+              style={{
+                transform:
+                  "rotateY(" +
+                  i * anglePerCard +
+                  "deg) translateZ(" +
+                  radius +
+                  "px)",
+              }}
+            >
+              <div class="tui-face">{content()}</div>
+              <div class="tui-face tui-back">{content()}</div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );
@@ -335,7 +364,7 @@ export function AddSiteForm({
     slug: "",
     name: "",
     url: "",
-    favicon: "",
+    description: "",
   });
   const [message, setMessage] = useState(null);
   const field = (name) => (event) =>
@@ -346,7 +375,7 @@ export function AddSiteForm({
     try {
       const result = onSubmit ? await onSubmit(form) : await api.addSite(form);
       setMessage(result.message);
-      setForm({ slug: "", name: "", url: "", favicon: "" });
+      setForm({ slug: "", name: "", url: "", description: "" });
       if (onAdded) onAdded();
     } catch (e) {
       setMessage(e.message);
@@ -363,10 +392,10 @@ export function AddSiteForm({
         value={form.url}
         onInput={field("url")}
       />
-      <input
-        placeholder="favicon url (optional)"
-        value={form.favicon}
-        onInput={field("favicon")}
+      <textarea
+        placeholder="description (optional)"
+        value={form.description}
+        onInput={field("description")}
       />
       <button class="primary" type="submit">
         {submitLabel}..
@@ -417,10 +446,12 @@ export function PendingRow({ action, onResolved }) {
       <span class="slug">/{action.target_slug}</span>
       <code>{action.payload}</code>
       <Submitter owner={action.owner} name={action.owner_display_name} />
-      <button class="primary" onClick={() => resolve(true)}>
-        approve..
-      </button>
-      <button onClick={() => resolve(false)}>reject..</button>
+      <div class="pending-actions">
+        <button class="primary" onClick={() => resolve(true)}>
+          approve..
+        </button>
+        <button onClick={() => resolve(false)}>reject..</button>
+      </div>
     </li>
   );
 }
@@ -472,6 +503,11 @@ export function AdminSite({ site, onSaved, onDeleted }) {
       <span class="slug">/{site.slug}</span>
       <input value={form.name} onInput={field("name")} />
       <input value={form.url} onInput={field("url")} />
+      <input
+        placeholder="description"
+        value={form.description || ""}
+        onInput={field("description")}
+      />
       <button onClick={save}>save..</button>
       <button class="danger" onClick={remove}>
         delete..
