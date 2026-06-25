@@ -28,6 +28,8 @@ FLAG(PUBLICURL, String, 'u', "public-url", Server,
      "Public base URL for the OAuth redirect (required).");
 FLAG(LOGFILE, String, 'L', "log-file", Debug,
      "Append the log to FILE instead of standard error.");
+FLAG(VERBOSE, Bool, 'V', "verbose", Debug,
+     "Log at debug verbosity, including the per-request access lines.");
 FLAG(DEV, Bool, 'D', "dev", Debug,
      "Run in dev mode with a login bypass for an admin and a user.");
 
@@ -65,6 +67,13 @@ fn main(int argc, char **argv) -> int
     show_version();
     return 0;
   }
+
+  /* Each -v raises the level, so -v traces the requests and -vv traces
+     everything. */
+  if (FLAG_VERBOSE.count() >= 2)
+    LOGGER_VERBOSITY = verbosity::All;
+  else if (FLAG_VERBOSE.count() == 1)
+    LOGGER_VERBOSITY = verbosity::Debug;
 
   if (FLAG_LOGFILE.is_set()) {
     let const log_path = String{FLAG_LOGFILE.value()};

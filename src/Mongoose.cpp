@@ -195,6 +195,12 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
     request_event.set_request(to_view(message->method), to_view(message->uri),
                               to_view(message->query), to_view(message->body),
                               request_headers);
+
+    char client_ip[52];
+    let const ip_length = mg_snprintf(client_ip, sizeof(client_ip), "%M",
+                                      mg_print_ip, &connection->rem);
+    request_event.set_client_ip(StringView{client_ip, ip_length});
+
     m_handler(request_event, m_user);
     break;
   }

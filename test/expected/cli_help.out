@@ -15,5 +15,7 @@ SERVER OPTIONS
 
 DEBUG OPTIONS
   -L, --log-file=<...>    Append the log to FILE instead of standard error.
+  -V, --verbose           Log at debug verbosity, including the per-request
+                          access lines.
   -D, --dev               Run in dev mode with a login bypass for an admin and a
                           user.

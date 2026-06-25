@@ -83,13 +83,14 @@ public:
   FlagBool(Allocator allocator, char short_name, StringView long_name,
            flag_section section, StringView description);
 
-  fn toggle() -> void;
+  fn enable() -> void;
   pure fn is_enabled() const noexcept -> bool;
+  pure fn count() const noexcept -> usize;
 
   fn reset() -> void override;
 
 private:
-  bool m_value{false};
+  usize m_count{0};
 };
 
 class FlagString : public Flag

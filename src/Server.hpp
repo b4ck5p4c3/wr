@@ -34,6 +34,10 @@ public:
   mustuse pure fn uri() const noexcept -> StringView { return m_uri; }
   mustuse pure fn query() const noexcept -> StringView { return m_query; }
   mustuse pure fn body() const noexcept -> StringView { return m_body; }
+  mustuse pure fn client_ip() const noexcept -> StringView
+  {
+    return m_client_ip;
+  }
   mustuse pure fn error_message() const noexcept -> StringView
   {
     return m_error_message;
@@ -58,6 +62,10 @@ public:
   {
     m_error_message = message;
   }
+  fn set_client_ip(StringView client_ip) noexcept -> void
+  {
+    m_client_ip = client_ip;
+  }
 
   mustuse fn reply(u16 status, const HttpHeaders &headers, StringView body)
       -> ErrorOr<Ok>;
@@ -71,6 +79,7 @@ private:
   StringView m_query;
   StringView m_body;
   StringView m_error_message;
+  StringView m_client_ip;
   const HttpHeaders *m_request_headers{nullptr};
 };
 

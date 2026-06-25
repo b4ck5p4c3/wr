@@ -464,10 +464,15 @@ fn App::emit(HttpServerEvent &event, u16 status, const HttpHeaders &headers,
              StringView body) -> void
 {
   /* The reply helpers funnel through here, so a pageview and an http error are
-     traced. The auth redirects reply directly and are not traced here. */
+     traced at Debug to keep the routine access lines off the default level. The
+     auth redirects reply directly and are not traced here. */
   let const method = event.method();
   let const uri = event.uri();
-  LOG(Info, "%.*s %.*s -> %u", static_cast<int>(method.count()), method.data,
+  let const forwarded = event.request_headers().get("x-forwarded-for");
+  let const client =
+      forwarded.has_value() ? forwarded.value() : event.client_ip();
+  LOG(Debug, "%.*s %.*s %.*s -> %u", static_cast<int>(client.count()),
+      client.data, static_cast<int>(method.count()), method.data,
       static_cast<int>(uri.count()), uri.data, status);
 
   unused(event.reply(status, headers, body).is_error());

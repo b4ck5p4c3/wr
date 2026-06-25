@@ -50,14 +50,16 @@ FlagBool::FlagBool(Allocator allocator, char short_name, StringView long_name,
            description)
 {}
 
-fn FlagBool::toggle() -> void { m_value = !m_value; }
+fn FlagBool::enable() -> void { m_count++; }
 
-pure fn FlagBool::is_enabled() const noexcept -> bool { return m_value; }
+pure fn FlagBool::is_enabled() const noexcept -> bool { return m_count > 0; }
+
+pure fn FlagBool::count() const noexcept -> usize { return m_count; }
 
 fn FlagBool::reset() -> void
 {
   m_position = 0;
-  m_value = false;
+  m_count = 0;
 }
 
 FlagString::FlagString(char short_name, StringView long_name,
@@ -312,9 +314,9 @@ fn parse_flags(const ArrayList<Flag *> &flags, int argc,
         case Flag::Kind::Bool: {
           let const bool_flag = static_cast<FlagBool *>(flag);
 
-          bool_flag->toggle();
+          bool_flag->enable();
           bool_flag->set_position(++position);
-          LOG(All, "toggled the flag '%s'",
+          LOG(All, "enabled the flag '%s'",
               flag_name(bool_flag, is_long).c_str());
 
           if (!is_long && *value_offset != '\0') {
