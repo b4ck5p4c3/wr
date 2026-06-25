@@ -61,6 +61,7 @@ private:
   fn handle_admin_edit(HttpServerEvent &event) -> void;
   fn handle_admin_pending(HttpServerEvent &event) -> void;
   fn handle_admin_resolve(HttpServerEvent &event, bool should_approve) -> void;
+  fn handle_admin_logs(HttpServerEvent &event) -> void;
 
   fn serve_static(HttpServerEvent &event) -> void;
 

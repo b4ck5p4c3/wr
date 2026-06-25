@@ -4,6 +4,7 @@
 #include "Containers.hpp"
 #include "ErrorOr.hpp"
 #include "Path.hpp"
+#include "Thread.hpp"
 
 #include <ctime>
 
@@ -62,14 +63,58 @@ inline fn log_timestamp(char *buffer, usize length) noexcept -> const char *
   return buffer;
 }
 
-inline fn log_write_header(std::FILE *stream, verbosity level,
-                           const char *file_line, const char *func) noexcept
-    -> void
+constexpr usize LOG_RING_CAPACITY = 256;
+
+inline Mutex LOG_RING_MUTEX{};
+inline String LOG_RING_LINES[LOG_RING_CAPACITY]{};
+inline usize LOG_RING_HEAD = 0;
+inline usize LOG_RING_COUNT = 0;
+
+// The last emitted lines are retained so the admin panel can read the recent
+// runtime trace with no log file on disk.
+inline fn log_ring_push(StringView line) noexcept -> void
 {
-  char buffer[16];
-  unused(std::fprintf(
-      stream, "[%s] [%s] %32s %32s(): ", log_timestamp(buffer, sizeof(buffer)),
-      verbosity_to_string(level), file_line, func));
+  ScopedLock guard{LOG_RING_MUTEX};
+  LOG_RING_LINES[LOG_RING_HEAD] = String{line};
+  LOG_RING_HEAD = (LOG_RING_HEAD + 1) % LOG_RING_CAPACITY;
+  if (LOG_RING_COUNT < LOG_RING_CAPACITY) LOG_RING_COUNT++;
+}
+
+inline fn log_ring_snapshot(Allocator allocator) -> ArrayList<String>
+{
+  ArrayList<String> lines{allocator};
+
+  ScopedLock guard{LOG_RING_MUTEX};
+  let const start =
+      (LOG_RING_HEAD + LOG_RING_CAPACITY - LOG_RING_COUNT) % LOG_RING_CAPACITY;
+  for (usize i = 0; i < LOG_RING_COUNT; i++) {
+    let const index = (start + i) % LOG_RING_CAPACITY;
+    lines.push(LOG_RING_LINES[index].clone());
+  }
+
+  return lines;
+}
+
+inline fn log_emit(verbosity level, const char *file_line, const char *func,
+                   StringView body) noexcept -> void
+{
+  char timestamp_buffer[16];
+  char header[256];
+  let const header_length =
+      std::snprintf(header, sizeof(header), "[%s] [%s] %32s %32s(): ",
+                    log_timestamp(timestamp_buffer, sizeof(timestamp_buffer)),
+                    verbosity_to_string(level), file_line, func);
+
+  String line{};
+  if (header_length > 0) line.append(StringView{header});
+  line.append(body);
+  line.push('\n');
+
+  std::FILE *stream = log_output_stream();
+  unused(std::fputs(line.c_str(), stream));
+  unused(std::fflush(stream));
+
+  log_ring_push(line.view());
 }
 
 namespace log_detail {
@@ -173,13 +218,10 @@ String format_named_values(StringView names, Args &&...args)
   do {                                                                         \
     constexpr ::wr::verbosity t__log_level = ::wr::verbosity::level;           \
     if (t__log_level <= ::wr::LOGGER_VERBOSITY) [[unlikely]] {                 \
-      std::FILE *t__log_stream = ::wr::log_output_stream();                    \
-      ::wr::log_write_header(t__log_stream, t__log_level,                      \
-                             __FILE__ ":" T__LOG_STRINGIZE(__LINE__),          \
-                             __func__);                                        \
-      unused(std::fprintf(t__log_stream, __VA_ARGS__));                        \
-      unused(std::fputc('\n', t__log_stream));                                 \
-      unused(std::fflush(t__log_stream));                                      \
+      char t__log_body[1024];                                                  \
+      unused(std::snprintf(t__log_body, sizeof(t__log_body), __VA_ARGS__));    \
+      ::wr::log_emit(t__log_level, __FILE__ ":" T__LOG_STRINGIZE(__LINE__),    \
+                     __func__, ::wr::StringView{t__log_body});                 \
     }                                                                          \
   } while (0)
 
@@ -189,11 +231,7 @@ String format_named_values(StringView names, Args &&...args)
     if (t__log_level <= ::wr::LOGGER_VERBOSITY) [[unlikely]] {                 \
       ::wr::String t__vars =                                                   \
           ::wr::log_detail::format_named_values(#__VA_ARGS__, __VA_ARGS__);    \
-      std::FILE *t__log_stream = ::wr::log_output_stream();                    \
-      ::wr::log_write_header(t__log_stream, t__log_level,                      \
-                             __FILE__ ":" T__LOG_STRINGIZE(__LINE__),          \
-                             __func__);                                        \
-      unused(std::fprintf(t__log_stream, "%s\n", t__vars.c_str()));            \
-      unused(std::fflush(t__log_stream));                                      \
+      ::wr::log_emit(t__log_level, __FILE__ ":" T__LOG_STRINGIZE(__LINE__),    \
+                     __func__, t__vars.view());                                \
     }                                                                          \
   } while (0)

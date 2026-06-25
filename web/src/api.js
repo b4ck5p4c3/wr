@@ -52,4 +52,5 @@ export const api = {
   adminPending: () => getJson("/api/admin/pending"),
   adminApprove: (id) => postJson("/api/admin/pending/approve", { id }),
   adminReject: (id) => postJson("/api/admin/pending/reject", { id }),
+  adminLogs: () => getJson("/api/admin/logs"),
 };

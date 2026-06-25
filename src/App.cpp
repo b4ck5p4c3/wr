@@ -203,6 +203,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
       admin_site,
       admin_site_add,
       admin_site_delete,
+      admin_logs,
       sites_add,
       sites_rename,
     };
@@ -211,7 +212,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
       api_route route;
       bool is_mutation;
     };
-    static constexpr StaticStringMap<api_endpoint, 10> API_ROUTES{
+    static constexpr StaticStringMap<api_endpoint, 11> API_ROUTES{
         {{"/api/config", {api_route::config, false}},
          {"/api/me", {api_route::me, false}},
          {"/api/admin/pending", {api_route::admin_pending, false}},
@@ -220,6 +221,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
          {"/api/admin/site", {api_route::admin_site, true}},
          {"/api/admin/site/add", {api_route::admin_site_add, true}},
          {"/api/admin/site/delete", {api_route::admin_site_delete, true}},
+         {"/api/admin/logs", {api_route::admin_logs, false}},
          {"/api/sites/add", {api_route::sites_add, true}},
          {"/api/sites/rename", {api_route::sites_rename, true}}}
     };
@@ -247,6 +249,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
     case api_route::admin_site: handle_admin_edit(event); break;
     case api_route::admin_site_add: handle_admin_add(event); break;
     case api_route::admin_site_delete: handle_admin_delete(event); break;
+    case api_route::admin_logs: handle_admin_logs(event); break;
     case api_route::sites_add: {
       let const who = current_account(event);
       if (who.has_value())

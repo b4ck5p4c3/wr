@@ -361,6 +361,21 @@ li.site .down {
 }
 
 /* The error page centers a big glowing status code over the CRT slab. */
+/* The admin log tail reads as a dense console, so the shared text shadow and
+   the body font size are dropped for a tighter terminal grid. */
+.log-view {
+  max-height: 360px;
+  overflow: auto;
+  padding: 1.5ch;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--footer-text);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre;
+  text-shadow: none;
+}
+
 .notfound {
   text-align: center;
   padding: 6ch 3ch;

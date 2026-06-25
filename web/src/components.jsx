@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "./api.js";
 
 // The server falls every unknown path back to this shell, so the router reads
@@ -468,7 +468,53 @@ export function Admin({ onLogin }) {
         onSubmit={(form) => api.adminAddSite(form)}
         onAdded={reload}
       />
+      <h2>server logs</h2>
+      <LogStream />
     </main>
+  );
+}
+
+// The admin view polls the server log tail and keeps the pane pinned to the
+// newest line, so the running trace reads like a live console.
+export function LogStream() {
+  const [lines, setLines] = useState(null);
+  const [error, setError] = useState(null);
+  const viewRef = useRef(null);
+
+  useEffect(() => {
+    let stopped = false;
+    const poll = () =>
+      api
+        .adminLogs()
+        .then((next) => {
+          if (stopped) return;
+          setLines(next);
+          setError(null);
+        })
+        .catch((e) => {
+          if (!stopped) setError(e.message);
+        });
+    poll();
+    const timer = setInterval(poll, 2000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (viewRef.current)
+      viewRef.current.scrollTop = viewRef.current.scrollHeight;
+  }, [lines]);
+
+  if (error) return <p class="error">{error}</p>;
+  if (lines === null) return <Loading />;
+  if (lines.length === 0) return <p>No log lines yet.</p>;
+
+  return (
+    <pre class="log-view" ref={viewRef}>
+      {lines.join("\n")}
+    </pre>
   );
 }
 

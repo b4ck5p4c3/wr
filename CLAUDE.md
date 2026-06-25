@@ -65,7 +65,7 @@ periodic liveness check.
 - The public webring API documentation is served at /docs from docs.html under the web root, directly by the static handler rather than the single-page shell.
 - curl is wrapped by the outbound layer for the liveness probes and the OAuth token exchange.
 - The member sites, the panel users, the panel admins, and the sessions are held in the data model.
-- A user owns sites through the user panel, and an admin approves a site, removes a site, and manages the users through the admin panel.
+- A user owns sites through the user panel, and an admin approves a site, removes a site, manages the users, and reads the streaming server log tail through the admin panel.
 - Authentication is run through GitHub OAuth and the Telegram login widget, and a session row is opened and the session cookie is set on a login.
 - The `--dev` flag turns on dev mode, which exposes a login bypass at /auth/dev for an admin or a user. The client reads the dev state and the available providers from /api/config. Outside dev mode the server refuses to start unless at least one auth provider is configured, GitHub through both the client id and secret or Telegram through the bot token, and unless WR_SESSION_KEY is set.
 - Each site is probed by the liveness sweep, which wakes every 60 seconds and re-probes an up site after 300 seconds and a down site after 60 seconds. The reachability and the last seen time are recorded. An admin edit zeroes the last seen time through Store::schedule_recheck, so the next sweep re-probes the site at once, and the request thread signals the sweep through the shared database rather than shared memory.
@@ -83,6 +83,7 @@ and written to the active sink.
 - The sink is standard error by default. `set_log_file` returns an ErrorOr and routes the log to a file opened for append, selected through the `-L` flag.
 - A response is traced with a `METHOD URI -> STATUS` access line through App::emit, which funnels the JSON, text, redirect, and message replies. The login, logout, and successful-login redirects reply directly and are not traced through that line.
 - A store mutation is logged as it runs, the site upsert, rename, soft delete, and reachability, the account upsert, the session open and close, and the pending action record and status change.
+- Every emitted line is also retained in a 256 line ring buffer in src/Trace, guarded by a Mutex, and the admin panel reads the tail through the `/api/admin/logs` endpoint, so the recent runtime trace is visible with no log file on disk.
 
 ## Concurrency
 
@@ -91,7 +92,8 @@ guarded by a shared lock.
 
 - The event loop and the liveness sweep each open a separate sqlite connection, so no in-process state is shared between the threads.
 - The write-ahead log journal mode lets a read on one connection run while the other connection writes, and a 5000 ms busy timeout absorbs contention, both set in Sqlite::open.
-- The worker runs on a pthread, and its only synchronization with the main thread is an `std::atomic<bool>` stop flag in src/Liveness, set by Liveness::stop and polled in the sweep loop.
+- The worker runs on a Thread, and its only synchronization with the main thread is a bool stop flag in src/Liveness read and written through the atomic builtins, set by Liveness::stop and polled in the sweep loop.
+- pthread is named only in src/Thread, which wraps it as Mutex, ScopedLock, and Thread, so a port to another threading backend touches that header alone.
 - After the server loop returns, the worker thread is joined and the connections are closed on the way out.
 
 ## Frontend

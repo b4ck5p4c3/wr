@@ -363,6 +363,25 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
   reply_json(event, 200, writer.view());
 }
 
+fn App::handle_admin_logs(HttpServerEvent &event) -> void
+{
+  if (!require_admin(event).has_value()) return;
+
+  let const lines = log_ring_snapshot(m_allocator);
+
+  JsonWriter writer{m_allocator};
+  writer.array_begin();
+  for (usize i = 0; i < lines.count(); i++) {
+    let const text = lines[i].view();
+    let const trimmed = (text.length > 0 && text.data[text.length - 1] == '\n')
+                            ? StringView{text.data, text.length - 1}
+                            : text;
+    writer.string(trimmed);
+  }
+  writer.array_end();
+  reply_json(event, 200, writer.view());
+}
+
 fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
     -> void
 {
