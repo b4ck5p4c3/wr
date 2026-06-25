@@ -74,6 +74,7 @@ public:
   mustuse fn find_site(StringView slug) const -> ErrorOr<Maybe<site>>;
   fn upsert_site(const site &row) -> ErrorOr<Ok>;
   fn rename_site(StringView slug, StringView name) -> ErrorOr<Ok>;
+  fn delete_site(StringView slug) -> ErrorOr<Ok>;
   fn set_site_reachability(StringView slug, bool is_reachable, i64 last_seen_at)
       -> ErrorOr<Ok>;
 

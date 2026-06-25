@@ -178,6 +178,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
       admin_approve,
       admin_reject,
       admin_site,
+      admin_site_add,
+      admin_site_delete,
       sites_add,
       sites_rename,
     };
@@ -186,12 +188,14 @@ fn App::dispatch(HttpServerEvent &event) -> void
       api_route route;
       bool is_mutation;
     };
-    static constexpr StaticStringMap<api_endpoint, 7> API_ROUTES{
+    static constexpr StaticStringMap<api_endpoint, 9> API_ROUTES{
         {{"/api/me", {api_route::me, false}},
          {"/api/admin/pending", {api_route::admin_pending, false}},
          {"/api/admin/pending/approve", {api_route::admin_approve, true}},
          {"/api/admin/pending/reject", {api_route::admin_reject, true}},
          {"/api/admin/site", {api_route::admin_site, true}},
+         {"/api/admin/site/add", {api_route::admin_site_add, true}},
+         {"/api/admin/site/delete", {api_route::admin_site_delete, true}},
          {"/api/sites/add", {api_route::sites_add, true}},
          {"/api/sites/rename", {api_route::sites_rename, true}}}
     };
@@ -216,6 +220,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
     case api_route::admin_approve: handle_admin_resolve(event, true); break;
     case api_route::admin_reject: handle_admin_resolve(event, false); break;
     case api_route::admin_site: handle_admin_edit(event); break;
+    case api_route::admin_site_add: handle_admin_add(event); break;
+    case api_route::admin_site_delete: handle_admin_delete(event); break;
     case api_route::sites_add: {
       let const who = current_account(event);
       if (who.has_value())

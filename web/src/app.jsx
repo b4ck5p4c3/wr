@@ -17,7 +17,7 @@ function useRoute() {
   return [path, navigate];
 }
 
-function Header({ navigate, onLogin }) {
+function Header({ navigate, me, onLogin, onLogout }) {
   return (
     <header class="bar">
       <a class="logo" href="/" onClick={link(navigate, "/")}>
@@ -33,9 +33,15 @@ function Header({ navigate, onLogin }) {
         <a href="/panel" onClick={link(navigate, "/panel")}>
           panel
         </a>
-        <button class="primary" onClick={onLogin}>
-          login
-        </button>
+        {me ? (
+          <button class="secondary" onClick={onLogout}>
+            logout
+          </button>
+        ) : (
+          <button class="primary" onClick={onLogin}>
+            login
+          </button>
+        )}
       </nav>
     </header>
   );
@@ -59,7 +65,17 @@ function LoginModal({ onClose }) {
           Continue with GitHub
         </a>
         {telegramBot ? (
-          <a class="provider telegram" href={"https://oauth.telegram.org/auth?bot_id=" + telegramBot}>
+          <a
+            class="provider telegram"
+            href={
+              "https://oauth.telegram.org/auth?bot_id=" +
+              telegramBot +
+              "&origin=" +
+              encodeURIComponent(location.origin) +
+              "&return_to=" +
+              encodeURIComponent(location.origin + "/auth/telegram/callback")
+            }
+          >
             Continue with Telegram
           </a>
         ) : (
@@ -94,8 +110,8 @@ function Landing() {
 
   return (
     <main>
-      <h1>The ring</h1>
-      <p>A small webring of member sites. Hop between them, or join with a panel.</p>
+      <h1>The B4CKSP4CE WebRing</h1>
+      <p>A webring of member sites. Hop between them, or join with a panel.</p>
       {error ? <p class="error">{error}</p> : null}
       {sites === null ? (
         <p>Loading...</p>
@@ -116,7 +132,7 @@ function About() {
   return (
     <main>
       <h1>About</h1>
-      <p>wr is a webring backend by b4cksp4ce, a hacker space community.</p>
+      <p>wr is a webring by b4cksp4ce, a hacker space community.</p>
       <ul>
         <li>
           <a href="https://t.me/b4cksp4ce_issues/762" target="_blank" rel="noopener noreferrer">
@@ -124,7 +140,7 @@ function About() {
           </a>
         </li>
         <li>
-          <a href="https://b4cksp4ce.net" target="_blank" rel="noopener noreferrer">
+          <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
             b4cksp4ce
           </a>
         </li>
@@ -133,7 +149,7 @@ function About() {
   );
 }
 
-function AddSiteForm({ onAdded }) {
+function AddSiteForm({ onAdded, submitLabel = "Submit for review", onSubmit }) {
   const [form, setForm] = useState({ slug: "", name: "", url: "", favicon: "" });
   const [message, setMessage] = useState(null);
   const field = (name) => (event) => setForm({ ...form, [name]: event.target.value });
@@ -141,7 +157,7 @@ function AddSiteForm({ onAdded }) {
   const submit = async (event) => {
     event.preventDefault();
     try {
-      const result = await api.addSite(form);
+      const result = onSubmit ? await onSubmit(form) : await api.addSite(form);
       setMessage(result.message);
       setForm({ slug: "", name: "", url: "", favicon: "" });
       if (onAdded) onAdded();
@@ -158,7 +174,7 @@ function AddSiteForm({ onAdded }) {
       <input placeholder="https://your.site" value={form.url} onInput={field("url")} />
       <input placeholder="favicon url (optional)" value={form.favicon} onInput={field("favicon")} />
       <button class="primary" type="submit">
-        Submit for review
+        {submitLabel}
       </button>
       {message ? <p class="hint">{message}</p> : null}
     </form>
@@ -246,15 +262,26 @@ function PendingRow({ action, onResolved }) {
   );
 }
 
-function AdminSite({ site, onSaved }) {
+function AdminSite({ site, onSaved, onDeleted }) {
   const [form, setForm] = useState({ ...site });
+  const [message, setMessage] = useState(null);
   const field = (name) => (event) => setForm({ ...form, [name]: event.target.value });
   const save = async () => {
     try {
       await api.adminEditSite(form);
+      setMessage(null);
       onSaved();
     } catch (e) {
-      // surfaced by the reload
+      setMessage(e.message);
+    }
+  };
+  const remove = async () => {
+    if (!confirm("Remove /" + site.slug + " from the ring?")) return;
+    try {
+      await api.adminDeleteSite(site.slug);
+      onDeleted();
+    } catch (e) {
+      setMessage(e.message);
     }
   };
   return (
@@ -263,7 +290,9 @@ function AdminSite({ site, onSaved }) {
       <input value={form.name} onInput={field("name")} />
       <input value={form.url} onInput={field("url")} />
       <button onClick={save}>save</button>
+      <button class="danger" onClick={remove}>delete</button>
       <span class={site.is_reachable ? "up" : "down"}>{site.is_reachable ? "up" : "down"}</span>
+      {message ? <span class="hint error">{message}</span> : null}
     </li>
   );
 }
@@ -292,6 +321,7 @@ function Admin({ onLogin }) {
   return (
     <main>
       <h1>Admin</h1>
+      <p>Signed in as {me.display_name}.</p>
       <h2>Pending actions</h2>
       {pending.length === 0 ? (
         <p>Nothing is waiting for review.</p>
@@ -305,9 +335,14 @@ function Admin({ onLogin }) {
       <h2>All sites</h2>
       <ul class="sites">
         {me.sites.map((site) => (
-          <AdminSite key={site.slug} site={site} onSaved={reload} />
+          <AdminSite key={site.slug} site={site} onSaved={reload} onDeleted={reload} />
         ))}
       </ul>
+      <AddSiteForm
+        submitLabel="Add site directly"
+        onSubmit={(form) => api.adminAddSite(form)}
+        onAdded={reload}
+      />
     </main>
   );
 }
@@ -315,7 +350,23 @@ function Admin({ onLogin }) {
 export function App() {
   const [path, navigate] = useRoute();
   const [showLogin, setShowLogin] = useState(false);
+  const [me, setMe] = useState(undefined);
+
+  // Fetch the current account once on mount so the header can show login/logout.
+  useEffect(() => {
+    api.me().then(setMe).catch(() => setMe(null));
+  }, []);
+
   const onLogin = () => setShowLogin(true);
+  const onLogout = async () => {
+    try {
+      await api.logout();
+    } catch (_) {
+      // best-effort; redirect regardless
+    }
+    setMe(null);
+    navigate("/");
+  };
 
   let page;
   if (path === "/about") page = <About />;
@@ -325,10 +376,10 @@ export function App() {
 
   return (
     <div class="app">
-      <Header navigate={navigate} onLogin={onLogin} />
+      <Header navigate={navigate} me={me} onLogin={onLogin} onLogout={onLogout} />
       {page}
       {showLogin ? <LoginModal onClose={() => setShowLogin(false)} /> : null}
-      <footer>wr webring</footer>
+      <footer>wr</footer>
     </div>
   );
 }

@@ -24,9 +24,12 @@ async function postJson(path, body) {
 export const api = {
   listSites: () => getJson("/sites"),
   me: () => getJson("/api/me"),
+  logout: () => postJson("/auth/logout", {}),
   addSite: (site) => postJson("/api/sites/add", site),
   renameSite: (slug, name) => postJson("/api/sites/rename", { slug, name }),
   adminEditSite: (site) => postJson("/api/admin/site", site),
+  adminAddSite: (site) => postJson("/api/admin/site/add", site),
+  adminDeleteSite: (slug) => postJson("/api/admin/site/delete", { slug }),
   adminPending: () => getJson("/api/admin/pending"),
   adminApprove: (id) => postJson("/api/admin/pending/approve", { id }),
   adminReject: (id) => postJson("/api/admin/pending/reject", { id }),

@@ -176,3 +176,24 @@ footer {
   text-align: center;
   font-size: 14px;
 }
+
+button.secondary {
+  background: transparent;
+  color: var(--muted);
+  border-color: #2a2e36;
+}
+
+button.secondary:hover {
+  color: var(--fg);
+}
+
+button.danger {
+  background: transparent;
+  color: #e06c75;
+  border-color: #e06c75;
+}
+
+button.danger:hover {
+  background: #e06c75;
+  color: #fff;
+}

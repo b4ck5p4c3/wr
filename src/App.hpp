@@ -60,6 +60,8 @@ private:
   fn handle_me(HttpServerEvent &event) -> void;
   fn handle_user_add(HttpServerEvent &event, const account &who) -> void;
   fn handle_user_rename(HttpServerEvent &event, const account &who) -> void;
+  fn handle_admin_add(HttpServerEvent &event) -> void;
+  fn handle_admin_delete(HttpServerEvent &event) -> void;
   fn handle_admin_edit(HttpServerEvent &event) -> void;
   fn handle_admin_pending(HttpServerEvent &event) -> void;
   fn handle_admin_resolve(HttpServerEvent &event, bool should_approve) -> void;

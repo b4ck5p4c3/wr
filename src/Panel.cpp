@@ -59,6 +59,9 @@ fn App::handle_me(HttpServerEvent &event) -> void
   }
   let const &me = who.value();
 
+  /* Admins see all sites in the panel; users see only their own. The public
+     landing page uses list_active_sites regardless of role, so admin-owned
+     sites appear there once the liveness sweep marks them reachable. */
   let const sites_or = me.is_admin
                            ? m_store.list_all_sites()
                            : m_store.list_sites_for_owner(me.identity.view());
@@ -143,6 +146,79 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
     return;
   }
   reply_message(event, 200, "Your rename was submitted for review");
+}
+
+fn App::handle_admin_add(HttpServerEvent &event) -> void
+{
+  let const who = current_account(event);
+  if (!who.has_value() || !who.value().is_admin) {
+    reply_message(event, 403, "Admins only");
+    return;
+  }
+
+  let const document = Json::from(m_allocator, event.body());
+  let const slug = document["slug"].to<StringView>();
+  let const name = document["name"].to<StringView>();
+  let const url = document["url"].to<StringView>();
+  let const favicon = document["favicon"].to<StringView>();
+  if (!slug.has_value() || !name.has_value() || !url.has_value()) {
+    reply_message(event, 400, "A slug, a name, and a url are required");
+    return;
+  }
+  if (!is_valid_slug(slug.value())) {
+    reply_message(event, 400, "The slug may use only a-z, 0-9, and a dash");
+    return;
+  }
+  if (!is_valid_site_url(url.value())) {
+    reply_message(event, 400, "The url must start with http:// or https://");
+    return;
+  }
+
+  /* An admin add bypasses the pending-action workflow and writes the site
+     directly to the store, with the admin's identity as the owner. */
+  site row{};
+  row.slug = String{m_allocator, slug.value()};
+  row.name = String{m_allocator, name.value()};
+  row.url = String{m_allocator, url.value()};
+  row.favicon = String{m_allocator, favicon.has_value() ? favicon.value() : ""};
+  row.owner = String{m_allocator, who.value().identity.view()};
+  row.created_at = now_seconds();
+
+  let const stored = m_store.upsert_site(row);
+  if (stored.is_error()) {
+    reply_message(event, 500, stored.error().message().view());
+    return;
+  }
+  reply_message(event, 200, "Site added");
+}
+
+fn App::handle_admin_delete(HttpServerEvent &event) -> void
+{
+  let const who = current_account(event);
+  if (!who.has_value() || !who.value().is_admin) {
+    reply_message(event, 403, "Admins only");
+    return;
+  }
+
+  let const document = Json::from(m_allocator, event.body());
+  let const slug = document["slug"].to<StringView>();
+  if (!slug.has_value()) {
+    reply_message(event, 400, "A slug is required");
+    return;
+  }
+
+  let const found = m_store.find_site(slug.value());
+  if (found.is_error() || !found.value().has_value()) {
+    reply_message(event, 404, "No such site");
+    return;
+  }
+
+  let const removed = m_store.delete_site(slug.value());
+  if (removed.is_error()) {
+    reply_message(event, 500, removed.error().message().view());
+    return;
+  }
+  reply_message(event, 200, "Site removed");
 }
 
 fn App::handle_admin_edit(HttpServerEvent &event) -> void

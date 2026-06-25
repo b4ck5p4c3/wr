@@ -222,6 +222,20 @@ fn Store::rename_site(StringView slug, StringView name) -> ErrorOr<Ok>
   return Success;
 }
 
+fn Store::delete_site(StringView slug) -> ErrorOr<Ok>
+{
+  let const sql = "DELETE FROM sites WHERE slug = ?;";
+  sqlite3_stmt *statement = nullptr;
+  if (sqlite3_prepare_v2(m_db, sql, -1, &statement, nullptr) != SQLITE_OK)
+    return make_db_error(m_allocator, m_db, "Unable to delete the site");
+  defer { sqlite3_finalize(statement); };
+
+  bind_text(statement, 1, slug);
+  if (sqlite3_step(statement) != SQLITE_DONE)
+    return make_db_error(m_allocator, m_db, "Unable to delete the site");
+  return Success;
+}
+
 fn Store::set_site_reachability(StringView slug, bool is_reachable,
                                 i64 last_seen_at) -> ErrorOr<Ok>
 {
