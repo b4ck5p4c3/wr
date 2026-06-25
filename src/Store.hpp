@@ -99,6 +99,9 @@ public:
 private:
   mustuse fn query_sites(const char *filter_sql, Maybe<StringView> owner) const
       -> ErrorOr<ArrayList<site>>;
+  mustuse fn schema_version() const -> ErrorOr<i64>;
+  mustuse fn detect_baseline() const -> ErrorOr<i64>;
+  fn set_schema_version(i64 version) -> ErrorOr<Ok>;
 
   Allocator m_allocator;
   SqlDatabase &m_database;

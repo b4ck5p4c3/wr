@@ -38,52 +38,102 @@ const StringView SITE_COLUMNS =
 
 } // namespace
 
+/* The schema is the sum of the ordered migrations below. A migration is run
+   once, and the applied count is held in PRAGMA user_version, so a new database
+   runs every step and an older one runs only the steps it is missing. A
+   migration is never edited once released, a schema change is a new entry. */
+static const char *const SCHEMA_MIGRATIONS[] = {
+    "CREATE TABLE IF NOT EXISTS sites ("
+    "  slug TEXT PRIMARY KEY,"
+    "  name TEXT NOT NULL,"
+    "  url TEXT NOT NULL,"
+    "  favicon TEXT NOT NULL DEFAULT '',"
+    "  is_reachable INTEGER NOT NULL DEFAULT 1,"
+    "  last_seen_at INTEGER NOT NULL DEFAULT 0,"
+    "  owner TEXT NOT NULL DEFAULT '',"
+    "  created_at INTEGER NOT NULL DEFAULT 0);"
+    "CREATE TABLE IF NOT EXISTS accounts ("
+    "  identity TEXT PRIMARY KEY,"
+    "  display_name TEXT NOT NULL DEFAULT '',"
+    "  is_admin INTEGER NOT NULL DEFAULT 0);"
+    "CREATE TABLE IF NOT EXISTS sessions ("
+    "  token TEXT PRIMARY KEY,"
+    "  identity TEXT NOT NULL,"
+    "  expires_at INTEGER NOT NULL);"
+    "CREATE TABLE IF NOT EXISTS pending_actions ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  kind TEXT NOT NULL,"
+    "  owner TEXT NOT NULL,"
+    "  target_slug TEXT NOT NULL DEFAULT '',"
+    "  payload TEXT NOT NULL DEFAULT '',"
+    "  created_at INTEGER NOT NULL,"
+    "  status TEXT NOT NULL DEFAULT 'pending');"
+    "CREATE INDEX IF NOT EXISTS index_sites_owner ON sites(owner);"
+    "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
+    "CREATE INDEX IF NOT EXISTS index_pending_owner ON pending_actions(owner);"
+    "CREATE INDEX IF NOT EXISTS index_pending_status ON "
+    "pending_actions(status);"
+    "CREATE INDEX IF NOT EXISTS index_sessions_expires ON "
+    "sessions(expires_at);",
+
+    "ALTER TABLE sites ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0;",
+};
+
+fn Store::schema_version() const -> ErrorOr<i64>
+{
+  let statement = TRY(m_database.prepare("PRAGMA user_version;"));
+  if (TRY(statement.step())) return statement.get<i64>();
+  return i64{0};
+}
+
+/* A database created before versioning carries a user_version of zero, so its
+   real baseline is read from the schema it already holds. */
+fn Store::detect_baseline() const -> ErrorOr<i64>
+{
+  let table_statement = TRY(m_database.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sites';"));
+  if (!TRY(table_statement.step())) return i64{0};
+
+  let info_statement = TRY(m_database.prepare("PRAGMA table_info(sites);"));
+  while (TRY(info_statement.step())) {
+    unused(info_statement.get<i64>());
+    let const name = info_statement.get<String>();
+    if (name.view() == "is_deleted") return i64{2};
+  }
+  return i64{1};
+}
+
+fn Store::set_schema_version(i64 version) -> ErrorOr<Ok>
+{
+  char pragma[48];
+  std::snprintf(pragma, sizeof(pragma), "PRAGMA user_version = %lld;",
+                static_cast<long long>(version));
+  return m_database.execute(StringView{pragma});
+}
+
 fn Store::migrate() -> ErrorOr<Ok>
 {
-  let const schema = "CREATE TABLE IF NOT EXISTS sites ("
-                     "  slug TEXT PRIMARY KEY,"
-                     "  name TEXT NOT NULL,"
-                     "  url TEXT NOT NULL,"
-                     "  favicon TEXT NOT NULL DEFAULT '',"
-                     "  is_reachable INTEGER NOT NULL DEFAULT 1,"
-                     "  last_seen_at INTEGER NOT NULL DEFAULT 0,"
-                     "  owner TEXT NOT NULL DEFAULT '',"
-                     "  created_at INTEGER NOT NULL DEFAULT 0,"
-                     "  is_deleted INTEGER NOT NULL DEFAULT 0);"
-                     "CREATE TABLE IF NOT EXISTS accounts ("
-                     "  identity TEXT PRIMARY KEY,"
-                     "  display_name TEXT NOT NULL DEFAULT '',"
-                     "  is_admin INTEGER NOT NULL DEFAULT 0);"
-                     "CREATE TABLE IF NOT EXISTS sessions ("
-                     "  token TEXT PRIMARY KEY,"
-                     "  identity TEXT NOT NULL,"
-                     "  expires_at INTEGER NOT NULL);"
-                     "CREATE TABLE IF NOT EXISTS pending_actions ("
-                     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                     "  kind TEXT NOT NULL,"
-                     "  owner TEXT NOT NULL,"
-                     "  target_slug TEXT NOT NULL DEFAULT '',"
-                     "  payload TEXT NOT NULL DEFAULT '',"
-                     "  created_at INTEGER NOT NULL,"
-                     "  status TEXT NOT NULL DEFAULT 'pending');";
+  let const stored_count = TRY(schema_version());
+  let const applied_count =
+      stored_count == 0 ? TRY(detect_baseline()) : stored_count;
+  let const target_count = static_cast<i64>(countof(SCHEMA_MIGRATIONS));
+
+  if (applied_count >= target_count) {
+    if (applied_count != stored_count) TRY(set_schema_version(applied_count));
+    LOG(Debug, "schema already at version %lld",
+        static_cast<long long>(applied_count));
+    return Success;
+  }
 
   TRY(m_database.execute("BEGIN;"));
-  TRY(m_database.execute(schema));
-
-  let const indexes =
-      "CREATE INDEX IF NOT EXISTS index_sites_owner ON sites(owner);"
-      "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
-      "CREATE INDEX IF NOT EXISTS index_pending_owner "
-      "ON pending_actions(owner);"
-      "CREATE INDEX IF NOT EXISTS index_pending_status "
-      "ON pending_actions(status);"
-      "CREATE INDEX IF NOT EXISTS index_sessions_expires "
-      "ON sessions(expires_at);";
-
-  TRY(m_database.execute(indexes));
+  for (i64 version = applied_count; version < target_count; version++)
+    TRY(m_database.execute(SCHEMA_MIGRATIONS[version]));
+  TRY(set_schema_version(target_count));
   TRY(m_database.execute("COMMIT;"));
 
-  LOG(Debug, "migration ran, the tables and the indexes are present");
+  LOG(Info, "schema migrated from version %lld to %lld",
+      static_cast<long long>(applied_count),
+      static_cast<long long>(target_count));
   return Success;
 }
 
