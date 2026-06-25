@@ -12,8 +12,9 @@ The server core opens the database, builds the server, starts the liveness sweep
 on its own thread, and runs the loop. The outbound layer uses a generic HTTP
 client for the liveness probes and the OAuth token exchange. The store maps the
 rows over an abstract SQL database, and the concrete sqlite backend owns the
-connection and the prepared statements. The store runs the migration over the
-borrowed backend.
+connection and the prepared statements. A compiled statement is cached by the
+backend keyed by its sql, so a repeated query is reset instead of recompiled.
+The store runs the migration over the borrowed backend.
 
 The frontend is a static Preact bundle served as an asset.
 
