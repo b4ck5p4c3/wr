@@ -10,6 +10,7 @@ fn now_seconds() -> i64 { return static_cast<i64>(std::time(nullptr)); }
 fn percent_decode(Allocator allocator, StringView text) -> String
 {
   String out{allocator};
+  out.reserve(text.count());
   for (usize i = 0; i < text.count(); i++) {
     let const c = text[i];
     if (c == '+') {

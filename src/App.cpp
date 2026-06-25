@@ -470,9 +470,10 @@ fn App::emit(HttpServerEvent &event, u16 status, const HttpHeaders &headers,
 {
   /* Every response funnels through here, so the access line traces each
      pageview and every http error at the default verbosity. */
-  let const method = String{m_allocator, event.method()};
-  let const uri = String{m_allocator, event.uri()};
-  LOG(Info, "%s %s -> %u", method.c_str(), uri.c_str(), status);
+  let const method = event.method();
+  let const uri = event.uri();
+  LOG(Info, "%.*s %.*s -> %u", static_cast<int>(method.count()), method.data,
+      static_cast<int>(uri.count()), uri.data, status);
 
   unused(event.reply(status, headers, body).is_error());
 }

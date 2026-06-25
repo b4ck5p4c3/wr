@@ -112,6 +112,7 @@ private:
 
   fn write_quoted(StringView text) -> void
   {
+    m_out.reserve(m_out.count() + text.count() + 2);
     m_out.append("\"");
     for (usize i = 0; i < text.count(); i++) {
       let const c = text[i];

@@ -114,6 +114,12 @@ fn MongooseServer::reply(opaque *connection, u16 status,
   let const mongoose_connection = static_cast<mg_connection *>(connection);
 
   String header_block{m_allocator};
+  usize header_length = 0;
+  headers.for_each([&](StringView name, StringView value) {
+    header_length += name.count() + value.count() + 4;
+  });
+  header_block.reserve(header_length);
+
   headers.for_each([&](StringView name, StringView value) {
     /* mongoose appends its own Content-Length, so a caller-supplied one is
        dropped to keep the response from carrying two framing headers. */

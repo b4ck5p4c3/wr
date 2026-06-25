@@ -33,7 +33,7 @@ fn read_pending_action(const SqlStatement &statement) -> pending_action
   return row;
 }
 
-constexpr const char *SITE_COLUMNS =
+const StringView SITE_COLUMNS =
     "slug, name, url, favicon, is_reachable, last_seen_at, owner, created_at";
 
 } // namespace
@@ -153,15 +153,14 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
   statement.bind(2, row.name.view());
   statement.bind(3, row.url.view());
   statement.bind(4, row.favicon.view());
-  statement.bind(5, static_cast<i64>(row.is_reachable ? 1 : 0));
+  statement.bind(5, static_cast<i64>(row.is_reachable));
   statement.bind(6, row.last_seen_at);
   statement.bind(7, row.owner.view());
   statement.bind(8, row.created_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "site upserted, slug=%s owner=%s",
-      String{m_allocator, row.slug.view()}.c_str(),
-      String{m_allocator, row.owner.view()}.c_str());
+  LOG(Info, "site upserted, slug=%s owner=%s", row.slug.c_str(),
+      row.owner.c_str());
   return Success;
 }
 
@@ -173,8 +172,8 @@ fn Store::rename_site(StringView slug, StringView name) -> ErrorOr<Ok>
   statement.bind(2, slug);
   unused(TRY(statement.step()));
 
-  LOG(Info, "site renamed, slug=%s name=%s", String{m_allocator, slug}.c_str(),
-      String{m_allocator, name}.c_str());
+  LOG(Info, "site renamed, slug=%.*s name=%.*s", static_cast<int>(slug.count()),
+      slug.data, static_cast<int>(name.count()), name.data);
   return Success;
 }
 
@@ -187,7 +186,8 @@ fn Store::delete_site(StringView slug) -> ErrorOr<Ok>
   statement.bind(1, slug);
   unused(TRY(statement.step()));
 
-  LOG(Info, "site marked deleted, slug=%s", String{m_allocator, slug}.c_str());
+  LOG(Info, "site marked deleted, slug=%.*s", static_cast<int>(slug.count()),
+      slug.data);
   return Success;
 }
 
@@ -196,13 +196,13 @@ fn Store::set_site_reachability(StringView slug, bool is_reachable,
 {
   let statement = TRY(m_database.prepare(
       "UPDATE sites SET is_reachable = ?, last_seen_at = ? WHERE slug = ?;"));
-  statement.bind(1, static_cast<i64>(is_reachable ? 1 : 0));
+  statement.bind(1, static_cast<i64>(is_reachable));
   statement.bind(2, last_seen_at);
   statement.bind(3, slug);
   unused(TRY(statement.step()));
 
-  LOG(Debug, "site reachability set, slug=%s is_reachable=%d",
-      String{m_allocator, slug}.c_str(), is_reachable ? 1 : 0);
+  LOG(Debug, "site reachability set, slug=%.*s is_reachable=%d",
+      static_cast<int>(slug.count()), slug.data, is_reachable ? 1 : 0);
   return Success;
 }
 
@@ -232,11 +232,11 @@ fn Store::upsert_account(StringView identity, StringView display_name,
                              "display_name = excluded.display_name;"));
   statement.bind(1, identity);
   statement.bind(2, display_name);
-  statement.bind(3, static_cast<i64>(is_admin ? 1 : 0));
+  statement.bind(3, static_cast<i64>(is_admin));
   unused(TRY(statement.step()));
 
-  LOG(Info, "account upserted, identity=%s is_admin=%d",
-      String{m_allocator, identity}.c_str(), is_admin ? 1 : 0);
+  LOG(Info, "account upserted, identity=%.*s is_admin=%d",
+      static_cast<int>(identity.count()), identity.data, is_admin ? 1 : 0);
   return Success;
 }
 
@@ -250,8 +250,8 @@ fn Store::create_session(StringView token, StringView identity, i64 expires_at)
   statement.bind(3, expires_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "session opened for identity=%s",
-      String{m_allocator, identity}.c_str());
+  LOG(Info, "session opened for identity=%.*s",
+      static_cast<int>(identity.count()), identity.data);
   return Success;
 }
 
@@ -321,9 +321,10 @@ fn Store::add_pending(StringView kind, StringView owner, StringView target_slug,
   statement.bind(5, created_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "pending action recorded, kind=%s owner=%s target=%s",
-      String{m_allocator, kind}.c_str(), String{m_allocator, owner}.c_str(),
-      String{m_allocator, target_slug}.c_str());
+  LOG(Info, "pending action recorded, kind=%.*s owner=%.*s target=%.*s",
+      static_cast<int>(kind.count()), kind.data,
+      static_cast<int>(owner.count()), owner.data,
+      static_cast<int>(target_slug.count()), target_slug.data);
   return Success;
 }
 
@@ -346,8 +347,8 @@ fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>
   statement.bind(2, id);
   unused(TRY(statement.step()));
 
-  LOG(Info, "pending action %lld set to %s", static_cast<long long>(id),
-      String{m_allocator, status}.c_str());
+  LOG(Info, "pending action %lld set to %.*s", static_cast<long long>(id),
+      static_cast<int>(status.count()), status.data);
   return Success;
 }
 

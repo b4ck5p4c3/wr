@@ -240,7 +240,8 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
   HttpHeaders headers{m_allocator};
   headers.set("Location", is_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
-  LOG(Info, "login for %s", String{m_allocator, identity}.c_str());
+  LOG(Info, "login for %.*s", static_cast<int>(identity.count()),
+      identity.data);
   unused(event.reply(302, headers, "").is_error());
 }
 
