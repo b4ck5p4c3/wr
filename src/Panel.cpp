@@ -1,6 +1,7 @@
 #include "App.hpp"
 #include "Http.hpp"
 #include "Json.hpp"
+#include "StaticStringMap.hpp"
 #include "Trace.hpp"
 
 namespace wr {
@@ -20,11 +21,17 @@ fn is_valid_slug(StringView slug) -> bool
         (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
     if (!is_allowed) return false;
   }
-  let const reserved = {"sites", "auth",  "api",    "about",
-                        "panel", "admin", "assets", "index"};
-  for (const char *word : reserved)
-    if (slug == word) return false;
-  return true;
+  static constexpr StaticStringMap<bool, 8> RESERVED_SLUGS{
+      {{"sites", true},
+       {"auth", true},
+       {"api", true},
+       {"about", true},
+       {"panel", true},
+       {"admin", true},
+       {"assets", true},
+       {"index", true}}
+  };
+  return RESERVED_SLUGS.find(slug) == nullptr;
 }
 
 /* A site url is rendered as a link and served as a navigation redirect, so only
@@ -370,43 +377,60 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
   let const &action = found.value().value();
 
   if (should_approve) {
-    if (action.kind == "add") {
-      /* A slug taken by another owner since the submission is not reassigned by
-         an approval. */
-      let const taken = m_store.find_site(action.target_slug.view());
-      if (taken.is_error()) {
-        reply_message(event, 500, taken.error().message().view());
-        return;
-      }
-      if (taken.value().has_value() &&
-          taken.value().value().owner != action.owner)
-      {
-        reply_message(event, 409, "That slug is already taken");
-        return;
-      }
+    enum class pending_kind : u8
+    {
+      add,
+      rename,
+    };
+    static constexpr StaticStringMap<pending_kind, 2> PENDING_KINDS{
+        {{"add", pending_kind::add}, {"rename", pending_kind::rename}}
+    };
 
-      let const payload = Json::from(m_allocator, action.payload.view());
-      site row{};
-      row.slug = String{m_allocator, action.target_slug.view()};
-      row.name =
-          String{m_allocator, payload["name"].to<StringView>().value_or({})};
-      row.url =
-          String{m_allocator, payload["url"].to<StringView>().value_or({})};
-      row.favicon =
-          String{m_allocator, payload["favicon"].to<StringView>().value_or({})};
-      row.owner = String{m_allocator, action.owner.view()};
-      row.created_at = now_seconds();
-      let const stored = m_store.upsert_site(row);
-      if (stored.is_error()) {
-        reply_message(event, 500, stored.error().message().view());
-        return;
+    let const kind = PENDING_KINDS.find(action.kind.view());
+    if (kind != nullptr) {
+      switch (*kind) {
+      case pending_kind::add: {
+        /* A slug taken by another owner since the submission is not reassigned
+           by an approval. */
+        let const taken = m_store.find_site(action.target_slug.view());
+        if (taken.is_error()) {
+          reply_message(event, 500, taken.error().message().view());
+          return;
+        }
+        if (taken.value().has_value() &&
+            taken.value().value().owner != action.owner)
+        {
+          reply_message(event, 409, "That slug is already taken");
+          return;
+        }
+
+        let const payload = Json::from(m_allocator, action.payload.view());
+        site row{};
+        row.slug = String{m_allocator, action.target_slug.view()};
+        row.name =
+            String{m_allocator, payload["name"].to<StringView>().value_or({})};
+        row.url =
+            String{m_allocator, payload["url"].to<StringView>().value_or({})};
+        row.favicon = String{m_allocator,
+                             payload["favicon"].to<StringView>().value_or({})};
+        row.owner = String{m_allocator, action.owner.view()};
+        row.created_at = now_seconds();
+        let const stored = m_store.upsert_site(row);
+        if (stored.is_error()) {
+          reply_message(event, 500, stored.error().message().view());
+          return;
+        }
+        break;
       }
-    } else if (action.kind == "rename") {
-      let const renamed =
-          m_store.rename_site(action.target_slug.view(), action.payload.view());
-      if (renamed.is_error()) {
-        reply_message(event, 500, renamed.error().message().view());
-        return;
+      case pending_kind::rename: {
+        let const renamed = m_store.rename_site(action.target_slug.view(),
+                                                action.payload.view());
+        if (renamed.is_error()) {
+          reply_message(event, 500, renamed.error().message().view());
+          return;
+        }
+        break;
+      }
       }
     }
   }
