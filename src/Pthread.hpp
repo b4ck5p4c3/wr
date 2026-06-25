@@ -30,7 +30,7 @@ class PthreadThread final : public Thread
 {
 public:
   PthreadThread() noexcept = default;
-  ~PthreadThread() noexcept override = default;
+  ~PthreadThread() noexcept override { join(); }
 
   PthreadThread(const PthreadThread &) = delete;
   PthreadThread &operator=(const PthreadThread &) = delete;

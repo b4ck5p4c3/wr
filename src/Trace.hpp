@@ -29,7 +29,7 @@ inline fn log_output_stream() noexcept -> std::FILE *
 
 inline fn set_log_file(Path path) -> ErrorOr<Ok>
 {
-  std::FILE *opened = std::fopen(path.c_str(), "a");
+  let const opened = std::fopen(path.c_str(), "a");
   if (opened == nullptr) {
     String message{};
     message.append("Unable to open the log file, ");
@@ -56,7 +56,7 @@ constexpr const char *verbosity_to_string(verbosity verbosity)
 
 inline fn log_timestamp(char *buffer, usize length) noexcept -> const char *
 {
-  std::time_t now = std::time(nullptr);
+  let const now = std::time(nullptr);
   std::tm broken{};
   localtime_r(&now, &broken);
   std::strftime(buffer, length, "%H:%M:%S", &broken);
@@ -70,12 +70,14 @@ inline String LOG_RING_LINES[LOG_RING_CAPACITY]{};
 inline usize LOG_RING_HEAD = 0;
 inline usize LOG_RING_COUNT = 0;
 
-// The last emitted lines are retained so the admin panel can read the recent
-// runtime trace with no log file on disk.
-inline fn log_ring_push(StringView line) noexcept -> void
+// A ring of recent lines backs the admin log panel when no log file is on disk.
+inline fn log_ring_push(StringView header, StringView body) noexcept -> void
 {
   ScopedLock guard{LOG_RING_MUTEX};
-  LOG_RING_LINES[LOG_RING_HEAD] = String{line};
+  let &slot = LOG_RING_LINES[LOG_RING_HEAD];
+  slot.clear();
+  slot.append(header);
+  slot.append(body);
   LOG_RING_HEAD = (LOG_RING_HEAD + 1) % LOG_RING_CAPACITY;
   if (LOG_RING_COUNT < LOG_RING_CAPACITY) LOG_RING_COUNT++;
 }
@@ -104,17 +106,15 @@ inline fn log_emit(verbosity level, const char *file_line, const char *func,
       std::snprintf(header, sizeof(header), "[%s] [%s] %32s %32s(): ",
                     log_timestamp(timestamp_buffer, sizeof(timestamp_buffer)),
                     verbosity_to_string(level), file_line, func);
+  let const header_view = header_length > 0 ? StringView{header} : StringView{};
 
-  String line{};
-  if (header_length > 0) line.append(StringView{header});
-  line.append(body);
-  line.push('\n');
-
-  std::FILE *stream = log_output_stream();
-  unused(std::fputs(line.c_str(), stream));
+  let const stream = log_output_stream();
+  unused(std::fwrite(header_view.data, 1, header_view.length, stream));
+  unused(std::fwrite(body.data, 1, body.length, stream));
+  unused(std::fputc('\n', stream));
   unused(std::fflush(stream));
 
-  log_ring_push(line.view());
+  log_ring_push(header_view, body);
 }
 
 namespace log_detail {

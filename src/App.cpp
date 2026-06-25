@@ -34,7 +34,7 @@ fn content_type_for(StringView path) -> StringView
 
 fn read_file(Allocator allocator, Path path) -> Maybe<String>
 {
-  std::FILE *file = std::fopen(path.c_str(), "rb");
+  let const file = std::fopen(path.c_str(), "rb");
   if (file == nullptr) return None;
   defer { std::fclose(file); };
 
@@ -315,13 +315,14 @@ fn App::handle_sites(HttpServerEvent &event) -> void
 
 fn App::handle_config(HttpServerEvent &event) -> void
 {
-  /* The bot id is the numeric prefix of the token, which is what the Telegram
-     widget needs, while the secret stays on the server. */
+  /* The bot id is the numeric token prefix the Telegram widget needs. The
+     secret stays on the server. */
   let const telegram_token = m_config.telegram_bot_token.view();
-  usize colon = 0;
-  while (colon < telegram_token.count() && telegram_token[colon] != ':')
-    colon++;
-  let const telegram_bot = telegram_token.substring_of_length(0, colon);
+  let const colon_position = telegram_token.find_character(':');
+  let const telegram_bot =
+      colon_position.has_value()
+          ? telegram_token.substring_of_length(0, colon_position.value())
+          : telegram_token;
 
   JsonWriter writer{m_allocator};
   writer.object_begin();
@@ -431,13 +432,15 @@ fn App::serve_static(HttpServerEvent &event) -> void
 
   String file_path{m_allocator};
   file_path.append(m_config.web_root.view());
-  if (path == "/docs")
+  if (path == "/docs") {
     file_path.append("/docs.html");
-  else if (path == "/" || path == "/about" || path == "/panel" ||
-           path == "/admin")
+  } else if (path == "/" || path == "/about" || path == "/panel" ||
+             path == "/admin")
+  {
     file_path.append("/index.html");
-  else
+  } else {
     file_path.append(path);
+  }
 
   let contents = read_file(m_allocator, Path{file_path});
   if (contents.has_value()) {
