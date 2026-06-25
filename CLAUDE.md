@@ -33,6 +33,7 @@ periodic liveness check.
 ## Code conventions
 
 - The macro layer is defined in src/Common.hpp.
+- The C++ runtime library is not used. move, forward, and remove_reference are defined in-house in src/Common.hpp, the log value formatter selects its overload through the compiler type-trait builtins, and the liveness stop flag is read and written through the atomic builtins. Only the C library headers and the freestanding <initializer_list> and <new> are included.
 - The container and the allocator foundation is split across src/String, src/StringView, src/ArrayList, src/Maybe, src/StringMap, src/PackedStringKey, src/StaticStringMap, src/Path, src/Allocator, and src/Debug, all under namespace wr. src/StringMap is an open-addressing string-keyed hash table, and src/PackedStringKey is its probe key. src/StaticStringMap is a consteval string-keyed lookup table read by the dispatch and the content-type paths as data.
 - The flag parser is src/Cli, and ErrorBase, Error, and Warning are held in src/Errors.
 - The build is exceptionless. -fno-exceptions is set, so a fallible function returns ErrorOr<T> from src/ErrorOr.hpp rather than throwing, and an error is propagated early by the TRY macro.
