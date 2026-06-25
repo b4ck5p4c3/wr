@@ -357,6 +357,44 @@ export function About() {
   );
 }
 
+export const DESCRIPTION_LIMIT = 280;
+
+// A plain textarea paints one color, so the overflow is drawn by a backdrop
+// layer under a transparent textarea and the remaining count sits in the corner.
+export function DescriptionField({ value, onInput, placeholder }) {
+  const backdropRef = useRef(null);
+  const within = value.slice(0, DESCRIPTION_LIMIT);
+  const over = value.slice(DESCRIPTION_LIMIT);
+  const remaining_count = DESCRIPTION_LIMIT - value.length;
+
+  const syncScroll = (event) => {
+    if (backdropRef.current != null)
+      backdropRef.current.scrollTop = event.target.scrollTop;
+  };
+
+  return (
+    <div class="description-field">
+      <div class="description-backdrop" ref={backdropRef} aria-hidden="true">
+        {within}
+        <span class="over">{over}</span>
+      </div>
+      <textarea
+        placeholder={placeholder}
+        value={value}
+        onInput={onInput}
+        onScroll={syncScroll}
+      />
+      <span
+        class={
+          remaining_count < 0 ? "description-count over" : "description-count"
+        }
+      >
+        {remaining_count}
+      </span>
+    </div>
+  );
+}
+
 export function AddSiteForm({
   onAdded,
   submitLabel = "Submit for review",
@@ -394,7 +432,7 @@ export function AddSiteForm({
         value={form.url}
         onInput={field("url")}
       />
-      <textarea
+      <DescriptionField
         placeholder="description (optional)"
         value={form.description}
         onInput={field("description")}
@@ -507,7 +545,7 @@ export function AdminSite({ site, onSaved, onDeleted }) {
       <span class="slug">/{site.slug}</span>
       <input value={form.name} onInput={field("name")} />
       <input value={form.url} onInput={field("url")} />
-      <textarea
+      <DescriptionField
         placeholder="description"
         value={form.description || ""}
         onInput={field("description")}

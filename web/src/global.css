@@ -438,6 +438,57 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+.description-field {
+  position: relative;
+  width: 100%;
+}
+
+.description-field textarea {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-primary);
+}
+
+.description-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  margin: 0;
+  border: 1px solid transparent;
+  padding: 0.6ch 1ch;
+  font: inherit;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+}
+
+.description-backdrop .over {
+  color: var(--down);
+}
+
+.description-count {
+  position: absolute;
+  right: 2.2ch;
+  bottom: 0.4ch;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.description-count.over {
+  color: var(--down);
+  opacity: 1;
+}
+
 ul.sites,
 ul.pendings {
   list-style: none;
@@ -471,7 +522,8 @@ li.site .down {
 }
 
 li.site input,
-li.site textarea {
+li.site textarea,
+li.site .description-field {
   flex: 1 1 100%;
 }
 
