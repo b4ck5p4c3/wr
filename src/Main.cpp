@@ -133,6 +133,13 @@ fn main(int argc, char **argv) -> int
     return 1;
   }
 
+  /* A session cookie is signed with the session key, so a non-dev server with
+     an empty key cannot keep a login secret. */
+  if (!cfg.is_dev_mode && cfg.session_key.view().is_empty()) {
+    show_message("error: WR_SESSION_KEY must be set outside of dev mode.");
+    return 1;
+  }
+
   Sqlite database{allocator};
   let database_result = database.open(cfg.database_path.view());
   if (database_result.is_error()) {

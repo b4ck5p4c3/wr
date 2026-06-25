@@ -149,12 +149,20 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
   /* The secret key is the SHA-256 of the bot token, and the signature is the
      HMAC of the check string under that key. */
   unsigned char secret[32] = {};
-  sha256(m_config.telegram_bot_token.view(), secret);
+  if (sha256(m_config.telegram_bot_token.view(), secret).is_error()) {
+    reply_message(event, 500, "The signature could not be computed");
+    return;
+  }
 
   unsigned char digest[32] = {};
-  hmac_sha256(
-      StringView{reinterpret_cast<const char *>(secret), sizeof(secret)},
-      check.view(), digest);
+  if (hmac_sha256(
+          StringView{reinterpret_cast<const char *>(secret), sizeof(secret)},
+          check.view(), digest)
+          .is_error())
+  {
+    reply_message(event, 500, "The signature could not be computed");
+    return;
+  }
 
   String computed{m_allocator};
   append_hex(computed, digest, sizeof(digest));

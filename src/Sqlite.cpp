@@ -28,6 +28,10 @@ fn Sqlite::open(StringView connection_string) -> ErrorOr<Ok>
 
   sqlite3_busy_timeout(m_connection, 5000);
 
+  /* The server and the liveness sweep open separate connections, so the
+     write-ahead log lets a read run while the other connection writes. */
+  TRY(execute("PRAGMA journal_mode=WAL;"));
+
   LOG(Info, "sqlite opened at %s", path.c_str());
   return Success;
 }

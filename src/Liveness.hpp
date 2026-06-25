@@ -7,6 +7,7 @@
 #include "Sqlite.hpp"
 #include "Store.hpp"
 
+#include <atomic>
 #include <pthread.h>
 
 namespace wr {
@@ -46,7 +47,7 @@ private:
   HttpClient &m_client;
   pthread_t m_thread{};
   bool m_is_running{false};
-  volatile bool m_should_stop{false};
+  std::atomic<bool> m_should_stop{false};
 };
 
 } // namespace wr

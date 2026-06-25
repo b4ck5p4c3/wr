@@ -68,8 +68,8 @@ fn Liveness::sweep() -> void
       if (row.is_reachable)
         LOG(Info, "site %s resolves to a private address, taken down",
             row.slug.c_str());
-      unused(m_store.set_site_reachability(row.slug.view(), false, now)
-                 .is_error());
+      if (m_store.set_site_reachability(row.slug.view(), false, now).is_error())
+        LOG(Info, "reachability write dropped for %s", row.slug.c_str());
       continue;
     }
 
@@ -84,8 +84,8 @@ fn Liveness::sweep() -> void
     if (is_up != row.is_reachable)
       LOG(Info, "site %s is now %s", row.slug.c_str(), is_up ? "up" : "down");
 
-    unused(
-        m_store.set_site_reachability(row.slug.view(), is_up, now).is_error());
+    if (m_store.set_site_reachability(row.slug.view(), is_up, now).is_error())
+      LOG(Info, "reachability write dropped for %s", row.slug.c_str());
   }
 }
 

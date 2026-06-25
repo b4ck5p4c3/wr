@@ -67,6 +67,7 @@ fn Store::migrate() -> ErrorOr<Ok>
                      "  created_at INTEGER NOT NULL,"
                      "  status TEXT NOT NULL DEFAULT 'pending');";
 
+  TRY(m_database.execute("BEGIN;"));
   TRY(m_database.execute(schema));
 
   let const indexes =
@@ -80,6 +81,7 @@ fn Store::migrate() -> ErrorOr<Ok>
       "ON sessions(expires_at);";
 
   TRY(m_database.execute(indexes));
+  TRY(m_database.execute("COMMIT;"));
 
   LOG(Debug, "migration ran, the tables and the indexes are present");
   return Success;
@@ -163,8 +165,8 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
 
 fn Store::rename_site(StringView slug, StringView name) -> ErrorOr<Ok>
 {
-  let statement = TRY(m_database.prepare("UPDATE sites SET name = ? "
-                                         "WHERE slug = ?;"));
+  let statement = TRY(m_database.prepare(
+      "UPDATE sites SET name = ? WHERE slug = ? AND is_deleted = 0;"));
   statement.bind(1, name);
   statement.bind(2, slug);
   unused(TRY(statement.step()));
