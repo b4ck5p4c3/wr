@@ -570,7 +570,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PanelSite"
-      required: [identity, display_name, is_admin, sites]
+        pending:
+          type: array
+          description: The caller's own submissions awaiting review.
+          items:
+            $ref: "#/components/schemas/Submission"
+      required: [identity, display_name, is_admin, sites, pending]
+    Submission:
+      type: object
+      description: A caller's own add or rename awaiting review.
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [add, rename]
+        target_slug:
+          type: string
+        payload:
+          type: string
+          description: >-
+            The requested data, a JSON object for an add and the new name for a
+            rename.
+      required: [id, kind, target_slug, payload]
     PendingAction:
       type: object
       description: An add or a rename that waits for an admin.
@@ -583,6 +606,9 @@ components:
           enum: [add, rename]
         owner:
           type: string
+        owner_display_name:
+          type: string
+          description: The submitter display name for the admin to contact them.
         target_slug:
           type: string
         payload:
@@ -590,7 +616,7 @@ components:
           description: >-
             The requested data, a JSON object for an add and the new name for a
             rename.
-      required: [id, kind, owner, target_slug, payload]
+      required: [id, kind, owner, owner_display_name, target_slug, payload]
     SiteInput:
       type: object
       description: The fields for an add or an edit.
