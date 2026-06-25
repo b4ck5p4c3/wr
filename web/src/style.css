@@ -1,93 +1,324 @@
+/* The look is borrowed from the fennec.support site, a CRT terminal theme set in
+   Terminus over a scanline and a noise overlay. */
+
+@font-face {
+  font-display: swap;
+  font-family: "Terminus";
+  src: url("/font/woff2/terminus.woff2") format("woff2");
+  font-weight: 400;
+}
+@font-face {
+  font-display: swap;
+  font-family: "Terminus";
+  src: url("/font/woff2/terminus-bold.woff2") format("woff2");
+  font-weight: 700;
+}
+@font-face {
+  font-display: swap;
+  font-family: "Terminus";
+  src: url("/font/woff2/terminus-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-display: swap;
+  font-family: "Terminus";
+  src: url("/font/woff2/terminus-bold-italic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+}
+
 :root {
-  --bg: #14161a;
-  --fg: #e6e6e6;
-  --muted: #8a8f98;
-  --accent: #6ea8fe;
-  --card: #1d2026;
+  --bg-primary: #1a2c24;
+  --bg-secondary: #31493b;
+  --text-primary: #f7faff;
+  --text-secondary: #ffc6a8;
+  --accent: #ffb878d6;
+  --border: #436453;
+  --background-start: #2a401d;
+  --background-middle: #1f4a2a;
+  --crt-glow: #ffb878a8;
+  --a-main: #ffc6a8d8;
+  --a-strong: #ff9c60;
+  --footer-text: #9dc0c4;
+  --panel-glow-inset: rgba(255, 170, 102, 0.1);
+  --panel-outline: rgba(255, 184, 148, 0.1);
+  --tui-shadow: rgba(0, 0, 0, 0.4);
+  --scanline: rgba(0, 0, 0, 0.25);
+  --up: #82e882;
+  --down: #ff7a7a;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-primary: #78b890;
+    --bg-secondary: #68a880;
+    --text-primary: #0a3520;
+    --text-secondary: #8a4510;
+    --accent: #c54508;
+    --border: #7a9d8a;
+    --background-start: #98c888;
+    --background-middle: #88bc98;
+    --crt-glow: #852f0581;
+    --a-main: #ff6820e7;
+    --a-strong: #f41600;
+    --footer-text: #1a4a48;
+    --panel-glow-inset: rgba(197, 69, 8, 0.12);
+    --panel-outline: rgba(46, 23, 6, 0.08);
+    --tui-shadow: rgba(0, 0, 0, 0.3);
+    --scanline: rgba(0, 0, 0, 0.05);
+    --up: #0d9040;
+    --down: #c51818;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 * {
-  box-sizing: border-box;
+  font-family: "Terminus", monospace;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-shadow: 0 0 8px var(--crt-glow);
+}
+
+html {
+  background-color: var(--background-start);
+  color: var(--text-primary);
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-secondary) rgba(18, 21, 29, 0.5);
+}
+
+/* The scanline overlay sits above everything and is pinned to its own
+   compositor layer so a scroll composites it instead of repainting it. */
+html::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--scanline),
+    var(--scanline) 2px,
+    transparent 2px,
+    transparent 8px
+  );
+  z-index: 10000;
+  contain: strict;
+  transform: translateZ(0);
+}
+
+/* The vignette and the noise texture are filtered to the warm CRT tint. */
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, transparent 35%, rgba(0, 0, 0, 0.5) 100%),
+    url(/noise.webp),
+    radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 1) 100%);
+  opacity: 0.4;
+  background-blend-mode: normal, overlay, overlay;
+  filter: sepia(1) hue-rotate(180deg) saturate(2);
+  z-index: 10001;
+  contain: strict;
+  transform: translateZ(0);
+}
+
+@media (prefers-color-scheme: light) {
+  html::after {
+    opacity: 0.2;
+  }
 }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font: 16px/1.5 system-ui, sans-serif;
+  min-height: 100vh;
+  font: 16px/1.6 "Terminus", monospace;
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 40%,
+      rgba(30, 70, 40, 0.3) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      180deg,
+      var(--background-start) 0%,
+      var(--background-start) 12%,
+      var(--background-middle) 50%,
+      var(--background-start) 88%,
+      var(--background-start) 100%
+    );
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  text-shadow: 0 0 16px var(--a-main);
+  transition:
+    font-weight 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    text-shadow 0.2s ease;
+  display: inline-block;
+}
+
+a:hover {
+  cursor: pointer;
+  font-weight: 800;
+  text-shadow: 0 0 28px var(--a-main);
+  transform: scale(1.02);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text-secondary);
+  font-weight: 700;
+  margin-bottom: 0.5ch;
+}
+
+p {
+  margin: 0.5ch 0;
+}
+
+img {
+  display: inline-block;
+  image-rendering: pixelated;
 }
 
 .app {
-  max-width: 760px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 0 16px 64px;
+  padding: 4ch 2ch 8ch;
+  display: flex;
+  flex-direction: column;
+  gap: 2ch;
+}
+
+/* A big panel is the shared block, a bordered slab with the warm inset glow. */
+.bar,
+main,
+.card,
+.modal {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.32));
+  box-shadow:
+    0 0 0 1px var(--panel-outline),
+    inset 0 0 24px var(--panel-glow-inset),
+    0 8px 24px var(--tui-shadow);
 }
 
 .bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
-  border-bottom: 1px solid #2a2e36;
+  padding: 1.5ch 2ch;
 }
 
 .bar .logo {
   font-weight: 700;
-  font-size: 20px;
-  color: var(--fg);
-  text-decoration: none;
+  font-size: 22px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.2ch;
 }
 
 .bar nav {
   display: flex;
-  gap: 16px;
+  gap: 2ch;
   align-items: center;
 }
 
 .bar nav a {
-  color: var(--muted);
-  text-decoration: none;
+  color: var(--text-primary);
+  text-transform: lowercase;
 }
 
 .bar nav a:hover {
-  color: var(--fg);
+  color: var(--accent);
 }
 
-a {
-  color: var(--accent);
+main {
+  padding: 3ch;
+}
+
+.card {
+  padding: 2.5ch;
+  display: block;
 }
 
 button {
   font: inherit;
-  border: 1px solid #2a2e36;
-  background: var(--card);
-  color: var(--fg);
-  border-radius: 8px;
-  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+  border-radius: 3px;
+  padding: 0.6ch 1.4ch;
   cursor: pointer;
+  text-shadow: 0 0 8px var(--crt-glow);
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 button.primary {
-  background: var(--accent);
-  color: #06122b;
   border-color: var(--accent);
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+button.primary:hover {
+  background: rgba(255, 170, 102, 0.12);
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--footer-text);
+}
+
+button.danger {
+  background: transparent;
+  color: var(--down);
+  border-color: var(--down);
+}
+
+button.danger:hover {
+  background: var(--down);
+  color: var(--background-start);
 }
 
 input {
   font: inherit;
-  background: #0f1115;
-  color: var(--fg);
-  border: 1px solid #2a2e36;
-  border-radius: 8px;
-  padding: 6px 10px;
-  margin: 4px 6px 4px 0;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.6ch 1ch;
+  margin: 0.4ch 0.6ch 0.4ch 0;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 ul.sites,
 ul.pendings {
   list-style: none;
   padding: 0;
+  margin-top: 1.5ch;
 }
 
 li.site,
@@ -95,105 +326,93 @@ li.pending {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid #23262d;
+  gap: 1.2ch;
+  padding: 1.2ch;
+  margin: 0.8ch 0;
+  border: 1px solid var(--panel-outline);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.18);
 }
 
-.slug {
-  color: var(--muted);
-  font-family: monospace;
+.slug,
+.kind {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+code {
+  color: var(--footer-text);
+  word-break: break-all;
 }
 
 .up {
-  color: #5fd08a;
+  color: var(--up);
 }
 
 .down {
-  color: #e06c75;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid #2a2e36;
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 24px;
+  color: var(--down);
 }
 
 .hint {
-  color: var(--muted);
+  color: var(--footer-text);
   font-size: 14px;
 }
 
 .error {
-  color: #e06c75;
+  color: var(--down);
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 10002;
 }
 
 .modal {
-  background: var(--card);
-  border: 1px solid #2a2e36;
-  border-radius: 12px;
-  padding: 24px;
-  width: 320px;
+  padding: 3ch;
+  width: 360px;
 }
 
 .provider {
   display: block;
   text-align: center;
-  padding: 10px;
-  margin: 8px 0;
-  border-radius: 8px;
-  text-decoration: none;
-  color: #fff;
+  padding: 1.2ch;
+  margin: 1ch 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+.provider:hover {
+  border-color: var(--accent);
 }
 
 .provider.github {
-  background: #24292e;
+  background: rgba(88, 166, 255, 0.1);
 }
 
 .provider.telegram {
-  background: #2aabee;
+  background: rgba(88, 162, 242, 0.12);
 }
 
 .modal .close {
-  margin-top: 12px;
+  margin-top: 1.5ch;
   width: 100%;
 }
 
 footer {
-  margin-top: 48px;
-  color: var(--muted);
   text-align: center;
+  color: var(--footer-text);
   font-size: 14px;
+  line-height: 1.8;
+  padding-top: 2ch;
 }
 
-button.secondary {
-  background: transparent;
-  color: var(--muted);
-  border-color: #2a2e36;
-}
-
-button.secondary:hover {
-  color: var(--fg);
-}
-
-button.danger {
-  background: transparent;
-  color: #e06c75;
-  border-color: #e06c75;
-}
-
-button.danger:hover {
-  background: #e06c75;
-  color: #fff;
+footer .tagline {
+  color: var(--text-secondary);
+  opacity: 0.8;
 }

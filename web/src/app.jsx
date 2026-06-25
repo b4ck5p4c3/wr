@@ -379,7 +379,16 @@ export function App() {
       <Header navigate={navigate} me={me} onLogin={onLogin} onLogout={onLogout} />
       {page}
       {showLogin ? <LoginModal onClose={() => setShowLogin(false)} /> : null}
-      <footer>wr</footer>
+      <footer>
+        <p class="tagline">running on shit and sticks</p>
+        <p>
+          Copyright{" "}
+          <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
+            b4cksp4ce
+          </a>
+          , 2026
+        </p>
+      </footer>
     </div>
   );
 }
