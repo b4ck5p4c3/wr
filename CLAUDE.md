@@ -65,6 +65,7 @@ periodic liveness check.
 - The member sites, the panel users, the panel admins, and the sessions are held in the data model.
 - A user owns sites through the user panel, and an admin approves a site, removes a site, and manages the users through the admin panel.
 - Authentication is run through GitHub OAuth and the Telegram login widget, and a session row is opened and the session cookie is set on a login.
+- The `--dev` flag turns on dev mode, which exposes a login bypass at /auth/dev for an admin or a user. The client reads the dev state and the available providers from /api/config.
 - Each site is probed by the liveness sweep on a periodic timer, and the reachability and the last seen time are recorded.
 - A site that fails the probe is marked down rather than removed.
 

@@ -51,16 +51,18 @@ function link(navigate, to) {
   };
 }
 
-function LoginModal({ onClose }) {
-  const telegramBot = window.WR_TELEGRAM_BOT;
+function LoginModal({ onClose, config }) {
+  const telegramBot = config.telegram_bot;
   return (
     <div class="modal-backdrop" onClick={onClose}>
       <div class="modal" onClick={(e) => e.stopPropagation()}>
         <h2>sign in</h2>
         <p>Pick a provider to manage your sites.</p>
-        <a class="provider github" href="/auth/github">
-          Continue with GitHub
-        </a>
+        {config.github ? (
+          <a class="provider github" href="/auth/github">
+            Continue with GitHub
+          </a>
+        ) : null}
         {telegramBot ? (
           <a
             class="provider telegram"
@@ -75,6 +77,18 @@ function LoginModal({ onClose }) {
           >
             Continue with Telegram
           </a>
+        ) : null}
+        {config.is_dev ? (
+          <select
+            class="provider"
+            onChange={(e) => {
+              if (e.target.value) location.href = e.target.value;
+            }}
+          >
+            <option value="">bypass login</option>
+            <option value="/auth/dev?role=admin">log in as admin</option>
+            <option value="/auth/dev?role=user">log in as user</option>
+          </select>
         ) : null}
         <button class="close" onClick={onClose}>
           close
@@ -329,12 +343,14 @@ export function App() {
   const [path, navigate] = useRoute();
   const [showLogin, setShowLogin] = useState(false);
   const [me, setMe] = useState(undefined);
+  const [config, setConfig] = useState({});
 
   // Fetch the current account on mount and after a change so the header and the
   // home panel stay in sync.
   const reloadMe = () => api.me().then(setMe).catch(() => setMe(null));
   useEffect(() => {
     reloadMe();
+    api.config().then(setConfig).catch(() => {});
   }, []);
 
   const onLogin = () => setShowLogin(true);
@@ -357,7 +373,9 @@ export function App() {
     <div class="app">
       <Header navigate={navigate} me={me} onLogin={onLogin} onLogout={onLogout} />
       {page}
-      {showLogin ? <LoginModal onClose={() => setShowLogin(false)} /> : null}
+      {showLogin ? (
+        <LoginModal config={config} onClose={() => setShowLogin(false)} />
+      ) : null}
       <footer>
         <p>
           running on{" "}

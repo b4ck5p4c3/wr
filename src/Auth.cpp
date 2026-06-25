@@ -201,15 +201,20 @@ fn App::handle_logout(HttpServerEvent &event) -> void
 }
 
 fn App::finish_login(HttpServerEvent &event, StringView identity,
-                     StringView display_name) -> void
+                     StringView display_name, Maybe<bool> force_admin) -> void
 {
-  bool was_admin = false;
-  let const existing = m_store.find_account(identity);
-  if (!existing.is_error() && existing.value().has_value()) {
-    was_admin = existing.value().value().is_admin;
+  /* A real provider preserves the admin flag already on the row, while the dev
+     bypass forces the role it was asked for. */
+  bool is_admin = false;
+  if (force_admin.has_value()) {
+    is_admin = force_admin.value();
+  } else {
+    let const existing = m_store.find_account(identity);
+    if (!existing.is_error() && existing.value().has_value())
+      is_admin = existing.value().value().is_admin;
   }
 
-  if (m_store.upsert_account(identity, display_name, was_admin).is_error()) {
+  if (m_store.upsert_account(identity, display_name, is_admin).is_error()) {
     reply_message(event, 500, "Unable to store the account");
     return;
   }
@@ -233,10 +238,28 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
   cookie.append("; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000");
 
   HttpHeaders headers{m_allocator};
-  headers.set("Location", was_admin ? "/admin" : "/");
+  headers.set("Location", is_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "login for %s", String{m_allocator, identity}.c_str());
   unused(event.reply(302, headers, "").is_error());
+}
+
+fn App::handle_dev_login(HttpServerEvent &event) -> void
+{
+  if (!m_config.is_dev_mode) {
+    reply_message(event, 404, "No such endpoint");
+    return;
+  }
+
+  let const role = find_query_param(event.query(), "role", m_allocator);
+  let const is_admin = role.has_value() && role.value().view() == "admin";
+
+  /* The bypass account is fixed per role, so a dev login reuses the same row
+     and the same sites across runs. */
+  String identity{m_allocator};
+  identity.append(is_admin ? "dev:admin" : "dev:user");
+  finish_login(event, identity.view(), is_admin ? "dev admin" : "dev user",
+               Maybe<bool>{is_admin});
 }
 
 fn App::current_account(HttpServerEvent &event) -> Maybe<account>

@@ -27,6 +27,8 @@ FLAG(PUBLICURL, String, 'u', "public-url", Server,
      "Public base URL for the OAuth redirect (required).");
 FLAG(LOGFILE, String, 'L', "log-file", Debug,
      "Append the log to FILE instead of standard error.");
+FLAG(DEV, Bool, 'D', "dev", Debug,
+     "Run in dev mode with a login bypass for an admin and a user.");
 
 namespace {
 
@@ -111,8 +113,10 @@ fn main(int argc, char **argv) -> int
   cfg.telegram_bot_token =
       String{allocator, env_or("WR_TELEGRAM_BOT_TOKEN", "")};
   cfg.session_key = String{allocator, env_or("WR_SESSION_KEY", "")};
+  cfg.is_dev_mode = FLAG_DEV.is_enabled();
 
   LOG(Info, "wr is starting up");
+  if (cfg.is_dev_mode) LOG(Info, "dev mode is on, the login bypass is enabled");
 
   Store store{allocator};
   let store_result = store.open(Path{cfg.database_path});

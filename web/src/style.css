@@ -423,6 +423,20 @@ code {
   border-color: var(--telegram-blue);
 }
 
+select.provider {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  text-align: center;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select.provider option {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
 .modal .close {
   margin-top: 1.5ch;
   width: 100%;

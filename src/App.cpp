@@ -160,6 +160,10 @@ fn App::dispatch(HttpServerEvent &event) -> void
     handle_telegram_callback(event);
     return;
   }
+  if (path.starts_with("/auth/dev")) {
+    handle_dev_login(event);
+    return;
+  }
   if (path.starts_with("/auth/logout")) {
     /* Logout deletes the session, so it requires POST like the other mutations
        and a cross-site GET cannot end a signed-in session. */
@@ -174,6 +178,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
   if (path.starts_with("/api/")) {
     enum class api_route
     {
+      config,
       me,
       admin_pending,
       admin_approve,
@@ -189,8 +194,9 @@ fn App::dispatch(HttpServerEvent &event) -> void
       api_route route;
       bool is_mutation;
     };
-    static constexpr StaticStringMap<api_endpoint, 9> API_ROUTES{
-        {{"/api/me", {api_route::me, false}},
+    static constexpr StaticStringMap<api_endpoint, 10> API_ROUTES{
+        {{"/api/config", {api_route::config, false}},
+         {"/api/me", {api_route::me, false}},
          {"/api/admin/pending", {api_route::admin_pending, false}},
          {"/api/admin/pending/approve", {api_route::admin_approve, true}},
          {"/api/admin/pending/reject", {api_route::admin_reject, true}},
@@ -216,6 +222,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
     }
 
     switch (endpoint->route) {
+    case api_route::config: handle_config(event); break;
     case api_route::me: handle_me(event); break;
     case api_route::admin_pending: handle_admin_pending(event); break;
     case api_route::admin_approve: handle_admin_resolve(event, true); break;
@@ -287,6 +294,28 @@ fn App::handle_sites(HttpServerEvent &event) -> void
   for (usize i = 0; i < sites.count(); i++)
     write_site_json(writer, sites[i]);
   writer.array_end();
+  reply_json(event, 200, writer.view());
+}
+
+fn App::handle_config(HttpServerEvent &event) -> void
+{
+  /* The bot id is the numeric prefix of the token, which is what the Telegram
+     widget needs, while the secret stays on the server. */
+  let const telegram_token = m_config.telegram_bot_token.view();
+  usize colon = 0;
+  while (colon < telegram_token.count() && telegram_token[colon] != ':')
+    colon++;
+  let const telegram_bot = telegram_token.substring_of_length(0, colon);
+
+  JsonWriter writer{m_allocator};
+  writer.object_begin();
+  writer.key("is_dev");
+  writer.boolean(m_config.is_dev_mode);
+  writer.key("github");
+  writer.boolean(!m_config.github_client_id.view().is_empty());
+  writer.field("telegram_bot",
+               telegram_token.is_empty() ? StringView{} : telegram_bot);
+  writer.object_end();
   reply_json(event, 200, writer.view());
 }
 

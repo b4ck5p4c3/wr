@@ -22,6 +22,7 @@ async function postJson(path, body) {
 }
 
 export const api = {
+  config: () => getJson("/api/config"),
   listSites: () => getJson("/sites"),
   me: () => getJson("/api/me"),
   logout: () => postJson("/auth/logout", {}),

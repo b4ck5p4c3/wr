@@ -194,6 +194,47 @@ paths:
           $ref: "#/components/responses/Message"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /auth/dev:
+    get:
+      tags: [auth]
+      summary: Bypass the login in dev mode.
+      description: >-
+        A session is opened for a fixed dev account with the chosen role. The
+        endpoint answers 404 when dev mode is off.
+      security: []
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [admin, user]
+          description: The role to log in as, a user by default.
+      responses:
+        "302":
+          description: A redirect with the wr_session cookie set.
+          headers:
+            Set-Cookie:
+              description: The wr_session cookie.
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/config:
+    get:
+      tags: [panel]
+      summary: Return the public client config.
+      description: >-
+        The flags the frontend needs to render the login, the dev mode state and
+        which providers are available.
+      security: []
+      responses:
+        "200":
+          description: The client config.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientConfig"
   /api/me:
     get:
       tags: [panel]
@@ -453,6 +494,20 @@ components:
           schema:
             $ref: "#/components/schemas/Message"
   schemas:
+    ClientConfig:
+      type: object
+      description: The flags the frontend reads to render the login.
+      properties:
+        is_dev:
+          type: boolean
+          description: True when the server runs in dev mode.
+        github:
+          type: boolean
+          description: True when the GitHub provider is configured.
+        telegram_bot:
+          type: string
+          description: The Telegram bot id, an empty string when not configured.
+      required: [is_dev, github, telegram_bot]
     WebringWebsite:
       type: object
       description: A public site in the ring.

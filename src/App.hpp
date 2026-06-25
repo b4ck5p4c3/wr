@@ -24,6 +24,7 @@ struct config
   String github_client_secret;
   String telegram_bot_token;
   String session_key;
+  bool is_dev_mode = false;
 };
 
 /* The application context threaded through every request. It owns no
@@ -55,8 +56,10 @@ private:
   fn handle_login_github(HttpServerEvent &event) -> void;
   fn handle_github_callback(HttpServerEvent &event) -> void;
   fn handle_telegram_callback(HttpServerEvent &event) -> void;
+  fn handle_dev_login(HttpServerEvent &event) -> void;
   fn handle_logout(HttpServerEvent &event) -> void;
 
+  fn handle_config(HttpServerEvent &event) -> void;
   fn handle_me(HttpServerEvent &event) -> void;
   fn handle_user_add(HttpServerEvent &event, const account &who) -> void;
   fn handle_user_rename(HttpServerEvent &event, const account &who) -> void;
@@ -75,7 +78,8 @@ private:
   fn reply_message(HttpServerEvent &event, u16 status, StringView message)
       -> void;
   fn finish_login(HttpServerEvent &event, StringView identity,
-                  StringView display_name) -> void;
+                  StringView display_name, Maybe<bool> force_admin = {})
+      -> void;
   mustuse fn current_account(HttpServerEvent &event) -> Maybe<account>;
 
   Allocator m_allocator;
