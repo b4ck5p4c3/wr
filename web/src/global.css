@@ -71,6 +71,29 @@ html {
   scrollbar-color: var(--text-secondary) rgba(18, 21, 29, 0.5);
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
 /* The scanline overlay sits above everything and is pinned to its own
    compositor layer so a scroll composites it instead of repainting it. */
 html::before {
