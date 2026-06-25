@@ -5,7 +5,7 @@ SYNOPSIS
 
 OPTIONS
   -h, --help              Show this help and exit.
-  -v, --version           Show the version and exit.
+      --version           Show the version and exit.
 
 SERVER OPTIONS
   -l, --listen=<...>      URL to listen on, like http://0.0.0.0:8000 (required).
@@ -15,7 +15,8 @@ SERVER OPTIONS
 
 DEBUG OPTIONS
   -L, --log-file=<...>    Append the log to FILE instead of standard error.
-  -V, --verbose           Log at debug verbosity, including the per-request
-                          access lines.
+  -v, --verbose           Raise the log verbosity, repeat for more. A single -v
+                          adds the per-request access lines and -vv traces
+                          everything.
   -D, --dev               Run in dev mode with a login bypass for an admin and a
                           user.

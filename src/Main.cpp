@@ -17,7 +17,7 @@ HELP_DESCRIPTION_DECL("wr, a webring server backend.");
 HELP_SYNOPSIS_DECL("[options]");
 
 FLAG(HELP, Bool, 'h', "help", "Show this help and exit.");
-FLAG(VERSION, Bool, 'v', "version", "Show the version and exit.");
+FLAG(VERSION, Bool, '\0', "version", "Show the version and exit.");
 FLAG(LISTEN, String, 'l', "listen", Server,
      "URL to listen on, like http://0.0.0.0:8000 (required).");
 FLAG(DATABASE, String, 'd', "database", Server,
@@ -28,8 +28,9 @@ FLAG(PUBLICURL, String, 'u', "public-url", Server,
      "Public base URL for the OAuth redirect (required).");
 FLAG(LOGFILE, String, 'L', "log-file", Debug,
      "Append the log to FILE instead of standard error.");
-FLAG(VERBOSE, Bool, 'V', "verbose", Debug,
-     "Log at debug verbosity, including the per-request access lines.");
+FLAG(VERBOSE, Bool, 'v', "verbose", Debug,
+     "Raise the log verbosity, repeat for more. A single -v adds the "
+     "per-request access lines and -vv traces everything.");
 FLAG(DEV, Bool, 'D', "dev", Debug,
      "Run in dev mode with a login bypass for an admin and a user.");
 
