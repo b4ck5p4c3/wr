@@ -48,6 +48,9 @@
   --scanline: rgba(0, 0, 0, 0.25);
   --up: #82e882;
   --down: #ff7a7a;
+  --github-bg: #0d1117;
+  --github-text: #58a6ff;
+  --telegram-blue: #58a2f2;
 }
 
 /* The reset is copied from the fennec.support site. */
@@ -184,6 +187,20 @@ a:hover {
   transform: scale(1.02);
 }
 
+/* An outbound link carries a small diagonal arrow. The glyph is an SVG mask
+   tinted to the link color, so no font or unicode character is needed. */
+a[href^="http"]::after {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-left: 0.2ch;
+  vertical-align: -0.05em;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M7 7h10v10h-2V10.41l-8.29 8.3-1.42-1.42 8.3-8.29H7z'/%3E%3C/svg%3E") no-repeat center / contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M7 7h10v10h-2V10.41l-8.29 8.3-1.42-1.42 8.3-8.29H7z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+
 h1,
 h2,
 h3 {
@@ -234,7 +251,6 @@ main,
 .bar .logo {
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
   letter-spacing: 0.1ch;
 }
 
@@ -396,11 +412,15 @@ code {
 }
 
 .provider.github {
-  background: rgba(88, 166, 255, 0.1);
+  background: var(--github-bg);
+  color: var(--github-text);
+  border-color: var(--github-text);
 }
 
 .provider.telegram {
-  background: rgba(88, 162, 242, 0.12);
+  background: var(--telegram-blue);
+  color: #0b1622;
+  border-color: var(--telegram-blue);
 }
 
 .modal .close {
@@ -413,9 +433,4 @@ footer {
   color: var(--footer-text);
   line-height: 1.3;
   padding-top: 2ch;
-}
-
-footer .tagline {
-  color: var(--text-secondary);
-  opacity: 0.8;
 }
