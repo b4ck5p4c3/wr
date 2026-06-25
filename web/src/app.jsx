@@ -114,14 +114,18 @@ function Landing({ navigate, me, reload }) {
   const [sites, setSites] = useState(null);
   const [error, setError] = useState(null);
   useEffect(() => {
-    api.listSites().then(setSites).catch((e) => setError(e.message));
+    api
+      .listSites()
+      .then(setSites)
+      .catch((e) => setError(e.message + ". Check your internet connection."));
   }, []);
 
   return (
     <main>
       <h1>the b4cksp4ce webring</h1>
-      {error ? <p class="error">{error}</p> : null}
-      {sites === null ? (
+      {error ? (
+        <p class="error">{error}</p>
+      ) : sites === null ? (
         <p>Loading...</p>
       ) : sites.length === 0 ? (
         <p>No sites are in the ring yet.</p>
