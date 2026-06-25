@@ -84,7 +84,7 @@ fn main(int argc, char **argv) -> int
       !FLAG_WEBROOT.is_set() || !FLAG_PUBLICURL.is_set())
   {
     String message{allocator};
-    message.append("These options are required:\n");
+    message.append("error: These options are required:\n");
     let const do_note = [&](const FlagString &flag, const char *line) {
       if (flag.is_set()) return;
       message.append("  ");
