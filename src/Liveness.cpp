@@ -6,6 +6,7 @@
 #include "Trace.hpp"
 #include "Utils.hpp"
 
+#include <cstring>
 #include <unistd.h>
 
 namespace wr {
@@ -13,8 +14,14 @@ namespace wr {
 fn Liveness::start() -> ErrorOr<Ok>
 {
   TRY(m_database.open(m_config.database_path.view()));
-  if (pthread_create(&m_thread, nullptr, &thread_main, this) != 0)
-    return Error{"Unable to start the liveness thread"};
+
+  let const code = pthread_create(&m_thread, nullptr, &thread_main, this);
+  if (code != 0) {
+    String message{m_allocator};
+    message.append("Unable to start the liveness thread, ");
+    message.append(std::strerror(code));
+    return Error{message.view()};
+  }
   m_is_running = true;
   LOG(Info, "liveness sweep started");
   return Success;

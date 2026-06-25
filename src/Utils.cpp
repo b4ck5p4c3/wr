@@ -1,6 +1,8 @@
 #include "Utils.hpp"
 
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 
 namespace wr {
@@ -59,7 +61,12 @@ fn random_token(Allocator allocator) -> ErrorOr<String>
 {
   unsigned char bytes[16] = {};
   std::FILE *source = std::fopen("/dev/urandom", "rb");
-  if (source == nullptr) return Error{"Unable to open the entropy source"};
+  if (source == nullptr) {
+    String message{allocator};
+    message.append("Unable to open the entropy source, ");
+    message.append(std::strerror(errno));
+    return Error{message.view()};
+  }
   defer { std::fclose(source); };
 
   let const read_count = std::fread(bytes, 1, sizeof(bytes), source);

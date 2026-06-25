@@ -29,7 +29,12 @@ inline fn log_output_stream() noexcept -> std::FILE *
 inline fn set_log_file(Path path) -> ErrorOr<Ok>
 {
   std::FILE *opened = std::fopen(path.c_str(), "a");
-  if (opened == nullptr) return Error{"Unable to open the log file"};
+  if (opened == nullptr) {
+    String message{};
+    message.append("Unable to open the log file, ");
+    message.append(std::strerror(errno));
+    return Error{message.view()};
+  }
 
   if (LOGGER_OUTPUT != nullptr) std::fclose(LOGGER_OUTPUT);
 
