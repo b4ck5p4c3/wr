@@ -5,9 +5,7 @@
 #include "Containers.hpp"
 #include "ErrorOr.hpp"
 #include "Maybe.hpp"
-#include "Path.hpp"
-
-struct sqlite3;
+#include "Sql.hpp"
 
 namespace wr {
 
@@ -54,18 +52,19 @@ struct pending_action
   String status;
 };
 
-/* The sqlite store. It owns the connection, runs the migration on open, and is
-   the only persistence layer. Every fallible call returns an ErrorOr. */
+/* The store. It runs the migration and maps the rows over a borrowed
+   SqlDatabase backend. Every fallible call returns an ErrorOr. */
 class Store
 {
 public:
-  explicit Store(Allocator allocator) : m_allocator(allocator) {}
-  ~Store();
+  Store(Allocator allocator, SqlDatabase &database)
+      : m_allocator(allocator), m_database(database)
+  {}
 
   Store(const Store &) = delete;
   Store &operator=(const Store &) = delete;
 
-  fn open(Path path) -> ErrorOr<Ok>;
+  fn migrate() -> ErrorOr<Ok>;
 
   mustuse fn list_active_sites() const -> ErrorOr<ArrayList<site>>;
   mustuse fn list_all_sites() const -> ErrorOr<ArrayList<site>>;
@@ -101,8 +100,6 @@ public:
   }
 
 private:
-  fn migrate() -> ErrorOr<Ok>;
-
   /* List the sites the filter selects. The filter is the WHERE and ORDER tail
      appended after the column list, and the owner is bound to the single
      parameter when the filter names one. */
@@ -110,7 +107,7 @@ private:
       -> ErrorOr<ArrayList<site>>;
 
   Allocator m_allocator;
-  sqlite3 *m_db{nullptr};
+  SqlDatabase &m_database;
 };
 
 } // namespace wr

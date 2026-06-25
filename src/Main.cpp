@@ -6,6 +6,7 @@
 #include "Liveness.hpp"
 #include "Mongoose.hpp"
 #include "Path.hpp"
+#include "Sqlite.hpp"
 #include "Store.hpp"
 #include "Trace.hpp"
 
@@ -132,10 +133,17 @@ fn main(int argc, char **argv) -> int
     return 1;
   }
 
-  Store store{allocator};
-  let store_result = store.open(Path{cfg.database_path});
-  if (store_result.is_error()) {
-    show_message(store_result.error().message().view());
+  Sqlite database{allocator};
+  let database_result = database.open(cfg.database_path.view());
+  if (database_result.is_error()) {
+    show_message(database_result.error().message().view());
+    return 1;
+  }
+
+  Store store{allocator, database};
+  let migrate_result = store.migrate();
+  if (migrate_result.is_error()) {
+    show_message(migrate_result.error().message().view());
     return 1;
   }
 

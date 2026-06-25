@@ -3,7 +3,6 @@
 #include "Client.hpp"
 #include "Http.hpp"
 #include "Net.hpp"
-#include "Path.hpp"
 #include "Trace.hpp"
 #include "Utils.hpp"
 
@@ -13,7 +12,7 @@ namespace wr {
 
 fn Liveness::start() -> ErrorOr<Ok>
 {
-  TRY(m_store.open(Path{m_config.database_path}));
+  TRY(m_database.open(m_config.database_path.view()));
   if (pthread_create(&m_thread, nullptr, &thread_main, this) != 0)
     return Error{"Unable to start the liveness thread"};
   m_is_running = true;

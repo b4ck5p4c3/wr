@@ -4,6 +4,7 @@
 #include "App.hpp"
 #include "Common.hpp"
 #include "ErrorOr.hpp"
+#include "Sqlite.hpp"
 #include "Store.hpp"
 
 #include <pthread.h>
@@ -20,8 +21,8 @@ class Liveness
 {
 public:
   Liveness(Allocator allocator, const config &cfg, HttpClient &client)
-      : m_allocator(allocator), m_config(cfg), m_store(allocator),
-        m_client(client)
+      : m_allocator(allocator), m_config(cfg), m_database(allocator),
+        m_store(allocator, m_database), m_client(client)
   {}
 
   Liveness(const Liveness &) = delete;
@@ -40,6 +41,7 @@ private:
 
   Allocator m_allocator;
   const config &m_config;
+  Sqlite m_database;
   Store m_store;
   HttpClient &m_client;
   pthread_t m_thread{};
