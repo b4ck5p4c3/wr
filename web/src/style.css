@@ -110,7 +110,8 @@ html::after {
 
 body {
   min-height: 100vh;
-  font: 16px/1.6 "Terminus", monospace;
+  font: 16px/1.2 "Terminus", monospace;
+  letter-spacing: -0.05ch;
   background:
     radial-gradient(
       ellipse 80% 60% at 50% 40%,
@@ -198,7 +199,7 @@ main,
   font-size: 22px;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.2ch;
+  letter-spacing: 0.1ch;
 }
 
 .bar nav {
@@ -381,7 +382,7 @@ footer {
   text-align: center;
   color: var(--footer-text);
   font-size: 14px;
-  line-height: 1.8;
+  line-height: 1.3;
   padding-top: 2ch;
 }
 
