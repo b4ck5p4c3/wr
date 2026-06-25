@@ -11,7 +11,6 @@ namespace wr {
 
 namespace {
 
-/* The function-local static runs curl_global_init once and is thread-safe. */
 fn ensure_curl_is_initialized() noexcept -> void
 {
   static const CURLcode init_result = curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -27,7 +26,6 @@ fn append_response_body(char *pointer, size_t size, size_t count,
   return total_length;
 }
 
-/* A line with no colon is the status line or the blank line and is skipped. */
 fn collect_response_header(char *pointer, size_t size, size_t count,
                            opaque *user_data) -> size_t
 {
@@ -94,7 +92,6 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
   let const url = String{m_allocator, request.url()};
   curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
 
-  /* The method token is a string literal, so it is NUL terminated. */
   let const method_name = http_method_name(request.method());
   curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, method_name.data);
 

@@ -49,7 +49,6 @@ fn read_file(Allocator allocator, Path path) -> Maybe<String>
   return Maybe<String>{steal(contents)};
 }
 
-/* The first path segment after an optional leading slash, and the remainder. */
 fn split_first_segment(StringView path, StringView &rest) -> StringView
 {
   usize start = 0;
@@ -266,8 +265,6 @@ fn App::dispatch(HttpServerEvent &event) -> void
     return;
   }
 
-  /* The SPA owns the bare app routes and any asset, so they are served as
-     static files before a top-level segment is read as a navigation slug. */
   if (path == "/" || path == "/about" || path == "/panel" || path == "/admin" ||
       path == "/docs" || path.starts_with("/assets/"))
   {
@@ -275,8 +272,6 @@ fn App::dispatch(HttpServerEvent &event) -> void
     return;
   }
 
-  /* An asset path carries a file extension, so it is served statically rather
-     than read as a navigation slug. */
   if (path.find_character('.').has_value()) {
     serve_static(event);
     return;
@@ -452,8 +447,6 @@ fn App::serve_static(HttpServerEvent &event) -> void
     return;
   }
 
-  /* The single-page app handles its own routes, so an unknown path is served
-     the shell. */
   String index_path{m_allocator};
   index_path.append(m_config.web_root.view());
   index_path.append("/index.html");

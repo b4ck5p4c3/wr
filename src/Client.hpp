@@ -8,8 +8,7 @@
 
 namespace wr {
 
-/* A fluent builder for an outbound request. Each setter returns the builder, so
-   a request is assembled in one chain. */
+/* A fluent builder for an outbound request. */
 class HttpRequestBuilder
 {
 public:
@@ -42,8 +41,7 @@ private:
   HttpRequest m_request;
 };
 
-/* The abstract HTTP client. A backend such as CurlClient performs the request
-   and returns the response or an Error. */
+/* The abstract HTTP client, with CurlClient as the backend. */
 class HttpClient
 {
 public:

@@ -38,8 +38,7 @@ fn Liveness::run() -> void
 {
   while (!m_should_stop) {
     sweep();
-    /* The wait is broken into one-second steps, so a stop is honored within a
-       second. */
+    /* The wait is polled in one-second steps so a stop is honored promptly. */
     for (int i = 0; i < 60 && !m_should_stop; i++)
       sleep(1);
   }

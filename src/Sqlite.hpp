@@ -12,8 +12,7 @@ struct sqlite3;
 
 namespace wr {
 
-/* The sqlite backend. The connection string is a local file path, and the
-   connection is owned for the lifetime of the object. */
+/* The connection string is a local file path for the sqlite backend. */
 class Sqlite final : public SqlDatabase
 {
 public:

@@ -10,9 +10,7 @@ namespace wr {
 
 class SqlDatabase;
 
-/* A prepared statement that owns its backend handle. The parameters are bound,
-   the rows are stepped, and the columns are read through the database backend,
-   and the handle is finalized on destruction. */
+/* The handle is finalized on destruction, so a statement is move-only. */
 class SqlStatement
 {
 public:

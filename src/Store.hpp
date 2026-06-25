@@ -9,8 +9,6 @@
 
 namespace wr {
 
-/* A member site of the ring. The slug keys the navigation, and the reachability
-   and the last seen time are maintained by the liveness sweep. */
 struct site
 {
   String slug;
@@ -31,7 +29,6 @@ struct account
   bool is_admin{false};
 };
 
-/* A login session, keyed by an opaque token held in the session cookie. */
 struct session
 {
   String token;
@@ -100,9 +97,6 @@ public:
   }
 
 private:
-  /* List the sites the filter selects. The filter is the WHERE and ORDER tail
-     appended after the column list, and the owner is bound to the single
-     parameter when the filter names one. */
   mustuse fn query_sites(const char *filter_sql, Maybe<StringView> owner) const
       -> ErrorOr<ArrayList<site>>;
 

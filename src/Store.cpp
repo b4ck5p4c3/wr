@@ -69,9 +69,6 @@ fn Store::migrate() -> ErrorOr<Ok>
 
   TRY(m_database.execute(schema));
 
-  /* The hot read paths filter the owner, the reachability, and the pending
-     status, so each gets a covering index. The slug and the identity are
-     already indexed as primary keys. */
   let const indexes =
       "CREATE INDEX IF NOT EXISTS index_sites_owner ON sites(owner);"
       "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"

@@ -37,14 +37,7 @@ public:
       : m_allocator(allocator), m_store(store), m_client(client), m_config(cfg)
   {}
 
-  /* The mongoose handler entry. It recovers the App from the user pointer and
-     dispatches the request. */
   static fn on_event(HttpServerEvent &event, opaque *user) -> void;
-
-  mustuse pure fn allocator() const noexcept -> Allocator
-  {
-    return m_allocator;
-  }
 
 private:
   fn dispatch(HttpServerEvent &event) -> void;
@@ -91,17 +84,12 @@ private:
   const config &m_config;
 };
 
-/* The value of a query parameter, percent-decoded, or None when it is absent.
- */
 mustuse fn find_query_param(StringView query, StringView name,
                             Allocator allocator) -> Maybe<String>;
 
-/* The value of a cookie from a Cookie header, or None when it is absent. */
 mustuse fn find_cookie(StringView cookie_header, StringView name)
     -> Maybe<StringView>;
 
-/* Write a site as a PublicSite object, the slug, the name, the url, and the
-   favicon. */
 fn write_site_json(JsonWriter &writer, const site &row) -> void;
 
 } // namespace wr
