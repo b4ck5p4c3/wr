@@ -189,6 +189,78 @@ img {
   gap: 2ch;
 }
 
+/* The webring is a 3D carousel of terminal windows. The stage holds the
+   perspective, the ring carries the cards on a preserved 3D space, and a card
+   is seated on the cylinder by its own rotateY and translateZ. */
+.ring-stage {
+  perspective: 1400px;
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.ring-stage:active {
+  cursor: grabbing;
+}
+
+.ring {
+  position: relative;
+  width: 300px;
+  height: 170px;
+  transform-style: preserve-3d;
+}
+
+.tui-window {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.75));
+  box-shadow:
+    0 0 0 1px var(--panel-outline),
+    inset 0 0 24px var(--panel-glow-inset),
+    0 12px 32px var(--tui-shadow);
+  backface-visibility: hidden;
+}
+
+.tui-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6ch;
+  padding: 0.6ch 1ch;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.tui-dot {
+  width: 0.9ch;
+  height: 0.9ch;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  opacity: 0.55;
+}
+
+.tui-title {
+  margin-left: auto;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.tui-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1ch;
+  padding: 2ch;
+  text-align: center;
+}
+
 /* A big panel is the shared block, a bordered slab with the warm inset glow. */
 .bar,
 main,

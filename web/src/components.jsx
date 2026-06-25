@@ -114,17 +114,101 @@ export function LoginModal({ onClose, config }) {
   );
 }
 
-export function SiteCard({ site }) {
+// The ring is a carousel of terminal windows seated on a 3D cylinder. The ring
+// drifts on its own and a pointer drag grabs it and spins it, with the throw
+// velocity carried on release. The transform is mutated through the ref so a
+// frame never costs a render.
+export function Carousel({ sites }) {
+  const ringRef = useRef(null);
+  const motionRef = useRef({
+    rotation: 0,
+    velocity: 0,
+    isDragging: false,
+    lastX: 0,
+  });
+
+  const count = sites.length;
+  const anglePerCard = 360 / count;
+  const radius = Math.round(150 / Math.tan(Math.PI / Math.max(count, 2))) + 40;
+
+  useEffect(() => {
+    let frame;
+    const tick = () => {
+      const motion = motionRef.current;
+      if (!motion.isDragging) {
+        motion.rotation += motion.velocity || 0.12;
+        motion.velocity *= 0.94;
+        if (Math.abs(motion.velocity) < 0.05) motion.velocity = 0;
+      }
+      if (ringRef.current)
+        ringRef.current.style.transform =
+          "translateZ(-" + radius + "px) rotateY(" + motion.rotation + "deg)";
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [radius]);
+
+  const onPointerDown = (event) => {
+    const motion = motionRef.current;
+    motion.isDragging = true;
+    motion.velocity = 0;
+    motion.lastX = event.clientX;
+    if (event.currentTarget.setPointerCapture)
+      event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onPointerMove = (event) => {
+    const motion = motionRef.current;
+    if (!motion.isDragging) return;
+    const delta = (event.clientX - motion.lastX) * 0.4;
+    motion.lastX = event.clientX;
+    motion.rotation += delta;
+    motion.velocity = delta;
+  };
+  const onPointerUp = () => {
+    motionRef.current.isDragging = false;
+  };
+
   return (
-    <li class="site">
-      {site.favicon ? (
-        <img src={site.favicon} alt="" width="16" height="16" />
-      ) : null}
-      <a href={site.url} target="_blank" rel="noopener noreferrer">
-        {site.name}
-      </a>
-      <span class="slug">/{site.slug}</span>
-    </li>
+    <div
+      class="ring-stage"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+    >
+      <div class="ring" ref={ringRef}>
+        {sites.map((site, i) => (
+          <article
+            class="tui-window"
+            key={site.slug}
+            style={{
+              transform:
+                "rotateY(" +
+                i * anglePerCard +
+                "deg) translateZ(" +
+                radius +
+                "px)",
+            }}
+          >
+            <header class="tui-bar">
+              <span class="tui-dot" />
+              <span class="tui-dot" />
+              <span class="tui-dot" />
+              <span class="tui-title">/{site.slug}</span>
+            </header>
+            <div class="tui-body">
+              {site.favicon ? (
+                <img src={site.favicon} alt="" width="16" height="16" />
+              ) : null}
+              <a href={site.url} target="_blank" rel="noopener noreferrer">
+                {site.name}
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -155,11 +239,7 @@ export function Landing({ navigate, me, reload }) {
       ) : sites.length === 0 ? (
         <p>No sites are in the ring yet.</p>
       ) : (
-        <ul class="sites">
-          {sites.map((site) => (
-            <SiteCard key={site.slug} site={site} />
-          ))}
-        </ul>
+        <Carousel sites={sites} />
       )}
 
       {me && me.is_admin ? (
