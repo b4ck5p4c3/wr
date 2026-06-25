@@ -23,7 +23,7 @@ fn Liveness::start() -> ErrorOr<Ok>
 fn Liveness::stop() -> void
 {
   if (!m_is_running) return;
-  m_should_stop = true;
+  __atomic_store_n(&m_should_stop, true, __ATOMIC_SEQ_CST);
   pthread_join(m_thread, nullptr);
   m_is_running = false;
 }
@@ -36,10 +36,11 @@ fn Liveness::thread_main(opaque *self) -> opaque *
 
 fn Liveness::run() -> void
 {
-  while (!m_should_stop) {
+  while (!__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST)) {
     sweep();
     /* The wait is polled in one-second steps so a stop is honored promptly. */
-    for (int i = 0; i < 60 && !m_should_stop; i++)
+    for (int i = 0;
+         i < 60 && !__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST); i++)
       sleep(1);
   }
 }

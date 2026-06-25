@@ -7,7 +7,6 @@
 #include "Sqlite.hpp"
 #include "Store.hpp"
 
-#include <atomic>
 #include <pthread.h>
 
 namespace wr {
@@ -47,7 +46,9 @@ private:
   HttpClient &m_client;
   pthread_t m_thread{};
   bool m_is_running{false};
-  std::atomic<bool> m_should_stop{false};
+  /* The worker polls the flag and the server sets it, so it is read and written
+     through the atomic builtins. */
+  bool m_should_stop{false};
 };
 
 } // namespace wr

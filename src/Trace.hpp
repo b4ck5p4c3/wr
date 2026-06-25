@@ -89,11 +89,11 @@ inline String value_to_log_string(char value)
 }
 
 template <class T>
-  requires std::is_integral_v<T>
-String value_to_log_string(T value)
+  requires __is_integral
+(T) String value_to_log_string(T value)
 {
   char buffer[32];
-  if constexpr (std::is_signed_v<T>) {
+  if constexpr (__is_signed(T)) {
     std::snprintf(buffer, sizeof(buffer), "%lld",
                   static_cast<long long>(value));
   } else {
@@ -104,8 +104,8 @@ String value_to_log_string(T value)
 }
 
 template <class T>
-  requires std::is_floating_point_v<T>
-String value_to_log_string(T value)
+  requires __is_floating_point
+(T) String value_to_log_string(T value)
 {
   char buffer[64];
   std::snprintf(buffer, sizeof(buffer), "%g", static_cast<double>(value));
@@ -113,8 +113,8 @@ String value_to_log_string(T value)
 }
 
 template <class T>
-  requires std::is_pointer_v<T>
-String value_to_log_string(T value)
+  requires __is_pointer
+(T) String value_to_log_string(T value)
 {
   char buffer[32];
   std::snprintf(buffer, sizeof(buffer), "%p", static_cast<const void *>(value));
@@ -153,7 +153,7 @@ String format_named_values(StringView names, Args &&...args)
     if (++index < value_count) out.append(StringView{", "});
   };
 
-  (do_append_one(std::forward<Args>(args)), ...);
+  (do_append_one(::wr::forward<Args>(args)), ...);
   return out;
 }
 

@@ -72,9 +72,7 @@
 #include <clocale>
 #include <cstring>
 
-#include <type_traits>
 #include <initializer_list>
-#include <utility>
 #include <new>
 /* clang-format on */
 
@@ -149,7 +147,7 @@ public:
 #define unused(x) ((void) (x))
 
 #define countof(arr) (sizeof(arr) / sizeof(*(arr)))
-#define steal        std::move
+#define steal        ::wr::move
 #define mustuse      [[nodiscard]]
 
 #define fn   auto
@@ -176,3 +174,43 @@ public:
 #define flatten
 #define noinline
 #endif /* T__HAS_GCC_EXTENSIONS */
+
+namespace wr {
+
+template <class T>
+struct remove_reference
+{
+  using type = T;
+};
+template <class T>
+struct remove_reference<T &>
+{
+  using type = T;
+};
+template <class T>
+struct remove_reference<T &&>
+{
+  using type = T;
+};
+template <class T>
+using remove_reference_t = typename remove_reference<T>::type;
+
+template <class T>
+forceinline constexpr fn move(T &&value) noexcept -> remove_reference_t<T> &&
+{
+  return static_cast<remove_reference_t<T> &&>(value);
+}
+
+template <class T>
+forceinline constexpr fn forward(remove_reference_t<T> &value) noexcept -> T &&
+{
+  return static_cast<T &&>(value);
+}
+
+template <class T>
+forceinline constexpr fn forward(remove_reference_t<T> &&value) noexcept -> T &&
+{
+  return static_cast<T &&>(value);
+}
+
+} // namespace wr
