@@ -15,9 +15,9 @@ curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.
 
 curl -s -c "$AJAR" -o /dev/null "http://127.0.0.1:$PORT/auth/dev?role=admin"
 echo "add-direct: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"d","name":"D","url":"https://d.example","description":"first desc"}' "http://127.0.0.1:$PORT/api/admin/site/add")"
-echo "sites: $(curl -s "http://127.0.0.1:$PORT/sites")"
+echo "sites: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
 echo "edit: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"d","name":"D2","url":"https://d2.example","description":"second desc"}' "http://127.0.0.1:$PORT/api/admin/site")"
-echo "sites-after-edit: $(curl -s "http://127.0.0.1:$PORT/sites")"
+echo "sites-after-edit: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
 echo "delete: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"d"}' "http://127.0.0.1:$PORT/api/admin/site/delete")"
 echo "sites-after-delete: $(curl -s "http://127.0.0.1:$PORT/sites")"
 

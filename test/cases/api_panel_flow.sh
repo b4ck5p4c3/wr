@@ -23,7 +23,7 @@ curl -s -c "$AJAR" -o /dev/null "http://127.0.0.1:$PORT/auth/dev?role=admin"
 id=$(curl -s -b "$AJAR" "http://127.0.0.1:$PORT/api/admin/pending" | grep -o '"id":[0-9]*' | head -1 | grep -o '[0-9]*')
 payload='{"id":'$id'}'
 echo "approve: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d "$payload" "http://127.0.0.1:$PORT/api/admin/pending/approve")"
-echo "sites-after: $(curl -s "http://127.0.0.1:$PORT/sites")"
+echo "sites-after: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
 
 kill "$server" 2>/dev/null
 rm -rf "$WEB" "$DB" "$UJAR" "$AJAR"

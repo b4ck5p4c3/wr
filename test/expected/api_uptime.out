@@ -1,0 +1,3 @@
+sites: [{"slug":"up","name":"Up","url":"https://up.example","description":"","created_at":0}]
+uptime-length: 168
+uptime-samples: 100 0 75 
