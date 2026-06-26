@@ -13,6 +13,7 @@ import {
 export function App() {
   const [path, navigate] = useRoute();
   const [showLogin, setShowLogin] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [me, setMe] = useState(undefined);
   const [config, setConfig] = useState({});
 
@@ -32,7 +33,9 @@ export function App() {
   }, []);
 
   const onLogin = () => setShowLogin(true);
-  const onLogout = async () => {
+  const onLogout = () => setShowLogoutConfirm(true);
+  const doLogout = async () => {
+    setShowLogoutConfirm(false);
     try {
       await api.logout();
     } catch (_) {
@@ -60,6 +63,20 @@ export function App() {
       {page}
       {showLogin ? (
         <LoginModal config={config} onClose={() => setShowLogin(false)} />
+      ) : null}
+      {showLogoutConfirm ? (
+        <div class="modal-backdrop" onClick={() => setShowLogoutConfirm(false)}>
+          <div class="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>log out</h2>
+            <p>End this session and return to the ring?</p>
+            <button class="danger" onClick={doLogout}>
+              log out..
+            </button>
+            <button class="close" onClick={() => setShowLogoutConfirm(false)}>
+              cancel..
+            </button>
+          </div>
+        </div>
       ) : null}
       <footer>
         <p>
