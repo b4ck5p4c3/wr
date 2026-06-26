@@ -688,6 +688,7 @@ export function AdminSite({ site, onSaved, onDeleted }) {
 export function Admin({ onLogin }) {
   const [me, setMe] = useState(undefined);
   const [pending, setPending] = useState([]);
+  const [showAllSites, setShowAllSites] = useState(false);
   const reload = () => {
     api
       .me()
@@ -734,16 +735,29 @@ export function Admin({ onLogin }) {
         </ul>
       )}
       <h2>all sites</h2>
-      <ul class="sites">
-        {me.sites.map((site) => (
-          <AdminSite
-            key={site.slug}
-            site={site}
-            onSaved={reload}
-            onDeleted={reload}
-          />
-        ))}
-      </ul>
+      <button class="primary" onClick={() => setShowAllSites(true)}>
+        all sites.. ({me.sites.length})
+      </button>
+      {showAllSites ? (
+        <div class="modal-backdrop" onClick={() => setShowAllSites(false)}>
+          <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            <h2>all sites</h2>
+            <ul class="sites modal-scroll">
+              {me.sites.map((site) => (
+                <AdminSite
+                  key={site.slug}
+                  site={site}
+                  onSaved={reload}
+                  onDeleted={reload}
+                />
+              ))}
+            </ul>
+            <button class="close" onClick={() => setShowAllSites(false)}>
+              close..
+            </button>
+          </div>
+        </div>
+      ) : null}
       <AddSiteForm
         submitLabel="Add site directly"
         onSubmit={(form) => api.adminAddSite(form)}

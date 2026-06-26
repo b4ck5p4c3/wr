@@ -681,6 +681,15 @@ code {
   width: 360px;
 }
 
+.modal.modal-wide {
+  width: min(680px, 92vw);
+}
+
+.modal-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
 .provider {
   display: block;
   text-align: center;
