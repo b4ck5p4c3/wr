@@ -117,26 +117,27 @@ fn address_is_private(const sockaddr *address) -> bool
   return true;
 }
 
-fn host_is_public(StringView url) -> bool
+fn classify_host(StringView url) -> host_reachability
 {
   char host[256];
-  if (!extract_http_host(url, host, sizeof(host))) return false;
+  if (!extract_http_host(url, host, sizeof(host)))
+    return host_reachability::unresolved;
 
   addrinfo hints{};
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   addrinfo *results = nullptr;
-  if (getaddrinfo(host, nullptr, &hints, &results) != 0) return false;
+  if (getaddrinfo(host, nullptr, &hints, &results) != 0)
+    return host_reachability::unresolved;
   defer { freeaddrinfo(results); };
 
-  bool is_public = results != nullptr;
+  if (results == nullptr) return host_reachability::unresolved;
+
   for (const addrinfo *it = results; it != nullptr; it = it->ai_next) {
-    if (address_is_private(it->ai_addr)) {
-      is_public = false;
-      break;
-    }
+    if (address_is_private(it->ai_addr))
+      return host_reachability::private_address;
   }
-  return is_public;
+  return host_reachability::public_address;
 }
 
 } // namespace wr

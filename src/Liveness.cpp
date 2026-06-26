@@ -72,12 +72,19 @@ fn Liveness::sweep() -> void
       continue;
     }
 
-    /* A site whose url resolves to a private address is taken out of the ring
-       before any probe, so the sweep is never an ssrf vector. */
-    if (!host_is_public(row.url.view())) {
-      if (row.is_reachable)
-        LOG(Info, "site %s resolves to a private address, taken down",
-            row.slug.c_str());
+    /* A site whose url does not resolve or resolves to a private address is
+       taken out of the ring before any probe, so the sweep is never an ssrf
+       vector. */
+    let const reachability = classify_host(row.url.view());
+    if (reachability != host_reachability::public_address) {
+      if (row.is_reachable) {
+        if (reachability == host_reachability::unresolved)
+          LOG(Info, "site %s could not be resolved, taken down",
+              row.slug.c_str());
+        else
+          LOG(Info, "site %s resolves to a private address, taken down",
+              row.slug.c_str());
+      }
       if (m_store.set_site_reachability(row.slug.view(), false, now).is_error())
         LOG(Info, "reachability write dropped for %s", row.slug.c_str());
       if (m_store.record_liveness(row.slug.view(), false, now).is_error())
