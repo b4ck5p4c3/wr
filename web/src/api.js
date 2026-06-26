@@ -22,11 +22,11 @@ async function getJson(path) {
   return data;
 }
 
-async function postJson(path, body) {
+async function sendJson(method, path, body) {
   let response;
   try {
     response = await fetch(path, {
-      method: "POST",
+      method,
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -38,6 +38,9 @@ async function postJson(path, body) {
   if (!response.ok) throw new Error(data.message || "request failed");
   return data;
 }
+
+const postJson = (path, body) => sendJson("POST", path, body);
+const deleteJson = (path, body) => sendJson("DELETE", path, body);
 
 export const api = {
   config: () => getJson("/api/v1/config"),
@@ -57,14 +60,15 @@ export const api = {
   postComment: (body) => postJson("/api/v1/comments/add", { body }),
   adminEditSite: (site) => postJson("/api/v1/admin/site", site),
   adminAddSite: (site) => postJson("/api/v1/admin/site/add", site),
-  adminDeleteSite: (slug) => postJson("/api/v1/admin/site/delete", { slug }),
+  adminDeleteSite: (slug) => deleteJson("/api/v1/admin/site/delete", { slug }),
   adminPending: () => getJson("/api/v1/admin/pending"),
   adminApprove: (id) => postJson("/api/v1/admin/pending/approve", { id }),
-  adminReject: (id) => postJson("/api/v1/admin/pending/reject", { id }),
+  adminReject: (id) => deleteJson("/api/v1/admin/pending/reject", { id }),
   adminLogs: () => getJson("/api/v1/admin/logs"),
   adminAudit: () => getJson("/api/v1/admin/audit"),
   adminPendingComments: () => getJson("/api/v1/admin/comments"),
   adminApproveComment: (id) =>
     postJson("/api/v1/admin/comments/approve", { id }),
-  adminDeleteComment: (id) => postJson("/api/v1/admin/comments/delete", { id }),
+  adminDeleteComment: (id) =>
+    deleteJson("/api/v1/admin/comments/delete", { id }),
 };

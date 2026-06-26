@@ -237,32 +237,48 @@ fn App::dispatch(HttpServerEvent &event) -> void
       comments_list,
       comments_add,
     };
+    enum class request_method : u8
+    {
+      read,
+      post,
+      del,
+    };
     struct api_endpoint
     {
       api_route route;
-      bool is_mutation;
+      request_method method;
     };
     static constexpr StaticStringMap<api_endpoint, 18> API_ROUTES{
-        {{"/api/v1/config", {api_route::config, false}},
-         {"/api/v1/me", {api_route::me, false}},
-         {"/api/v1/admin/pending", {api_route::admin_pending, false}},
-         {"/api/v1/admin/pending/approve", {api_route::admin_approve, true}},
-         {"/api/v1/admin/pending/reject", {api_route::admin_reject, true}},
-         {"/api/v1/admin/site", {api_route::admin_site, true}},
-         {"/api/v1/admin/site/add", {api_route::admin_site_add, true}},
-         {"/api/v1/admin/site/delete", {api_route::admin_site_delete, true}},
-         {"/api/v1/admin/logs", {api_route::admin_logs, false}},
-         {"/api/v1/admin/audit", {api_route::admin_audit, false}},
-         {"/api/v1/admin/comments", {api_route::admin_comments, false}},
+        {{"/api/v1/config", {api_route::config, request_method::read}},
+         {"/api/v1/me", {api_route::me, request_method::read}},
+         {"/api/v1/admin/pending",
+          {api_route::admin_pending, request_method::read}},
+         {"/api/v1/admin/pending/approve",
+          {api_route::admin_approve, request_method::post}},
+         {"/api/v1/admin/pending/reject",
+          {api_route::admin_reject, request_method::del}},
+         {"/api/v1/admin/site", {api_route::admin_site, request_method::post}},
+         {"/api/v1/admin/site/add",
+          {api_route::admin_site_add, request_method::post}},
+         {"/api/v1/admin/site/delete",
+          {api_route::admin_site_delete, request_method::del}},
+         {"/api/v1/admin/logs", {api_route::admin_logs, request_method::read}},
+         {"/api/v1/admin/audit",
+          {api_route::admin_audit, request_method::read}},
+         {"/api/v1/admin/comments",
+          {api_route::admin_comments, request_method::read}},
          {"/api/v1/admin/comments/approve",
-          {api_route::admin_comment_approve, true}},
+          {api_route::admin_comment_approve, request_method::post}},
          {"/api/v1/admin/comments/delete",
-          {api_route::admin_comment_delete, true}},
-         {"/api/v1/sites/add", {api_route::sites_add, true}},
-         {"/api/v1/sites/rename", {api_route::sites_rename, true}},
-         {"/api/v1/sites/react", {api_route::sites_react, true}},
-         {"/api/v1/comments", {api_route::comments_list, false}},
-         {"/api/v1/comments/add", {api_route::comments_add, true}}}
+          {api_route::admin_comment_delete, request_method::del}},
+         {"/api/v1/sites/add", {api_route::sites_add, request_method::post}},
+         {"/api/v1/sites/rename",
+          {api_route::sites_rename, request_method::post}},
+         {"/api/v1/sites/react",
+          {api_route::sites_react, request_method::post}},
+         {"/api/v1/comments", {api_route::comments_list, request_method::read}},
+         {"/api/v1/comments/add",
+          {api_route::comments_add, request_method::post}}}
     };
 
     let const endpoint = API_ROUTES.find(path);
@@ -271,11 +287,15 @@ fn App::dispatch(HttpServerEvent &event) -> void
       return;
     }
 
-    /* The required method is data in the route table, so a mutation is reached
-       only through POST and a cross-site GET cannot drive it on a signed-in
-       browser. */
-    if (endpoint->is_mutation && event.method() != "POST") {
+    /* The required method is data in the route table. A write is reached only
+       through POST or DELETE, so a cross-site GET cannot drive it on a
+       signed-in browser. */
+    if (endpoint->method == request_method::post && event.method() != "POST") {
       reply_message(event, 405, "This endpoint requires POST");
+      return;
+    }
+    if (endpoint->method == request_method::del && event.method() != "DELETE") {
+      reply_message(event, 405, "This endpoint requires DELETE");
       return;
     }
 

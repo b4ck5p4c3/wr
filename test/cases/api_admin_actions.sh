@@ -18,7 +18,7 @@ echo "add-direct: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/jso
 echo "sites: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
 echo "edit: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"d","name":"D2","url":"https://d2.example","description":"second desc"}' "http://127.0.0.1:$PORT/api/v1/admin/site")"
 echo "sites-after-edit: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
-echo "delete: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"d"}' "http://127.0.0.1:$PORT/api/v1/admin/site/delete")"
+echo "delete: $(curl -s -b "$AJAR" -X DELETE -H 'Content-Type: application/json' -d '{"slug":"d"}' "http://127.0.0.1:$PORT/api/v1/admin/site/delete")"
 echo "sites-after-delete: $(curl -s "http://127.0.0.1:$PORT/sites")"
 
 kill "$server" 2>/dev/null

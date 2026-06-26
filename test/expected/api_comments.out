@@ -16,6 +16,7 @@ approve-missing-id: 400
 delete-missing-id: 400
 approve-nonexistent: 404
 delete-nonexistent: 404
+delete-wrong-method: 405
 delete: {"message":"Comment deleted"}
 delete-2: {"message":"Comment deleted"}
 list-after-delete: []
