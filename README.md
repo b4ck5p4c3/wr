@@ -71,8 +71,29 @@ The widget is bound to a domain, so the bot domain is set by sending
 `/setdomain` to @BotFather and giving the public url of the ring. The numeric
 bot id before the colon in the token is read by the widget.
 
-An admin is seeded by setting `is_admin` on an account row inside the database
-once it has signed in at least once.
+## Flow
+
+You sign in first through GitHub or Telegram. The first admin is seeded by hand,
+so mark your own account once it has signed in at least once. The accounts table
+is keyed by a provider identity such as `github:1234`, and the handle is kept in
+the `username` column. Set `is_admin` on your row and filter by the provider
+prefix, so a GitHub handle is not confused with a Telegram handle that shares the
+same name.
+
+```
+sqlite3 wr.db "UPDATE accounts SET is_admin = 1 \
+  WHERE username = 'your-handle' AND identity LIKE 'github:%';"
+```
+
+Other people then sign in and submit their site, which is held for review. An
+admin approves a pending site by hand before it joins the ring. Only an owner of
+an approved site in the ring may post a footer comment, while every signed in
+visitor may leave an emoji reaction. The navigation to the neighbouring rings is
+added by hand for now, following the guide on the `/docs` page.
+
+## TODO
+
+- A cute webring widget and an 88x31 button store.
 
 ## API
 
