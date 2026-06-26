@@ -253,6 +253,16 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
+  let const target = m_store.find_site(slug.value());
+  if (target.is_error()) {
+    reply_message(event, 500, target.error().message().view());
+    return;
+  }
+  if (!target.value().has_value()) {
+    reply_message(event, 404, "No such site");
+    return;
+  }
+
   let const toggled =
       m_store.toggle_reaction(slug.value(), emoji.value(), who.identity.view());
   if (toggled.is_error()) {

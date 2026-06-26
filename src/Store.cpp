@@ -349,8 +349,9 @@ fn Store::get_liveness_history(StringView slug, i64 now) const
     let const probe_count = statement.get<i64>();
 
     let const slot = hour_bucket - current_hour + LIVENESS_WINDOW_HOURS - 1;
-    if (slot >= 0 && slot < LIVENESS_WINDOW_HOURS && probe_count > 0)
+    if (slot >= 0 && slot < LIVENESS_WINDOW_HOURS && probe_count > 0) {
       history[static_cast<usize>(slot)] = up_count * 100 / probe_count;
+    }
   }
 
   return history;
@@ -359,13 +360,18 @@ fn Store::get_liveness_history(StringView slug, i64 now) const
 fn Store::toggle_reaction(StringView slug, StringView emoji,
                           StringView identity) -> ErrorOr<bool>
 {
-  let exists = TRY(m_database.prepare(
-      "SELECT 1 FROM reactions WHERE slug = ? AND emoji = ? AND "
-      "identity = ?;"));
-  exists.bind(slug);
-  exists.bind(emoji);
-  exists.bind(identity);
-  let const is_set = TRY(exists.step());
+  /* The probe statement is leased from the per-connection cache, so it is
+     scoped and returned before the write statement is prepared. */
+  bool is_set = false;
+  {
+    let probe = TRY(m_database.prepare(
+        "SELECT 1 FROM reactions WHERE slug = ? AND emoji = ? AND "
+        "identity = ?;"));
+    probe.bind(slug);
+    probe.bind(emoji);
+    probe.bind(identity);
+    is_set = TRY(probe.step());
+  }
 
   if (is_set) {
     let statement = TRY(m_database.prepare(
