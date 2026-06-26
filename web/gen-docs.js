@@ -134,14 +134,15 @@ function resolveStatus(from, to, responseComponents) {
     if (refMatch) {
       const name = refName(refMatch[1]);
       if (refMatch[1].includes("/responses/"))
-        return responseComponents[name] || name;
+        return { label: responseComponents[name] || name, schema: null };
       if (refMatch[1].includes("/schemas/"))
-        return (isArray ? "array of " : "") + name;
+        return { label: (isArray ? "array of " : "") + name, schema: name };
     }
   }
   const descIndex = keyIndexAt(from, to, 10, "description");
-  if (descIndex >= 0) return scalarAfter(lines[descIndex]);
-  return "";
+  if (descIndex >= 0)
+    return { label: scalarAfter(lines[descIndex]), schema: null };
+  return { label: "", schema: null };
 }
 
 function parseOperation(from, to, responseComponents) {
@@ -189,7 +190,7 @@ function parseOperation(from, to, responseComponents) {
       const [sFrom, sTo] = childRange(i);
       op.responses.push({
         status,
-        label: resolveStatus(sFrom, sTo, responseComponents),
+        ...resolveStatus(sFrom, sTo, responseComponents),
       });
     }
   }
@@ -245,15 +246,14 @@ function parseSpec() {
   return { title, version, tagOrder, endpoints, schemas };
 }
 
-function renderRequest(op, schemas) {
-  if (op.request == null) return "";
-  const schema = schemas[op.request];
-  if (schema == null || schema.fields.length === 0) return "";
-  const fields = schema.fields
+// A schema is rendered as a list of its fields, each with its type and an
+// optional required marker. The marker is shown for a request input only.
+function renderFields(schema, showRequired) {
+  return schema.fields
     .map((field) => {
-      const isRequired = schema.required.includes(field.name);
+      const isRequired = showRequired && schema.required.includes(field.name);
       return (
-        '<li><code>' +
+        "<li><code>" +
         escapeHtml(field.name) +
         "</code> " +
         escapeHtml(field.type) +
@@ -262,10 +262,18 @@ function renderRequest(op, schemas) {
       );
     })
     .join("");
+}
+
+function renderRequest(op, schemas) {
+  if (op.request == null) return "";
+  const schema = schemas[op.request];
+  if (schema == null || schema.fields.length === 0) return "";
   return (
-    '<div class="block"><span class="label">Request body (JSON object)</span>' +
+    '<div class="block"><span class="label">' +
+    escapeHtml(op.method.toUpperCase()) +
+    " json object body</span>" +
     "<ul>" +
-    fields +
+    renderFields(schema, true) +
     "</ul></div>"
   );
 }
@@ -282,17 +290,24 @@ function renderParams(op) {
   );
 }
 
-function renderResponses(op) {
+function renderResponses(op, schemas) {
   if (op.responses.length === 0) return "";
   const rows = op.responses
-    .map(
-      (response) =>
+    .map((response) => {
+      const schema = response.schema ? schemas[response.schema] : null;
+      const fields =
+        schema != null && schema.fields.length > 0
+          ? "<ul>" + renderFields(schema, false) + "</ul>"
+          : "";
+      return (
         "<li><code>" +
         escapeHtml(response.status) +
         "</code> " +
         escapeHtml(response.label) +
-        "</li>",
-    )
+        fields +
+        "</li>"
+      );
+    })
     .join("");
   return (
     '<div class="block"><span class="label">responses</span><ul>' +
@@ -305,7 +320,7 @@ function renderEndpoint(endpoint, schemas) {
   const detail =
     renderParams(endpoint) +
     renderRequest(endpoint, schemas) +
-    renderResponses(endpoint);
+    renderResponses(endpoint, schemas);
   return (
     '<div class="endpoint">\n          <div class="head">' +
     '<span class="method method-' +
