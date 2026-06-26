@@ -17,6 +17,19 @@ export function useRoute() {
   return [path, navigate];
 }
 
+// A modal closes on the Escape key, the same as a click on the backdrop. The
+// listener is attached only while the modal is open.
+export function useEscape(onClose, isOpen) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [onClose, isOpen]);
+}
+
 // A pulsing placeholder bar shown where a value has not loaded yet, borrowed
 // from the fennec.support ghost line.
 export function GhostLine({ width = "100%" }) {
@@ -46,6 +59,7 @@ export function Header({ navigate, me, onLogin, onLogout }) {
         <a href="/about" onClick={link(navigate, "/about")}>
           about
         </a>
+        <a href="/docs">docs</a>
         {me ? (
           <button class="secondary" onClick={onLogout}>
             logout..
@@ -141,6 +155,22 @@ export function formatAge(createdAt) {
   return "less than an hour";
 }
 
+// A unix epoch second is rendered as a short local date and time for an audit
+// row.
+function formatTimestamp(epochSeconds) {
+  const date = new Date(epochSeconds * 1000);
+  const pad = (value) => String(value).padStart(2, "0");
+  return (
+    pad(date.getDate()) +
+    "-" +
+    pad(date.getMonth() + 1) +
+    " " +
+    pad(date.getHours()) +
+    ":" +
+    pad(date.getMinutes())
+  );
+}
+
 const UPTIME_COLUMN_COUNT = 48;
 
 // The 7-day hourly history is collapsed into a fixed row of bars, green for a
@@ -188,6 +218,7 @@ const REACTIONS = ["poop", "like", "eyes", "fire", "star", "skull"];
 export function ReactionBar({ site, me, onLogin, onReacted }) {
   const counts = site.reactions || {};
   const mine = site.reacted || [];
+  const hasReactions = Object.values(counts).some((count) => count > 0);
   const react = async (emoji) => {
     if (!me) {
       if (onLogin) onLogin();
@@ -201,7 +232,7 @@ export function ReactionBar({ site, me, onLogin, onReacted }) {
     }
   };
   return (
-    <div class="reactions">
+    <div class={hasReactions ? "reactions has-reactions" : "reactions"}>
       {REACTIONS.map((emoji) => (
         <button
           key={emoji}
@@ -481,6 +512,7 @@ export function Landing({ navigate, me, reload, onLogin }) {
   const [sites, setSites] = useState(null);
   const [error, setError] = useState(null);
   const [showAddSite, setShowAddSite] = useState(false);
+  useEscape(() => setShowAddSite(false), showAddSite);
   const loadSites = () =>
     api
       .listSites()
@@ -705,10 +737,12 @@ export function OwnedSite({ site, onRenamed }) {
       <div class="row-actions">
         <button onClick={rename}>rename..</button>
       </div>
-      <UptimeGraph history={site.uptime} />
-      <span class={site.is_reachable ? "up" : "down"}>
-        {site.is_reachable ? "up" : "down"}
-      </span>
+      <div class="uptime-row">
+        <UptimeGraph history={site.uptime} />
+        <span class={site.is_reachable ? "up" : "down"}>
+          {site.is_reachable ? "currently up" : "currently down"}
+        </span>
+      </div>
       {message ? <span class="hint">{message}</span> : null}
     </li>
   );
@@ -798,12 +832,26 @@ export function AdminSite({ site, onSaved, onDeleted }) {
           delete..
         </button>
       </div>
-      <UptimeGraph history={site.uptime} />
-      <span class={site.is_reachable ? "up" : "down"}>
-        {site.is_reachable ? "up" : "down"}
-      </span>
+      <div class="uptime-row">
+        <UptimeGraph history={site.uptime} />
+        <span class={site.is_reachable ? "up" : "down"}>
+          {site.is_reachable ? "currently up" : "currently down"}
+        </span>
+      </div>
       {message ? <span class="hint error">{message}</span> : null}
     </li>
+  );
+}
+
+// The all-sites modal filters its rows by a case-insensitive match on the slug
+// or the name.
+function matchSites(sites, query) {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return sites;
+  return sites.filter(
+    (site) =>
+      site.slug.toLowerCase().includes(needle) ||
+      site.name.toLowerCase().includes(needle),
   );
 }
 
@@ -811,6 +859,8 @@ export function Admin({ onLogin }) {
   const [me, setMe] = useState(undefined);
   const [pending, setPending] = useState([]);
   const [showAllSites, setShowAllSites] = useState(false);
+  const [siteQuery, setSiteQuery] = useState("");
+  useEscape(() => setShowAllSites(false), showAllSites);
   const reload = () => {
     api
       .me()
@@ -864,8 +914,14 @@ export function Admin({ onLogin }) {
         <div class="modal-backdrop" onClick={() => setShowAllSites(false)}>
           <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
             <h2>all sites</h2>
+            <input
+              class="site-search"
+              placeholder="search by name or slug"
+              value={siteQuery}
+              onInput={(e) => setSiteQuery(e.target.value)}
+            />
             <ul class="sites modal-scroll">
-              {me.sites.map((site) => (
+              {matchSites(me.sites, siteQuery).map((site) => (
                 <AdminSite
                   key={site.slug}
                   site={site}
@@ -885,9 +941,60 @@ export function Admin({ onLogin }) {
         onSubmit={(form) => api.adminAddSite(form)}
         onAdded={reload}
       />
+      <h2>audit log</h2>
+      <AuditLog />
       <h2>server logs</h2>
       <LogStream />
     </main>
+  );
+}
+
+// The admin view reads the trail of admin actions and shows it above the raw
+// server log tail. The trail is polled so a fresh action surfaces without a
+// reload.
+export function AuditLog() {
+  const [entries, setEntries] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let stopped = false;
+    const poll = () =>
+      api
+        .adminAudit()
+        .then((next) => {
+          if (stopped) return;
+          setEntries(next);
+          setError(null);
+        })
+        .catch((e) => {
+          if (!stopped) setError(e.message);
+        });
+    poll();
+    const timer = setInterval(poll, 5000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  if (error) return <p class="error">{error}</p>;
+  if (entries === null) return <Loading />;
+  if (entries.length === 0) return <p>No admin actions yet.</p>;
+
+  return (
+    <ul class="audit-log">
+      {entries.map((entry) => (
+        <li class="audit-entry" key={entry.id}>
+          <span class="audit-time">{formatTimestamp(entry.created_at)}</span>
+          <span class="audit-action">{entry.action}</span>
+          <span class="audit-target">{entry.target}</span>
+          <span class="audit-actor">{entry.actor}</span>
+          {entry.detail ? (
+            <span class="audit-detail">{entry.detail}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 

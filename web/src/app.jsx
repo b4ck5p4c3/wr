@@ -7,6 +7,7 @@ import {
   Landing,
   LoginModal,
   NotFound,
+  useEscape,
   useRoute,
 } from "./components.jsx";
 
@@ -31,6 +32,9 @@ export function App() {
       .then(setConfig)
       .catch(() => {});
   }, []);
+
+  useEscape(() => setShowLogin(false), showLogin);
+  useEscape(() => setShowLogoutConfirm(false), showLogoutConfirm);
 
   const onLogin = () => setShowLogin(true);
   const onLogout = () => setShowLogoutConfirm(true);
@@ -98,10 +102,6 @@ export function App() {
         </p>
         <p>
           Copyright{" "}
-          <a href="https://0x08.in" target="_blank" rel="noopener noreferrer">
-            B4cksp4ce
-          </a>
-          {", "}
           <a
             href="https://github.com/toiletbril"
             target="_blank"

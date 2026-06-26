@@ -455,6 +455,14 @@ img {
   pointer-events: auto;
 }
 
+/* A card that already carries a reaction shows the bar without a hover, so the
+   existing tally reads at a glance. */
+.tui-face .reactions.has-reactions {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
 /* A big panel is the shared block, a bordered slab with the warm inset glow. */
 .bar,
 main,
@@ -664,15 +672,28 @@ li.pending {
   opacity: 0.8;
 }
 
-/* The uptime graph and the reachability label sit together at the trailing
-   edge of a site row. */
-li.site .uptime-graph {
-  margin-left: auto;
+/* The uptime graph and the reachability label share their own line at the far
+   left of a site row. A blank line is opened above the actions and the uptime
+   so they read apart from the edited fields. The label aligns to the top of the
+   graph, on the line of the bars. */
+.uptime-row {
+  flex-basis: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 1ch;
+  margin-top: 1.2ch;
 }
 
-li.site .up,
-li.site .down {
+/* The status label rides the far right on the line of the bars, so its
+   line height matches the bar row rather than the taller default. */
+.uptime-row .up,
+.uptime-row .down {
   margin-left: auto;
+  line-height: 1;
+}
+
+li.site .row-actions {
+  margin-top: 1.2ch;
 }
 
 .uptime-graph {
@@ -751,6 +772,53 @@ li.site .description-field {
   text-shadow: none;
 }
 
+.audit-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4ch;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.audit-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 1ch;
+  padding: 0.6ch 1ch;
+  border: 1px solid var(--panel-outline);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+}
+
+.audit-time {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.audit-action {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.audit-target {
+  color: var(--text-primary);
+}
+
+.audit-actor {
+  margin-left: auto;
+  color: var(--footer-text);
+}
+
+.audit-detail {
+  flex-basis: 100%;
+  color: var(--footer-text);
+  opacity: 0.8;
+}
+
 .notfound {
   text-align: center;
   padding: 6ch 3ch;
@@ -807,6 +875,11 @@ code {
 .modal-scroll {
   max-height: 60vh;
   overflow-y: auto;
+}
+
+.site-search {
+  width: 100%;
+  margin-bottom: 1.5ch;
 }
 
 .provider {
