@@ -667,14 +667,17 @@ fn Store::list_audit(i64 limit_count) const -> ErrorOr<ArrayList<audit_entry>>
 }
 
 fn Store::add_comment(StringView author_identity, StringView author_name,
-                      StringView body, i64 created_at) -> ErrorOr<Ok>
+                      StringView body, bool is_approved, i64 created_at)
+    -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
-      "INSERT INTO comments (author_identity, author_name, body, created_at) "
-      "VALUES (?, ?, ?, ?);"));
+      "INSERT INTO comments "
+      "(author_identity, author_name, body, is_approved, created_at) "
+      "VALUES (?, ?, ?, ?, ?);"));
   statement.bind(author_identity);
   statement.bind(author_name);
   statement.bind(body);
+  statement.bind(is_approved);
   statement.bind(created_at);
   unused(TRY(statement.step()));
 

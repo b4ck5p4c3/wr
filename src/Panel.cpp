@@ -328,7 +328,7 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
 
 fn App::handle_comments_list(HttpServerEvent &event) -> void
 {
-  static constexpr i64 COMMENT_PAGE_LIMIT = 20;
+  static constexpr i64 COMMENT_PAGE_LIMIT = 5;
   static constexpr i64 COMMENT_PAGE_LIMIT_MAX = 100;
 
   let const offset_param =
@@ -401,7 +401,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
 
   let const stored =
       m_store.add_comment(who.identity.view(), who.display_name.view(),
-                          body.value(), now_seconds());
+                          body.value(), who.is_admin, now_seconds());
   if (stored.is_error()) {
     reply_message(event, 500, stored.error().message().view());
     return;

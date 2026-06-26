@@ -347,7 +347,7 @@ paths:
           required: false
           schema:
             type: integer
-            default: 20
+            default: 5
             maximum: 100
       responses:
         "200":
@@ -364,8 +364,9 @@ paths:
       summary: Post a footer comment.
       description: >-
         The caller must own a site in the ring. The body may mention a site by
-        its slug with an at sign. A posted comment is held for admin approval,
-        and a body with profanity is rejected.
+        its slug with an at sign. A comment by a user is held for admin
+        approval, a comment by an admin is approved at once, and a body with
+        profanity is rejected.
       security:
         - sessionCookie: []
       requestBody:

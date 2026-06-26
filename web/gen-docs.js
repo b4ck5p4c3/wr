@@ -461,8 +461,7 @@ function render(spec) {
     <main>
       <h1>${heading}${version}</h1>
       <p class="note">
-        The public API. The raw spec is
-        <a href="/openapi.yaml">openapi.yaml</a>. Return to the
+        Generated from <a href="/openapi.yaml">openapi.yaml</a>. Return to the
         <a href="/">ring</a>.
       </p>
       ${groups.join("\n      ")}

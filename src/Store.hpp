@@ -146,7 +146,8 @@ public:
       -> ErrorOr<ArrayList<audit_entry>>;
 
   fn add_comment(StringView author_identity, StringView author_name,
-                 StringView body, i64 created_at) -> ErrorOr<Ok>;
+                 StringView body, bool is_approved, i64 created_at)
+      -> ErrorOr<Ok>;
   mustuse fn list_comments(i64 limit_count, i64 offset_count) const
       -> ErrorOr<ArrayList<comment>>;
   mustuse fn list_pending_comments(i64 limit_count) const

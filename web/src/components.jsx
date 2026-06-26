@@ -1138,7 +1138,7 @@ function renderMentions(body, slugs) {
   });
 }
 
-const COMMENT_PAGE_SIZE = 20;
+const COMMENT_PAGE_SIZE = 5;
 
 // The footer comments. An owner of a site in the ring posts a short note, and an
 // @slug mention links to that site. The slug set is read from the public
@@ -1151,6 +1151,7 @@ export function CommentsSection({ me }) {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [hasMore, setHasMore] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
 
   const loadPage = (offset) =>
     api
@@ -1178,7 +1179,12 @@ export function CommentsSection({ me }) {
       await api.postComment(draft.trim());
       setDraft("");
       setError(null);
-      setNotice("Your comment was sent and is waiting for approval.");
+      if (me && me.is_admin) {
+        setNotice("Your comment is posted.");
+        loadPage(0);
+      } else {
+        setNotice("Your comment was sent and is waiting for approval.");
+      }
     } catch (e) {
       setError(e.message);
       setNotice(null);
@@ -1186,6 +1192,19 @@ export function CommentsSection({ me }) {
   };
 
   const loadMore = () => loadPage(comments ? comments.length : 0);
+
+  const removeComment = async (id) => {
+    setRemovingId(id);
+    try {
+      await api.adminDeleteComment(id);
+      setError(null);
+      loadPage(0);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   return (
     <section class="comments">
@@ -1217,15 +1236,26 @@ export function CommentsSection({ me }) {
       {comments === null ? (
         <Loading />
       ) : comments.length === 0 ? (
-        <p>No comments yet.</p>
+        <p class="comment-empty">No comments yet.</p>
       ) : (
         <ul class="comment-list">
           {comments.map((comment) => (
             <li class="comment" key={comment.id}>
               <div class="comment-head">
                 <span class="comment-author">{comment.author_name}</span>
-                <span class="comment-time">
-                  {formatTimestamp(comment.created_at)}
+                <span class="comment-meta">
+                  <span class="comment-time">
+                    {formatTimestamp(comment.created_at)}
+                  </span>
+                  {me && me.is_admin ? (
+                    <button
+                      class="comment-remove"
+                      disabled={removingId === comment.id}
+                      onClick={() => removeComment(comment.id)}
+                    >
+                      delete..
+                    </button>
+                  ) : null}
                 </span>
               </div>
               <span class="comment-body">
