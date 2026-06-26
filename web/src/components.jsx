@@ -236,7 +236,11 @@ export function ReactionBar({ site, me, onLogin, onReacted }) {
       {REACTIONS.map((emoji) => (
         <button
           key={emoji}
-          class={mine.includes(emoji) ? "reaction mine" : "reaction"}
+          class={
+            "reaction" +
+            (mine.includes(emoji) ? " mine" : "") +
+            (counts[emoji] ? "" : " empty")
+          }
           title={emoji}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -531,20 +535,22 @@ export function Landing({ navigate, me, reload, onLogin }) {
   return (
     <main>
       <h1>b4cksp4ce webring</h1>
-      {error ? (
-        <p class="error">{error}</p>
-      ) : sites === null ? (
-        <Loading />
-      ) : sites.length === 0 ? (
-        <p>No sites are in the ring yet.</p>
-      ) : (
-        <Carousel
-          sites={sites}
-          me={me}
-          onLogin={onLogin}
-          onReacted={loadSites}
-        />
-      )}
+      <div class="ring-area">
+        {error ? (
+          <p class="error">{error}</p>
+        ) : sites === null ? (
+          <Loading />
+        ) : sites.length === 0 ? (
+          <p>No sites are in the ring yet.</p>
+        ) : (
+          <Carousel
+            sites={sites}
+            me={me}
+            onLogin={onLogin}
+            onReacted={loadSites}
+          />
+        )}
+      </div>
 
       {me && me.is_admin ? (
         <section class="panel">
@@ -1131,7 +1137,12 @@ export function CommentsSection({ me, onLogin }) {
         <ul class="comment-list">
           {comments.map((comment) => (
             <li class="comment" key={comment.id}>
-              <span class="comment-author">{comment.author_name}</span>
+              <div class="comment-head">
+                <span class="comment-author">{comment.author_name}</span>
+                <span class="comment-time">
+                  {formatTimestamp(comment.created_at)}
+                </span>
+              </div>
               <span class="comment-body">
                 {renderMentions(comment.body, slugs)}
               </span>

@@ -223,6 +223,21 @@ img {
 /* The webring is a 3D carousel of terminal windows. The stage holds the
    perspective, the ring carries the cards on a preserved 3D space, and a card
    is seated on the cylinder by its own rotateY and translateZ. */
+/* The ring area reserves the carousel height while the sites load, so the page
+   holds its shape when the ring replaces the placeholder. */
+.ring-area {
+  min-height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .ring-area {
+    min-height: 0;
+  }
+}
+
 .ring-stage {
   perspective: 1400px;
   height: 340px;
@@ -456,11 +471,20 @@ img {
 }
 
 /* A card that already carries a reaction shows the bar without a hover, so the
-   existing tally reads at a glance. */
+   existing tally reads at a glance. Off the hover only the reactions with a
+   count are kept, and the hover reveals the full bar. */
 .tui-face .reactions.has-reactions {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+}
+
+.tui-face .reaction.empty {
+  display: none;
+}
+
+.tui-face:hover .reaction.empty {
+  display: inline-flex;
 }
 
 /* A big panel is the shared block, a bordered slab with the warm inset glow. */
@@ -942,9 +966,6 @@ footer {
   text-align: left;
   max-width: 560px;
   margin: 0 auto 3ch;
-  padding: 2ch;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.18);
 }
 
 .comment-form {
@@ -976,12 +997,28 @@ footer {
 .comment {
   display: flex;
   flex-direction: column;
-  gap: 0.2ch;
+  gap: 0.4ch;
+  padding: 1.2ch;
+  border: 1px solid var(--panel-outline);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.comment-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1ch;
 }
 
 .comment-author {
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+.comment-time {
+  color: var(--text-secondary);
+  opacity: 0.7;
+  font-size: 12px;
 }
 
 .comment-body {
