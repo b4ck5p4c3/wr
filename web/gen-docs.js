@@ -3,7 +3,7 @@
 // its responses, the schemas are resolved from the components, and the raw spec
 // is copied beside the page and linked from it.
 
-import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -11,6 +11,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 const specPath = join(here, "..", "openapi.yaml");
 const outPath = join(here, "public", "docs.html");
 const rawCopyPath = join(here, "public", "openapi.yaml");
+const fontSrcDir = join(here, "static", "font", "woff2");
+const fontOutDir = join(here, "public", "font", "woff2");
+const fontFiles = [
+  "terminus.woff2",
+  "terminus-bold.woff2",
+  "terminus-italic.woff2",
+  "terminus-bold-italic.woff2",
+];
 
 const lines = readFileSync(specPath, "utf8").split("\n");
 
@@ -255,7 +263,8 @@ function renderRequest(op, schemas) {
     })
     .join("");
   return (
-    '<div class="block"><span class="label">POST body</span><ul>' +
+    '<div class="block"><span class="label">Request body (JSON object)</span>' +
+    "<ul>" +
     fields +
     "</ul></div>"
   );
@@ -344,7 +353,6 @@ function render(spec) {
     groups.push(renderGroup("other", untagged, spec.schemas));
 
   const heading = "wr API documentation";
-  const version = spec.version ? " v" + escapeHtml(spec.version) : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -353,6 +361,30 @@ function render(spec) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${heading}</title>
     <style>
+      @font-face {
+        font-family: "Terminus";
+        font-style: normal;
+        font-weight: 400;
+        src: url("/font/woff2/terminus.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Terminus";
+        font-style: normal;
+        font-weight: 700;
+        src: url("/font/woff2/terminus-bold.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Terminus";
+        font-style: italic;
+        font-weight: 400;
+        src: url("/font/woff2/terminus-italic.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Terminus";
+        font-style: italic;
+        font-weight: 700;
+        src: url("/font/woff2/terminus-bold-italic.woff2") format("woff2");
+      }
       :root {
         --bg: #241a3a;
         --panel: #1e1832;
@@ -364,7 +396,7 @@ function render(spec) {
       }
       * {
         box-sizing: border-box;
-        font-family: monospace;
+        font-family: "Terminus", monospace;
       }
       body {
         margin: 0;
@@ -459,7 +491,7 @@ function render(spec) {
   </head>
   <body>
     <main>
-      <h1>${heading}${version}</h1>
+      <h1>${heading}</h1>
       <p class="note">
         Generated from <a href="/openapi.yaml">openapi.yaml</a>. Return to the
         <a href="/">ring</a>.
@@ -474,6 +506,9 @@ function render(spec) {
 const spec = parseSpec();
 writeFileSync(outPath, render(spec));
 copyFileSync(specPath, rawCopyPath);
+mkdirSync(fontOutDir, { recursive: true });
+for (const file of fontFiles)
+  copyFileSync(join(fontSrcDir, file), join(fontOutDir, file));
 process.stdout.write(
   "docs.html generated from openapi.yaml, " +
     spec.endpoints.length +
