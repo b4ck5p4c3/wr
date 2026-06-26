@@ -909,6 +909,27 @@ code {
   width: 360px;
 }
 
+.modal:not(.modal-wide) {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4ch;
+}
+
+.modal:not(.modal-wide) h2,
+.modal:not(.modal-wide) p {
+  margin: 0;
+}
+
+.modal:not(.modal-wide) p {
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.modal:not(.modal-wide) button {
+  width: 100%;
+  margin: 0;
+}
+
 .modal.modal-wide {
   width: min(680px, 92vw);
 }
@@ -927,7 +948,7 @@ code {
   display: block;
   text-align: center;
   padding: 1.2ch;
-  margin: 1ch 0;
+  margin: 0;
   border: 1px solid var(--border);
   color: var(--text-primary);
 }
