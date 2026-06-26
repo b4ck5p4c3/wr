@@ -1,0 +1,3 @@
+clear: {"message":"Cache cleared"}
+anon: {"message":"Admins only"}
+wrong-method: {"message":"This endpoint requires POST"}

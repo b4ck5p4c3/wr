@@ -61,6 +61,7 @@ public:
   virtual fn open(StringView connection_string) -> ErrorOr<Ok> = 0;
   virtual fn execute(StringView sql) -> ErrorOr<Ok> = 0;
   mustuse virtual fn prepare(StringView sql) -> ErrorOr<SqlStatement> = 0;
+  virtual fn clear_statement_cache() noexcept -> void = 0;
 
 protected:
   SqlDatabase() = default;

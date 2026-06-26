@@ -52,8 +52,8 @@ fn actor_label(const account &who) -> StringView
 }
 
 fn write_panel_site(JsonWriter &writer, const site &row,
-                    const ArrayList<i64> &uptime, StringView owner_display_name)
-    -> void
+                    const ArrayList<i64> &uptime, StringView owner_display_name,
+                    StringView owner_tag) -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -71,6 +71,7 @@ fn write_panel_site(JsonWriter &writer, const site &row,
   writer.array_end();
   writer.field("owner", row.owner.view());
   writer.field("owner_display_name", owner_display_name);
+  writer.field("owner_tag", owner_tag);
   writer.object_end();
 }
 
@@ -172,7 +173,9 @@ fn App::handle_me(HttpServerEvent &event) -> void
     let const owner_name = has_name
                                ? account.value().value().display_name.view()
                                : sites[i].owner.view();
-    write_panel_site(writer, sites[i], uptime, owner_name);
+    let const owner_tag =
+        has_name ? account.value().value().username.view() : StringView{};
+    write_panel_site(writer, sites[i], uptime, owner_name, owner_tag);
   }
   writer.array_end();
 
@@ -512,6 +515,23 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
                 should_approve ? "Comment approved" : "Comment deleted");
 }
 
+fn App::handle_admin_cache_clear(HttpServerEvent &event) -> void
+{
+  let const who = require_admin(event);
+  if (!who.has_value()) return;
+
+  m_store.clear_statement_cache();
+
+  if (m_store
+          .record_audit(actor_label(who.value()),
+                        client_address(event, m_config.is_forwarded_trusted),
+                        "cache clear", "", "", now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for cache clear");
+
+  reply_message(event, 200, "Cache cleared");
+}
+
 fn App::handle_admin_add(HttpServerEvent &event) -> void
 {
   let const who = require_admin(event);
@@ -677,6 +697,8 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
     let const has_name = !submitter.is_error() && submitter.value().has_value();
     writer.field("owner_display_name",
                  has_name ? submitter.value().value().display_name.view() : "");
+    writer.field("owner_tag",
+                 has_name ? submitter.value().value().username.view() : "");
 
     writer.field("target_slug", actions[i].target_slug.view());
     writer.field("payload", actions[i].payload.view());

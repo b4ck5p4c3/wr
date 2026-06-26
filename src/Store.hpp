@@ -173,6 +173,8 @@ public:
   fn approve_comment(i64 id) -> ErrorOr<Ok>;
   fn delete_comment(i64 id) -> ErrorOr<Ok>;
 
+  fn clear_statement_cache() noexcept -> void;
+
   mustuse pure fn allocator() const noexcept -> Allocator
   {
     return m_allocator;

@@ -106,15 +106,17 @@ export function Header({ navigate, me, onLogin, onLogout }) {
         wr
       </a>
       <nav>
-        <a href="/" onClick={link(navigate, "/")}>
+        <a class="nav-link" href="/" onClick={link(navigate, "/")}>
           ring
         </a>
-        <a href="/about" onClick={link(navigate, "/about")}>
+        <a class="nav-link" href="/about" onClick={link(navigate, "/about")}>
           about
         </a>
-        <a href="/docs">docs</a>
+        <a class="nav-link" href="/docs">
+          docs
+        </a>
         {me ? (
-          <button class="secondary" onClick={onLogout}>
+          <button class="secondary logout" onClick={onLogout}>
             logout..
           </button>
         ) : (
@@ -188,6 +190,86 @@ export function faviconFor(url) {
   } catch (_) {
     return null;
   }
+}
+
+// The apple touch icon is a larger square icon the site serves at a well-known
+// path, so it is tried first, and the favicon.ico is the fallback. The icons
+// are read straight from the site, never through a third party.
+export function faviconCandidates(url) {
+  let origin = "";
+  try {
+    origin = new URL(url).origin;
+  } catch (_) {
+    return [];
+  }
+  return [
+    origin + "/apple-touch-icon.png",
+    origin + "/apple-touch-icon-precomposed.png",
+    faviconFor(url),
+  ];
+}
+
+function faviconHost(url) {
+  try {
+    return new URL(url).host;
+  } catch (_) {
+    return "";
+  }
+}
+
+function readFaviconCache(host) {
+  try {
+    return host ? localStorage.getItem("favicon:" + host) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeFaviconCache(host, src) {
+  try {
+    if (host && src) localStorage.setItem("favicon:" + host, src);
+  } catch (_) {
+    // a private window or a full store leaves the icon uncached
+  }
+}
+
+// The keys are collected before removal, since removing an entry shifts the
+// remaining indices under localStorage.key.
+function clearFaviconCache() {
+  try {
+    const keys = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (key && key.startsWith("favicon:")) keys.push(key);
+    }
+    keys.forEach((key) => localStorage.removeItem(key));
+    return keys.length;
+  } catch (_) {
+    return 0;
+  }
+}
+
+// The resolved icon url is remembered per host, so a later card skips the
+// fallback walk and loads the known icon at once.
+function Favicon({ url }) {
+  const host = faviconHost(url);
+  const candidates = faviconCandidates(url);
+  const cached = readFaviconCache(host);
+  const [src, setSrc] = useState(cached || candidates[0] || null);
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      width="38"
+      height="38"
+      onLoad={() => writeFaviconCache(host, src)}
+      onError={() => {
+        const index = candidates.indexOf(src);
+        setSrc(index >= 0 ? candidates[index + 1] || null : null);
+      }}
+    />
+  );
 }
 
 // A created_at epoch is rendered as a coarse membership age for the card.
@@ -340,7 +422,6 @@ function displayUrl(url) {
 // The card reads as a tweet, the site name is the display name, the owner tag is
 // the handle, and the description is the body.
 function cardBody(site, ctx) {
-  const icon = faviconFor(site.url);
   const handle = site.owner_tag ? "@" + site.owner_tag : null;
   const ownerUrl = ownerProfileUrl(site.owner_oauth, site.owner_tag);
   const handleClass =
@@ -351,17 +432,16 @@ function cardBody(site, ctx) {
   return (
     <div class="tweet">
       <header class="tweet-head">
-        <span class="tweet-avatar">
-          {icon ? (
-            <img
-              src={icon}
-              alt=""
-              width="38"
-              height="38"
-              onError={(e) => (e.currentTarget.style.display = "none")}
-            />
-          ) : null}
-        </span>
+        <a
+          class="tweet-avatar"
+          href={site.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={recordClick}
+        >
+          <Favicon url={site.url} />
+        </a>
         <span class="tweet-id">
           <a
             class="tweet-name"
@@ -390,7 +470,9 @@ function cardBody(site, ctx) {
               )
             ) : null}
             {site.created_at ? (
-              <span class="tweet-age">{formatAge(site.created_at)}</span>
+              <span class="tweet-age">
+                {formatAge(site.created_at) + " ago"}
+              </span>
             ) : null}
           </span>
         </span>
@@ -404,7 +486,7 @@ function cardBody(site, ctx) {
         onPointerDown={(e) => e.stopPropagation()}
         onClick={recordClick}
       >
-        {displayUrl(site.url)}
+        {"visit " + displayUrl(site.url)}
       </a>
       <ReactionBar
         site={site}
@@ -422,6 +504,7 @@ const MAX_CARD_POP_PIXELS = 90;
 const CARD_BOB_PIXELS = 12;
 const CARD_BOB_SPEED = 0.006;
 const CARD_BOB_PHASE = 1.1;
+const HOVER_SPIN_SCALE = 0.1;
 
 // The ring is a carousel of terminal windows seated on a 3D cylinder. The ring
 // drifts on its own and a pointer drag grabs it and spins it, with the throw
@@ -458,11 +541,12 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
     cardPop: 0,
     cardPopTarget: 0,
     time: 0,
+    isHovering: false,
   });
 
   const count = sites.length;
   const anglePerCard = 360 / count;
-  const radius = Math.round(150 / Math.tan(Math.PI / Math.max(count, 2))) + 40;
+  const radius = Math.round(171 / Math.tan(Math.PI / Math.max(count, 2))) + 40;
   // The drift slows as the count grows to keep the cards readable.
   const idleSpeed = Math.min(0.18, 0.36 / count);
   // A pixel of horizontal drag turns the ring by the arc it subtends at the
@@ -475,7 +559,8 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
     const tick = () => {
       const motion = motionRef.current;
       if (!motion.isDragging) {
-        motion.rotation += motion.velocity || idleSpeed;
+        const spinScale = motion.isHovering ? HOVER_SPIN_SCALE : 1;
+        motion.rotation += (motion.velocity || idleSpeed) * spinScale;
         motion.velocity *= 0.94;
         if (Math.abs(motion.velocity) < 0.05) motion.velocity = 0;
       }
@@ -592,6 +677,8 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
             class="tui-window"
             key={site.slug}
             ref={(el) => (cardRefs.current[i] = el)}
+            onPointerEnter={() => (motionRef.current.isHovering = true)}
+            onPointerLeave={() => (motionRef.current.isHovering = false)}
             style={{
               transform:
                 "rotateY(" +
@@ -886,7 +973,11 @@ export function PendingRow({ action, onResolved }) {
       <span class="kind">{action.kind}</span>
       <span class="slug">/{action.target_slug}</span>
       <code>{action.payload}</code>
-      <Submitter owner={action.owner} name={action.owner_display_name} />
+      <Submitter
+        owner={action.owner}
+        name={action.owner_display_name}
+        tag={action.owner_tag}
+      />
       <div class="row-actions">
         <button class="primary" onClick={() => resolve(true)}>
           approve..
@@ -897,18 +988,22 @@ export function PendingRow({ action, onResolved }) {
   );
 }
 
-// The owner identity carries the provider, so a github submitter is linked to
-// the profile while a telegram submitter shows the name to search.
-export function Submitter({ owner, name }) {
+function ownerProvider(owner) {
+  if (!owner) return null;
+  if (owner.startsWith("github:")) return "github";
+  if (owner.startsWith("telegram:")) return "telegram";
+  return null;
+}
+
+// The owner identity carries the provider and the tag is the handle, so a
+// submitter is linked to the github or telegram profile when the handle is
+// known, and the name shows plain otherwise.
+export function Submitter({ owner, name, tag }) {
   const label = name || owner;
-  if (owner && owner.startsWith("github:")) {
+  const url = ownerProfileUrl(ownerProvider(owner), tag);
+  if (url) {
     return (
-      <a
-        class="submitter"
-        href={"https://github.com/" + label}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a class="submitter" href={url} target="_blank" rel="noopener noreferrer">
         {label}
       </a>
     );
@@ -943,7 +1038,12 @@ export function AdminSite({ site, onSaved, onDeleted }) {
     <li class="site">
       <span class="slug">/{site.slug}</span>
       <span class="owned-by">
-        owned by <Submitter owner={site.owner} name={site.owner_display_name} />
+        owned by{" "}
+        <Submitter
+          owner={site.owner}
+          name={site.owner_display_name}
+          tag={site.owner_tag}
+        />
       </span>
       <input value={form.name} onInput={field("name")} />
       <input value={form.url} onInput={field("url")} />
@@ -1007,7 +1107,7 @@ function matchComments(comments, query) {
   );
 }
 
-export function Admin({ onLogin, onLogout }) {
+export function Admin({ me: appMe, onLogin, onLogout }) {
   const [me, setMe] = useState(undefined);
   const [pending, setPending] = useState([]);
   const [pendingComments, setPendingComments] = useState([]);
@@ -1018,6 +1118,9 @@ export function Admin({ onLogin, onLogout }) {
   const [showComments, setShowComments] = useState(false);
   const [commentQuery, setCommentQuery] = useState("");
   const [busyCommentId, setBusyCommentId] = useState(null);
+  const [isCacheBusy, setIsCacheBusy] = useState(false);
+  const [cacheNotice, setCacheNotice] = useState(null);
+  const [cacheError, setCacheError] = useState(null);
   useEscape(() => setShowAllSites(false), showAllSites);
   useEscape(() => setShowActions(false), showActions);
   useEscape(() => setShowComments(false), showComments);
@@ -1053,13 +1156,33 @@ export function Admin({ onLogin, onLogout }) {
     }
   };
 
-  if (me === undefined)
+  const clearCache = async () => {
+    setIsCacheBusy(true);
+    setCacheNotice(null);
+    setCacheError(null);
+    try {
+      await api.adminClearCache();
+      const removedCount = clearFaviconCache();
+      setCacheNotice("Cache cleared, " + removedCount + " icons dropped.");
+    } catch (e) {
+      setCacheError(e.message);
+    } finally {
+      setIsCacheBusy(false);
+    }
+  };
+
+  // The panel falls back to the account the app already holds, so a signed-in
+  // visitor without the admin role is offered a logout even if the panel's own
+  // lookup has not resolved or has failed.
+  const account = me ?? appMe;
+
+  if (account === undefined)
     return (
       <main>
         <Loading />
       </main>
     );
-  if (me === null)
+  if (account === null)
     return (
       <main>
         <h1>admin</h1>
@@ -1069,12 +1192,12 @@ export function Admin({ onLogin, onLogout }) {
         </button>
       </main>
     );
-  if (!me.is_admin)
+  if (!account.is_admin)
     return (
       <main>
         <h1>admin</h1>
-        <p>Signed in as {me.display_name}, who is not an admin.</p>
-        <button class="secondary" onClick={onLogout}>
+        <p>Signed in as {account.display_name}, who is not an admin.</p>
+        <button class="secondary logout" onClick={onLogout}>
           logout..
         </button>
       </main>
@@ -1083,8 +1206,7 @@ export function Admin({ onLogin, onLogout }) {
   return (
     <main>
       <h1>admin</h1>
-      <p>Signed in as {me.display_name}.</p>
-      <h2>pending actions</h2>
+      <p>Signed in as {account.display_name}.</p>
       <button class="primary" onClick={() => setShowActions(true)}>
         pending actions.. ({pending.length})
       </button>
@@ -1117,7 +1239,6 @@ export function Admin({ onLogin, onLogout }) {
           </div>
         </div>
       ) : null}
-      <h2>pending comments</h2>
       <button class="primary" onClick={() => setShowComments(true)}>
         pending comments.. ({pendingComments.length})
       </button>
@@ -1170,9 +1291,8 @@ export function Admin({ onLogin, onLogout }) {
           </div>
         </div>
       ) : null}
-      <h2>all sites</h2>
       <button class="primary" onClick={() => setShowAllSites(true)}>
-        all sites.. ({me.sites.length})
+        all sites.. ({account.sites.length})
       </button>
       {showAllSites ? (
         <div class="modal-backdrop" onClick={() => setShowAllSites(false)}>
@@ -1185,7 +1305,7 @@ export function Admin({ onLogin, onLogout }) {
               onInput={(e) => setSiteQuery(e.target.value)}
             />
             <ul class="sites modal-scroll">
-              {matchSites(me.sites, siteQuery).map((site) => (
+              {matchSites(account.sites, siteQuery).map((site) => (
                 <AdminSite
                   key={site.slug}
                   site={site}
@@ -1209,6 +1329,12 @@ export function Admin({ onLogin, onLogout }) {
       <AuditLog />
       <h2>traffic stats</h2>
       <Stats />
+      <h2>cache</h2>
+      <button class="primary" disabled={isCacheBusy} onClick={clearCache}>
+        clean cache..
+      </button>
+      {cacheNotice && !cacheError ? <p class="hint">{cacheNotice}</p> : null}
+      {cacheError ? <p class="error">{cacheError}</p> : null}
       <h2>server logs</h2>
       <LogStream />
     </main>

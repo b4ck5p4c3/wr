@@ -96,10 +96,17 @@ function parseSchemas() {
         const fieldName = lines[p].trim().replace(/:$/, "");
         const [fFrom, fTo] = childRange(p);
         const typeIndex = keyIndexAt(fFrom, fTo, 10, "type");
-        fields.push({
-          name: fieldName,
-          type: typeIndex >= 0 ? scalarAfter(lines[typeIndex]) : "",
-        });
+        let type = typeIndex >= 0 ? scalarAfter(lines[typeIndex]) : "";
+        if (!type) {
+          for (let q = fFrom; q < fTo; q++) {
+            const refMatch = lines[q].match(/\$ref:\s*"([^"]+)"/);
+            if (refMatch) {
+              type = refName(refMatch[1]);
+              break;
+            }
+          }
+        }
+        fields.push({ name: fieldName, type });
       }
     }
     const requiredIndex = keyIndexAt(sFrom, sTo, 6, "required");
@@ -109,6 +116,9 @@ function parseSchemas() {
   return schemas;
 }
 
+// A shared response carries its description and the schema its body resolves
+// to, so a status that references it renders the same body shape as an inline
+// schema does.
 function parseResponseComponents() {
   const out = {};
   const responsesIndex = lines.findIndex((line) => line === "  responses:");
@@ -119,7 +129,16 @@ function parseResponseComponents() {
     const name = lines[i].trim().replace(/:$/, "");
     const [rFrom, rTo] = childRange(i);
     const descIndex = keyIndexAt(rFrom, rTo, 6, "description");
-    out[name] = descIndex >= 0 ? scalarAfter(lines[descIndex]) : name;
+    const description = descIndex >= 0 ? scalarAfter(lines[descIndex]) : name;
+    let schema = null;
+    for (let r = rFrom; r < rTo; r++) {
+      const refMatch = lines[r].match(/\$ref:\s*"([^"]+\/schemas\/\w+)"/);
+      if (refMatch) {
+        schema = refName(refMatch[1]);
+        break;
+      }
+    }
+    out[name] = { description, schema };
   }
   return out;
 }
@@ -133,8 +152,13 @@ function resolveStatus(from, to, responseComponents) {
     const refMatch = lines[i].match(/\$ref:\s*"([^"]+)"/);
     if (refMatch) {
       const name = refName(refMatch[1]);
-      if (refMatch[1].includes("/responses/"))
-        return { label: responseComponents[name] || name, schema: null };
+      if (refMatch[1].includes("/responses/")) {
+        const component = responseComponents[name];
+        return {
+          label: component ? component.description : name,
+          schema: component ? component.schema : null,
+        };
+      }
       if (refMatch[1].includes("/schemas/"))
         return { label: (isArray ? "array of " : "") + name, schema: name };
     }
@@ -375,51 +399,8 @@ function render(spec) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${heading}</title>
+    <link rel="stylesheet" href="/assets/app.css" />
     <style>
-      @font-face {
-        font-family: "Terminus";
-        font-style: normal;
-        font-weight: 400;
-        src: url("/font/woff2/terminus.woff2") format("woff2");
-      }
-      @font-face {
-        font-family: "Terminus";
-        font-style: normal;
-        font-weight: 700;
-        src: url("/font/woff2/terminus-bold.woff2") format("woff2");
-      }
-      @font-face {
-        font-family: "Terminus";
-        font-style: italic;
-        font-weight: 400;
-        src: url("/font/woff2/terminus-italic.woff2") format("woff2");
-      }
-      @font-face {
-        font-family: "Terminus";
-        font-style: italic;
-        font-weight: 700;
-        src: url("/font/woff2/terminus-bold-italic.woff2") format("woff2");
-      }
-      :root {
-        --bg: #241a3a;
-        --panel: #1e1832;
-        --text: #f7f5ff;
-        --accent: #ffd089;
-        --border: #5a4a7a;
-        --muted: #b9a8d0;
-        --post: #82e882;
-        --delete: #f0786c;
-      }
-      * {
-        box-sizing: border-box;
-        font-family: "Terminus", monospace;
-      }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        line-height: 1.4;
-      }
       main {
         max-width: 820px;
         margin: 0 auto;
@@ -438,7 +419,7 @@ function render(spec) {
       }
       section {
         border: 1px solid var(--border);
-        background: var(--panel);
+        background: var(--bg-primary);
         padding: 2ch;
         margin: 2ch 0;
       }
@@ -456,13 +437,13 @@ function render(spec) {
         gap: 1.2ch;
       }
       code {
-        color: var(--text);
+        color: var(--text-primary);
       }
       .summary {
-        color: var(--muted);
+        color: var(--footer-text);
       }
       .method {
-        color: var(--bg);
+        color: var(--bg-primary);
         background: var(--accent);
         padding: 0 1ch;
         font-weight: 700;
@@ -472,14 +453,14 @@ function render(spec) {
       .method-post,
       .method-put,
       .method-patch {
-        background: var(--post);
+        background: var(--up);
       }
       .method-delete {
-        background: var(--delete);
+        background: var(--down);
       }
       .auth {
         margin-left: auto;
-        color: var(--muted);
+        color: var(--footer-text);
         border: 1px solid var(--border);
         padding: 0 0.8ch;
       }
@@ -497,13 +478,13 @@ function render(spec) {
       .detail ul {
         margin: 0;
         padding-left: 2ch;
-        color: var(--muted);
+        color: var(--footer-text);
       }
       .req {
         color: var(--accent);
       }
       .note {
-        color: var(--muted);
+        color: var(--footer-text);
       }
     </style>
   </head>
@@ -512,7 +493,7 @@ function render(spec) {
       <h1>${heading}</h1>
       <p class="note">
         Generated from <a href="/openapi.yaml">openapi.yaml</a>. Return to the
-        <a href="/">ring</a>.
+        <a class="nav-link" href="/">ring</a>.
       </p>
       ${groups.join("\n      ")}
     </main>

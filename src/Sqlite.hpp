@@ -24,6 +24,7 @@ public:
   fn open(StringView connection_string) -> ErrorOr<Ok> override;
   fn execute(StringView sql) -> ErrorOr<Ok> override;
   mustuse fn prepare(StringView sql) -> ErrorOr<SqlStatement> override;
+  fn clear_statement_cache() noexcept -> void override;
 
 protected:
   fn finalize(opaque *handle) noexcept -> void override;

@@ -76,6 +76,7 @@ private:
   fn handle_admin_comments(HttpServerEvent &event) -> void;
   fn handle_admin_comment_resolve(HttpServerEvent &event, bool should_approve)
       -> void;
+  fn handle_admin_cache_clear(HttpServerEvent &event) -> void;
 
   fn serve_static(HttpServerEvent &event) -> void;
 

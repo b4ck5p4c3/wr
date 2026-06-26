@@ -815,4 +815,9 @@ fn Store::delete_comment(i64 id) -> ErrorOr<Ok>
   return Success;
 }
 
+fn Store::clear_statement_cache() noexcept -> void
+{
+  m_database.clear_statement_cache();
+}
+
 } // namespace wr

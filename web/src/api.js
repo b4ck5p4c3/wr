@@ -73,4 +73,5 @@ export const api = {
     postJson("/api/v1/admin/comments/approve", { id }),
   adminDeleteComment: (id) =>
     deleteJson("/api/v1/admin/comments/delete", { id }),
+  adminClearCache: () => postJson("/api/v1/admin/cache/clear", {}),
 };

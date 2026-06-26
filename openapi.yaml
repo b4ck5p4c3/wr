@@ -59,7 +59,9 @@ paths:
         - $ref: "#/components/parameters/Slug"
       responses:
         "200":
-          description: The previous, the current, and the next site.
+          description: >-
+            The navigation data, the previous, the current, and the next site,
+            each a WebringWebsite.
           content:
             application/json:
               schema:
@@ -89,7 +91,9 @@ paths:
         - $ref: "#/components/parameters/Step"
       responses:
         "200":
-          description: The navigation around the stepped site.
+          description: >-
+            The navigation data around the stepped site, the previous, the
+            current, and the next each a WebringWebsite.
           content:
             application/json:
               schema:
@@ -663,6 +667,23 @@ paths:
           $ref: "#/components/responses/NotFound"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/admin/cache/clear:
+    post:
+      tags: [admin]
+      summary: Clear the server prepared-statement cache.
+      description: >-
+        The event-loop connection finalizes its cached statements and empties
+        the cache. The liveness sweep keeps a separate connection and is left
+        untouched.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 components:
   securitySchemes:
     sessionCookie:
@@ -805,7 +826,9 @@ components:
         ]
     WebringWebsiteNavigationData:
       type: object
-      description: The neighbours around a site.
+      description: >-
+        The navigation around a site, the previous, the current, and the next
+        member each a WebringWebsite.
       properties:
         previous:
           $ref: "#/components/schemas/WebringWebsite"
@@ -849,6 +872,11 @@ components:
           description: >-
             The display name behind the owner identity, the identity itself when
             no account is found.
+        owner_tag:
+          type: string
+          description: >-
+            The owner handle, the slug after github.com or t.me, empty when no
+            account is found.
       required:
         [
           slug,
@@ -860,6 +888,7 @@ components:
           uptime,
           owner,
           owner_display_name,
+          owner_tag,
         ]
     PanelAccount:
       type: object
@@ -915,6 +944,11 @@ components:
         owner_display_name:
           type: string
           description: The submitter display name for the admin to contact them.
+        owner_tag:
+          type: string
+          description: >-
+            The submitter handle, the slug after github.com or t.me, empty when
+            no account is found.
         target_slug:
           type: string
         payload:
@@ -922,7 +956,8 @@ components:
           description: >-
             The requested data, a JSON object for an add and the new name for a
             rename.
-      required: [id, kind, owner, owner_display_name, target_slug, payload]
+      required:
+        [id, kind, owner, owner_display_name, owner_tag, target_slug, payload]
     SiteInput:
       type: object
       description: The fields for an add or an edit.

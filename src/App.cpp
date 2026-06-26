@@ -237,6 +237,7 @@ enum class route : u8
   admin_comment_approve,
   admin_comment_delete,
   admin_stats,
+  admin_cache_clear,
   sites_add,
   sites_rename,
   sites_react,
@@ -256,7 +257,7 @@ struct route_target
   rate_rule limit;
 };
 
-static constexpr let ROUTES = StaticStringMap<route_target, 31>{
+static constexpr let ROUTES = StaticStringMap<route_target, 32>{
     {{"/", {route::static_page, HttpMethod::Get, {0, 0}}},
      {"/about", {route::static_page, HttpMethod::Get, {0, 0}}},
      {"/panel", {route::static_page, HttpMethod::Get, {0, 0}}},
@@ -292,6 +293,8 @@ static constexpr let ROUTES = StaticStringMap<route_target, 31>{
      {"/api/v1/admin/comments/delete",
       {route::admin_comment_delete, HttpMethod::Delete, {120, 60}}},
      {"/api/v1/admin/stats", {route::admin_stats, HttpMethod::Get, {120, 60}}},
+     {"/api/v1/admin/cache/clear",
+      {route::admin_cache_clear, HttpMethod::Post, {120, 60}}},
      {"/api/v1/sites/add", {route::sites_add, HttpMethod::Post, {2, 86400}}},
      {"/api/v1/sites/rename",
       {route::sites_rename, HttpMethod::Post, {10, 86400}}},
@@ -362,6 +365,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
       handle_admin_comment_resolve(event, false);
       break;
     case route::admin_stats: handle_admin_stats(event); break;
+    case route::admin_cache_clear: handle_admin_cache_clear(event); break;
     case route::sites_add: {
       let const who = current_account(event);
       if (who.has_value())

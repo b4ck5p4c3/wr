@@ -59,6 +59,15 @@ fn Sqlite::prepare(StringView sql) -> ErrorOr<SqlStatement>
   return SqlStatement{*this, handle, m_allocator, true};
 }
 
+fn Sqlite::clear_statement_cache() noexcept -> void
+{
+  for (let const &entry : m_statement_cache)
+    sqlite3_finalize(entry.handle);
+
+  m_statement_cache.clear();
+  LOG(Debug, "sqlite statement cache cleared");
+}
+
 fn Sqlite::acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>
 {
   m_use_count++;

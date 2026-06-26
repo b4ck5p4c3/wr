@@ -57,7 +57,7 @@ export function App() {
   let page;
   if (path === "/about") page = <About />;
   else if (path === "/admin")
-    page = <Admin onLogin={onLogin} onLogout={onLogout} />;
+    page = <Admin me={me} onLogin={onLogin} onLogout={onLogout} />;
   else if (path === "/" || path === "/panel")
     page = (
       <Landing
