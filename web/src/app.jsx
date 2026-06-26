@@ -3,6 +3,7 @@ import { api } from "./api.js";
 import {
   About,
   Admin,
+  CommentsSection,
   Header,
   Landing,
   LoginModal,
@@ -90,6 +91,7 @@ export function App() {
         </div>
       ) : null}
       <footer>
+        <CommentsSection me={me} onLogin={onLogin} />
         <p>
           running on{" "}
           <a

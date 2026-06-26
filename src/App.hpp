@@ -57,6 +57,8 @@ private:
   fn handle_user_add(HttpServerEvent &event, const account &who) -> void;
   fn handle_user_rename(HttpServerEvent &event, const account &who) -> void;
   fn handle_user_react(HttpServerEvent &event, const account &who) -> void;
+  fn handle_comments_list(HttpServerEvent &event) -> void;
+  fn handle_comment_post(HttpServerEvent &event, const account &who) -> void;
   fn handle_admin_add(HttpServerEvent &event) -> void;
   fn handle_admin_delete(HttpServerEvent &event) -> void;
   fn handle_admin_edit(HttpServerEvent &event) -> void;

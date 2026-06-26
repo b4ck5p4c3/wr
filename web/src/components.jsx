@@ -1045,6 +1045,104 @@ export function LogStream() {
   );
 }
 
+// A comment body is split so an @slug that names a site in the ring becomes a
+// link to that site, and an unknown mention stays plain text.
+function renderMentions(body, slugs) {
+  return body.split(/(@[a-z0-9-]+)/g).map((part) => {
+    if (part[0] === "@" && slugs.includes(part.slice(1))) {
+      return (
+        <a class="mention" href={"/" + part.slice(1)}>
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
+// The footer comments. An owner of a site in the ring posts a short note, and an
+// @slug mention links to that site. The slug set is read from the public
+// listing so a mention is linked only when it names a real site.
+export function CommentsSection({ me, onLogin }) {
+  const [comments, setComments] = useState(null);
+  const [slugs, setSlugs] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState(null);
+
+  const load = () =>
+    api
+      .listComments()
+      .then(setComments)
+      .catch((e) => setError(e.message));
+  useEffect(() => {
+    load();
+    api
+      .listSites()
+      .then((sites) => setSlugs(sites.map((site) => site.slug)))
+      .catch(() => {});
+  }, []);
+
+  const canComment = me && me.sites && me.sites.length > 0;
+  const post = async () => {
+    if (draft.trim() === "") return;
+    try {
+      await api.postComment(draft.trim());
+      setDraft("");
+      setError(null);
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  return (
+    <section class="comments">
+      <h2>comments</h2>
+      {canComment ? (
+        <div class="comment-form">
+          <textarea
+            value={draft}
+            maxLength={500}
+            placeholder="leave a note, @tag a site by its slug"
+            onInput={(e) => setDraft(e.target.value)}
+          />
+          <button class="primary" onClick={post}>
+            post..
+          </button>
+        </div>
+      ) : (
+        <p class="hint">
+          {me
+            ? "Only owners of a site in the ring may comment."
+            : "Sign in as a site owner to comment."}
+          {!me ? (
+            <button class="secondary" onClick={onLogin}>
+              login..
+            </button>
+          ) : null}
+        </p>
+      )}
+      {error ? <p class="error">{error}</p> : null}
+      {comments === null ? (
+        <Loading />
+      ) : comments.length === 0 ? (
+        <p>No comments yet.</p>
+      ) : (
+        <ul class="comment-list">
+          {comments.map((comment) => (
+            <li class="comment" key={comment.id}>
+              <span class="comment-author">{comment.author_name}</span>
+              <span class="comment-body">
+                {renderMentions(comment.body, slugs)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function NotFound({ navigate }) {
   return (
     <main class="notfound">

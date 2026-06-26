@@ -175,6 +175,13 @@
         <div class="endpoint">
           <div class="head"><span class="method method-get">GET</span><code>/api/v1/admin/audit</code><span class="summary">Read the admin audit trail.</span><span class="auth">session</span></div><div class="detail"><div class="block"><span class="label">responses</span><ul><li><code>200</code> array of AuditEntry</li><li><code>403</code> The caller may not perform the action.</li></ul></div></div></div>
       </section>
+      <section>
+        <h2>comments</h2>
+        <div class="endpoint">
+          <div class="head"><span class="method method-get">GET</span><code>/api/v1/comments</code><span class="summary">List the footer comments.</span></div><div class="detail"><div class="block"><span class="label">responses</span><ul><li><code>200</code> array of Comment</li></ul></div></div></div>
+        <div class="endpoint">
+          <div class="head"><span class="method method-post">POST</span><code>/api/v1/comments/add</code><span class="summary">Post a footer comment.</span><span class="auth">session</span></div><div class="detail"><div class="block"><span class="label">POST body</span><ul><li><code>body</code> string <span class="req">required</span></li></ul></div><div class="block"><span class="label">responses</span><ul><li><code>200</code> A plain message.</li><li><code>400</code> A required field is missing or invalid.</li><li><code>401</code> The caller is not signed in.</li><li><code>403</code> The caller may not perform the action.</li><li><code>405</code> The endpoint requires POST.</li></ul></div></div></div>
+      </section>
     </main>
   </body>
 </html>

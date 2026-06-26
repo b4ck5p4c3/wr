@@ -1,0 +1,5 @@
+post-owner: {"message":"Comment posted"}
+post-nonowner: 403
+post-anon: 401
+post-empty: 400
+list: [{"id":1,"author_name":"dev user","body":"hello @mine and @ghost","created_at":0}]

@@ -326,6 +326,74 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
                 toggled.value() ? "Reaction added" : "Reaction removed");
 }
 
+fn App::handle_comments_list(HttpServerEvent &event) -> void
+{
+  static constexpr i64 COMMENT_TAIL_COUNT = 100;
+  let const comments_or = m_store.list_comments(COMMENT_TAIL_COUNT);
+  if (comments_or.is_error()) {
+    reply_message(event, 500, comments_or.error().message().view());
+    return;
+  }
+
+  JsonWriter writer{m_allocator};
+  writer.array_begin();
+  let const &comments = comments_or.value();
+  for (usize i = 0; i < comments.count(); i++) {
+    writer.object_begin();
+    writer.key("id");
+    writer.number(comments[i].id);
+    writer.field("author_name", comments[i].author_name.view());
+    writer.field("body", comments[i].body.view());
+    writer.key("created_at");
+    writer.number(comments[i].created_at);
+    writer.object_end();
+  }
+  writer.array_end();
+  reply_json(event, 200, writer.view());
+}
+
+fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
+{
+  /* Only a writer who owns a live site may comment, so the footer is open to
+     the ring members and not to every signed-in visitor. */
+  let const owned = m_store.list_sites_for_owner(who.identity.view());
+  if (owned.is_error()) {
+    reply_message(event, 500, owned.error().message().view());
+    return;
+  }
+  if (owned.value().count() == 0) {
+    reply_message(event, 403, "Only owners of a site in the ring may comment");
+    return;
+  }
+
+  let const document = Json::from(m_allocator, event.body());
+  let const body = document["body"].to<StringView>();
+  if (!body.has_value() || body.value().is_empty()) {
+    reply_message(event, 400, "A comment body is required");
+    return;
+  }
+  if (body.value().count() > 500) {
+    reply_message(event, 400, "The comment must be 500 characters or fewer");
+    return;
+  }
+
+  let const stored =
+      m_store.add_comment(who.identity.view(), who.display_name.view(),
+                          body.value(), now_seconds());
+  if (stored.is_error()) {
+    reply_message(event, 500, stored.error().message().view());
+    return;
+  }
+
+  if (m_store
+          .record_audit(actor_label(who), client_address(event), "comment", "",
+                        body.value(), now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for comment by %s", who.identity.c_str());
+
+  reply_message(event, 200, "Comment posted");
+}
+
 fn App::handle_admin_add(HttpServerEvent &event) -> void
 {
   let const who = require_admin(event);

@@ -231,13 +231,15 @@ fn App::dispatch(HttpServerEvent &event) -> void
       sites_add,
       sites_rename,
       sites_react,
+      comments_list,
+      comments_add,
     };
     struct api_endpoint
     {
       api_route route;
       bool is_mutation;
     };
-    static constexpr StaticStringMap<api_endpoint, 13> API_ROUTES{
+    static constexpr StaticStringMap<api_endpoint, 15> API_ROUTES{
         {{"/api/v1/config", {api_route::config, false}},
          {"/api/v1/me", {api_route::me, false}},
          {"/api/v1/admin/pending", {api_route::admin_pending, false}},
@@ -250,7 +252,9 @@ fn App::dispatch(HttpServerEvent &event) -> void
          {"/api/v1/admin/audit", {api_route::admin_audit, false}},
          {"/api/v1/sites/add", {api_route::sites_add, true}},
          {"/api/v1/sites/rename", {api_route::sites_rename, true}},
-         {"/api/v1/sites/react", {api_route::sites_react, true}}}
+         {"/api/v1/sites/react", {api_route::sites_react, true}},
+         {"/api/v1/comments", {api_route::comments_list, false}},
+         {"/api/v1/comments/add", {api_route::comments_add, true}}}
     };
 
     let const endpoint = API_ROUTES.find(path);
@@ -298,6 +302,15 @@ fn App::dispatch(HttpServerEvent &event) -> void
       let const who = current_account(event);
       if (who.has_value())
         handle_user_react(event, who.value());
+      else
+        reply_message(event, 401, "Not signed in");
+      break;
+    }
+    case api_route::comments_list: handle_comments_list(event); break;
+    case api_route::comments_add: {
+      let const who = current_account(event);
+      if (who.has_value())
+        handle_comment_post(event, who.value());
       else
         reply_message(event, 401, "Not signed in");
       break;

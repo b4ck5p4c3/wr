@@ -195,7 +195,7 @@ a[href^="http"]::after {
 /* An internal link carries a trailing '..'. The buttons across the site wear
    the same affordance, and the wordmark and the provider buttons are left
    bare. */
-a:not([href^="http"]):not(.logo):not(.provider)::after {
+a:not([href^="http"]):not(.logo):not(.provider):not(.mention)::after {
   content: "..";
 }
 
@@ -936,4 +936,59 @@ footer {
   color: var(--footer-text);
   line-height: 1.3;
   padding-top: 2ch;
+}
+
+.comments {
+  text-align: left;
+  max-width: 560px;
+  margin: 0 auto 3ch;
+  padding: 2ch;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1ch;
+  margin-bottom: 1.5ch;
+}
+
+.comment-form textarea {
+  width: 100%;
+  min-height: 6ch;
+  resize: vertical;
+}
+
+.comment-form button {
+  align-self: flex-end;
+}
+
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1ch;
+}
+
+.comment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2ch;
+}
+
+.comment-author {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.comment-body {
+  color: var(--footer-text);
+}
+
+.mention {
+  color: var(--accent);
+  font-weight: 700;
 }

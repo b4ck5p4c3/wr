@@ -56,6 +56,18 @@ struct pending_action
   String status;
 };
 
+/* One footer comment by a site owner. The author identity keys the writer, the
+   author name is the readable label, and the body may mention a site by its
+   slug. */
+struct comment
+{
+  i64 id{0};
+  String author_identity;
+  String author_name;
+  String body;
+  i64 created_at{0};
+};
+
 /* One admin action kept for the audit trail. The actor is the admin label, the
    action names the operation, the target is the affected slug or id, and the
    detail carries a short human note. */
@@ -131,6 +143,11 @@ public:
       -> ErrorOr<Ok>;
   mustuse fn list_audit(i64 limit_count) const
       -> ErrorOr<ArrayList<audit_entry>>;
+
+  fn add_comment(StringView author_identity, StringView author_name,
+                 StringView body, i64 created_at) -> ErrorOr<Ok>;
+  mustuse fn list_comments(i64 limit_count) const
+      -> ErrorOr<ArrayList<comment>>;
 
   mustuse pure fn allocator() const noexcept -> Allocator
   {

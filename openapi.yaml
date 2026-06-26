@@ -18,6 +18,8 @@ tags:
     description: The user panel behind the session cookie.
   - name: admin
     description: The admin panel behind the session cookie and the admin role.
+  - name: comments
+    description: The footer comments by the ring members.
 paths:
   /sites:
     get:
@@ -323,6 +325,46 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/comments:
+    get:
+      tags: [comments]
+      summary: List the footer comments.
+      security: []
+      responses:
+        "200":
+          description: The comments, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+  /api/v1/comments/add:
+    post:
+      tags: [comments]
+      summary: Post a footer comment.
+      description: >-
+        The caller must own a site in the ring. The body may mention a site by
+        its slug with an at sign.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/admin/pending:
@@ -750,6 +792,29 @@ components:
         slug:
           type: string
       required: [slug]
+    Comment:
+      type: object
+      description: A footer comment by a ring member.
+      properties:
+        id:
+          type: integer
+          format: int64
+        author_name:
+          type: string
+        body:
+          type: string
+          description: The text, which may mention a site by its slug.
+        created_at:
+          type: integer
+          format: int64
+      required: [id, author_name, body, created_at]
+    CommentInput:
+      type: object
+      properties:
+        body:
+          type: string
+          description: The comment text, 500 characters or fewer.
+      required: [body]
     Message:
       type: object
       properties:

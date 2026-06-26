@@ -46,6 +46,17 @@ fn read_audit_entry(SqlStatement &statement) -> audit_entry
   return row;
 }
 
+fn read_comment(SqlStatement &statement) -> comment
+{
+  comment row{};
+  row.id = statement.get<i64>();
+  row.author_identity = statement.get<String>();
+  row.author_name = statement.get<String>();
+  row.body = statement.get<String>();
+  row.created_at = statement.get<i64>();
+  return row;
+}
+
 const StringView SITE_COLUMNS = "slug, name, url, description, is_reachable, "
                                 "last_seen_at, owner, created_at";
 
@@ -121,6 +132,15 @@ static const char *const SCHEMA_MIGRATIONS[] = {
      "audit_log(created_at);"),
 
     "ALTER TABLE audit_log ADD COLUMN actor_ip TEXT NOT NULL DEFAULT '';",
+
+    ("CREATE TABLE IF NOT EXISTS comments ("
+     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+     "  author_identity TEXT NOT NULL,"
+     "  author_name TEXT NOT NULL DEFAULT '',"
+     "  body TEXT NOT NULL,"
+     "  created_at INTEGER NOT NULL);"
+     "CREATE INDEX IF NOT EXISTS index_comments_created ON "
+     "comments(created_at);"),
 };
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
@@ -641,6 +661,36 @@ fn Store::list_audit(i64 limit_count) const -> ErrorOr<ArrayList<audit_entry>>
   while (TRY(statement.step()))
     entries.push(read_audit_entry(statement));
   return entries;
+}
+
+fn Store::add_comment(StringView author_identity, StringView author_name,
+                      StringView body, i64 created_at) -> ErrorOr<Ok>
+{
+  let statement = TRY(m_database.prepare(
+      "INSERT INTO comments (author_identity, author_name, body, created_at) "
+      "VALUES (?, ?, ?, ?);"));
+  statement.bind(author_identity);
+  statement.bind(author_name);
+  statement.bind(body);
+  statement.bind(created_at);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "comment added, author=%.*s",
+      static_cast<int>(author_identity.count()), author_identity.data);
+  return Success;
+}
+
+fn Store::list_comments(i64 limit_count) const -> ErrorOr<ArrayList<comment>>
+{
+  ArrayList<comment> comments{m_allocator};
+  let statement = TRY(m_database.prepare(
+      "SELECT id, author_identity, author_name, body, created_at "
+      "FROM comments ORDER BY id DESC LIMIT ?;"));
+  statement.bind(limit_count);
+
+  while (TRY(statement.step()))
+    comments.push(read_comment(statement));
+  return comments;
 }
 
 } // namespace wr
