@@ -184,6 +184,9 @@ CFLAGS += \
 	-flto \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=2
+# The static link warns once that getaddrinfo needs the runtime glibc to match
+# the build glibc. The liveness sweep resolves hosts through it, so the warning
+# is expected, and the deploy host runs the same glibc.
 CXXFLAGS += \
 	-static-pie \
 	-nostdlib++
@@ -283,9 +286,11 @@ $(OBJ_DIR)/vendor/mongoose.o: $(VENDOR_DIR)/mongoose/mongoose.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
+# The extension loader pulls dlopen into the static link and warns. No extension
+# is loaded, so it is omitted.
 $(OBJ_DIR)/vendor/sqlite3.o: $(VENDOR_DIR)/sqlite/sqlite3.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
-	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(CFLAGS) -DSQLITE_OMIT_LOAD_EXTENSION -MMD -MP -c $< -o $@
 
 $(OBJ_DIR)/vendor/curl/%.o: $(VENDOR_DIR)/curl/%.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '

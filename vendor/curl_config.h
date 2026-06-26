@@ -116,7 +116,10 @@
 #define CURL_DISABLE_MQTT 1
 
 /* disables netrc parser */
-/* #undef CURL_DISABLE_NETRC */
+/* The netrc parser reads the home directory through getpwuid_r, which pulls the
+   glibc NSS path into the static link and warns. No .netrc is used, so it is
+   disabled. */
+#define CURL_DISABLE_NETRC 1
 
 /* enables NTLM support */
 /* #undef CURL_ENABLE_NTLM */
