@@ -15,6 +15,39 @@ fn find_embedded_asset(StringView path) -> const embedded_asset *
   return nullptr;
 }
 
+/* The socket peer is the un-spoofable address, so it is the default the rate
+   limiter and the audit trail key on. A forwarded header is client controlled
+   and is read only when the operator marks the proxy trusted. The trusted proxy
+   appends the real client as the last hop, so the rightmost x-forwarded-for
+   entry is taken and a client supplied prefix is ignored. */
+fn client_address(HttpServerEvent &event, bool is_forwarded_trusted)
+    -> StringView
+{
+  if (!is_forwarded_trusted) return event.client_ip();
+
+  let const &headers = event.request_headers();
+  if (let const forwarded = headers.get("x-forwarded-for");
+      forwarded.has_value())
+  {
+    let const value = forwarded.value();
+    usize last_hop_start = value.count();
+    while (last_hop_start > 0 && value[last_hop_start - 1] != ',')
+      last_hop_start--;
+
+    let const last_hop = value.substring(last_hop_start);
+    usize lead = 0;
+    while (lead < last_hop.count() && last_hop[lead] == ' ')
+      lead++;
+
+    return last_hop.substring(lead);
+  }
+
+  if (let const real_ip = headers.get("x-real-ip"); real_ip.has_value())
+    return real_ip.value();
+
+  return event.client_ip();
+}
+
 namespace {
 
 fn content_type_for(StringView path) -> StringView
@@ -129,11 +162,20 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
   return None;
 }
 
+/* The account identity carries the provider, so the public profile link is
+   built from it. The dev bypass accounts point at GitHub. */
+fn owner_oauth_for(StringView owner) -> StringView
+{
+  if (owner.starts_with("github:") || owner.starts_with("dev:"))
+    return "github";
+  if (owner.starts_with("telegram:")) return "telegram";
+  return StringView{};
+}
+
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions,
-                   const ArrayList<String> *reacted,
-                   StringView owner_display_name, StringView owner_username)
-    -> void
+                   const ArrayList<String> *reacted, StringView owner_name,
+                   StringView owner_tag) -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -142,9 +184,9 @@ fn write_site_json(JsonWriter &writer, const site &row,
   writer.field("description", row.description.view());
   writer.key("created_at");
   writer.number(row.created_at);
-  writer.field("owner", row.owner.view());
-  writer.field("owner_display_name", owner_display_name);
-  writer.field("owner_username", owner_username);
+  writer.field("owner_oauth", owner_oauth_for(row.owner.view()));
+  writer.field("owner_tag", owner_tag);
+  writer.field("owner_name", owner_name);
 
   if (reactions != nullptr) {
     writer.key("reactions");
@@ -167,6 +209,95 @@ fn write_site_json(JsonWriter &writer, const site &row,
   writer.object_end();
 }
 
+enum class route : u8
+{
+  static_page,
+  sites,
+  auth_github_login,
+  auth_github_callback,
+  auth_telegram_callback,
+  auth_dev,
+  auth_logout,
+  config,
+  me,
+  admin_pending,
+  admin_approve,
+  admin_reject,
+  admin_site,
+  admin_site_add,
+  admin_site_delete,
+  admin_logs,
+  admin_audit,
+  admin_comments,
+  admin_comment_approve,
+  admin_comment_delete,
+  admin_stats,
+  sites_add,
+  sites_rename,
+  sites_react,
+  sites_click,
+  comments_list,
+  comments_add,
+};
+
+/* A GET route accepts any method, while a POST or DELETE route is reached only
+   through that method, so a cross-site GET cannot drive a write on a signed-in
+   browser. The limit caps a single address on the route, keyed by the route id
+   as the bucket, and a zero cap leaves the route unlimited. */
+struct route_target
+{
+  route id;
+  HttpMethod method;
+  rate_rule limit;
+};
+
+static constexpr let ROUTES = StaticStringMap<route_target, 31>{
+    {{"/", {route::static_page, HttpMethod::Get, {0, 0}}},
+     {"/about", {route::static_page, HttpMethod::Get, {0, 0}}},
+     {"/panel", {route::static_page, HttpMethod::Get, {0, 0}}},
+     {"/admin", {route::static_page, HttpMethod::Get, {0, 0}}},
+     {"/docs", {route::static_page, HttpMethod::Get, {0, 0}}},
+     {"/sites", {route::sites, HttpMethod::Get, {100, 60}}},
+     {"/auth/github", {route::auth_github_login, HttpMethod::Get, {20, 60}}},
+     {"/auth/github/callback",
+      {route::auth_github_callback, HttpMethod::Get, {5, 60}}},
+     {"/auth/telegram/callback",
+      {route::auth_telegram_callback, HttpMethod::Get, {10, 60}}},
+     {"/auth/dev", {route::auth_dev, HttpMethod::Get, {30, 60}}},
+     {"/auth/logout", {route::auth_logout, HttpMethod::Post, {10, 60}}},
+     {"/api/v1/config", {route::config, HttpMethod::Get, {200, 60}}},
+     {"/api/v1/me", {route::me, HttpMethod::Get, {30, 60}}},
+     {"/api/v1/admin/pending",
+      {route::admin_pending, HttpMethod::Get, {120, 60}}},
+     {"/api/v1/admin/pending/approve",
+      {route::admin_approve, HttpMethod::Post, {120, 60}}},
+     {"/api/v1/admin/pending/reject",
+      {route::admin_reject, HttpMethod::Delete, {120, 60}}},
+     {"/api/v1/admin/site", {route::admin_site, HttpMethod::Post, {120, 60}}},
+     {"/api/v1/admin/site/add",
+      {route::admin_site_add, HttpMethod::Post, {120, 60}}},
+     {"/api/v1/admin/site/delete",
+      {route::admin_site_delete, HttpMethod::Delete, {120, 60}}},
+     {"/api/v1/admin/logs", {route::admin_logs, HttpMethod::Get, {120, 60}}},
+     {"/api/v1/admin/audit", {route::admin_audit, HttpMethod::Get, {120, 60}}},
+     {"/api/v1/admin/comments",
+      {route::admin_comments, HttpMethod::Get, {120, 60}}},
+     {"/api/v1/admin/comments/approve",
+      {route::admin_comment_approve, HttpMethod::Post, {120, 60}}},
+     {"/api/v1/admin/comments/delete",
+      {route::admin_comment_delete, HttpMethod::Delete, {120, 60}}},
+     {"/api/v1/admin/stats", {route::admin_stats, HttpMethod::Get, {120, 60}}},
+     {"/api/v1/sites/add", {route::sites_add, HttpMethod::Post, {2, 86400}}},
+     {"/api/v1/sites/rename",
+      {route::sites_rename, HttpMethod::Post, {10, 86400}}},
+     {"/api/v1/sites/react",
+      {route::sites_react, HttpMethod::Post, {50, 3600}}},
+     {"/api/v1/sites/click", {route::sites_click, HttpMethod::Post, {100, 60}}},
+     {"/api/v1/comments", {route::comments_list, HttpMethod::Get, {20, 60}}},
+     {"/api/v1/comments/add",
+      {route::comments_add, HttpMethod::Post, {3, 3600}}}}
+};
+
 fn App::on_event(HttpServerEvent &event, opaque *user) -> void
 {
   let const app = static_cast<App *>(user);
@@ -179,141 +310,54 @@ fn App::dispatch(HttpServerEvent &event) -> void
 {
   let const path = event.uri();
 
-  if (path == "/sites") {
-    handle_sites(event);
-    return;
-  }
-
-  if (path.starts_with("/auth/github/callback")) {
-    handle_github_callback(event);
-    return;
-  }
-  if (path.starts_with("/auth/github")) {
-    handle_login_github(event);
-    return;
-  }
-  if (path.starts_with("/auth/telegram/callback")) {
-    handle_telegram_callback(event);
-    return;
-  }
-  if (path.starts_with("/auth/dev")) {
-    handle_dev_login(event);
-    return;
-  }
-  if (path.starts_with("/auth/logout")) {
-    /* Logout deletes the session, so it requires POST like the other mutations
-       and a cross-site GET cannot end a signed-in session. */
-    if (event.method() != "POST") {
-      reply_message(event, 405, "This endpoint requires POST");
-      return;
-    }
-    handle_logout(event);
-    return;
-  }
-
-  if (path.starts_with("/api/v1/")) {
-    enum class api_route
+  if (let const target = ROUTES.find(path); target != nullptr) {
+    /* Dev mode skips the throttle, so the test suite hammers the endpoints. */
+    if (!m_config.is_dev_mode &&
+        !m_limiter.allow(client_address(event, m_config.is_forwarded_trusted),
+                         static_cast<u8>(target->id), target->limit,
+                         now_seconds()))
     {
-      config,
-      me,
-      admin_pending,
-      admin_approve,
-      admin_reject,
-      admin_site,
-      admin_site_add,
-      admin_site_delete,
-      admin_logs,
-      admin_audit,
-      admin_comments,
-      admin_comment_approve,
-      admin_comment_delete,
-      sites_add,
-      sites_rename,
-      sites_react,
-      comments_list,
-      comments_add,
-    };
-    enum class request_method : u8
+      reply_message(event, 429, "Too many requests, slow down");
+      return;
+    }
+
+    if (target->method != HttpMethod::Get &&
+        event.method() != http_method_name(target->method))
     {
-      read,
-      post,
-      del,
-    };
-    struct api_endpoint
-    {
-      api_route route;
-      request_method method;
-    };
-    static constexpr StaticStringMap<api_endpoint, 18> API_ROUTES{
-        {{"/api/v1/config", {api_route::config, request_method::read}},
-         {"/api/v1/me", {api_route::me, request_method::read}},
-         {"/api/v1/admin/pending",
-          {api_route::admin_pending, request_method::read}},
-         {"/api/v1/admin/pending/approve",
-          {api_route::admin_approve, request_method::post}},
-         {"/api/v1/admin/pending/reject",
-          {api_route::admin_reject, request_method::del}},
-         {"/api/v1/admin/site", {api_route::admin_site, request_method::post}},
-         {"/api/v1/admin/site/add",
-          {api_route::admin_site_add, request_method::post}},
-         {"/api/v1/admin/site/delete",
-          {api_route::admin_site_delete, request_method::del}},
-         {"/api/v1/admin/logs", {api_route::admin_logs, request_method::read}},
-         {"/api/v1/admin/audit",
-          {api_route::admin_audit, request_method::read}},
-         {"/api/v1/admin/comments",
-          {api_route::admin_comments, request_method::read}},
-         {"/api/v1/admin/comments/approve",
-          {api_route::admin_comment_approve, request_method::post}},
-         {"/api/v1/admin/comments/delete",
-          {api_route::admin_comment_delete, request_method::del}},
-         {"/api/v1/sites/add", {api_route::sites_add, request_method::post}},
-         {"/api/v1/sites/rename",
-          {api_route::sites_rename, request_method::post}},
-         {"/api/v1/sites/react",
-          {api_route::sites_react, request_method::post}},
-         {"/api/v1/comments", {api_route::comments_list, request_method::read}},
-         {"/api/v1/comments/add",
-          {api_route::comments_add, request_method::post}}}
-    };
-
-    let const endpoint = API_ROUTES.find(path);
-    if (endpoint == nullptr) {
-      reply_message(event, 404, "No such endpoint");
+      String message{m_allocator};
+      message.append("This endpoint requires ");
+      message.append(http_method_name(target->method));
+      reply_message(event, 405, message.view());
       return;
     }
 
-    /* The required method is data in the route table. A write is reached only
-       through POST or DELETE, so a cross-site GET cannot drive it on a
-       signed-in browser. */
-    if (endpoint->method == request_method::post && event.method() != "POST") {
-      reply_message(event, 405, "This endpoint requires POST");
-      return;
-    }
-    if (endpoint->method == request_method::del && event.method() != "DELETE") {
-      reply_message(event, 405, "This endpoint requires DELETE");
-      return;
-    }
-
-    switch (endpoint->route) {
-    case api_route::config: handle_config(event); break;
-    case api_route::me: handle_me(event); break;
-    case api_route::admin_pending: handle_admin_pending(event); break;
-    case api_route::admin_approve: handle_admin_resolve(event, true); break;
-    case api_route::admin_reject: handle_admin_resolve(event, false); break;
-    case api_route::admin_site: handle_admin_edit(event); break;
-    case api_route::admin_site_add: handle_admin_add(event); break;
-    case api_route::admin_site_delete: handle_admin_delete(event); break;
-    case api_route::admin_logs: handle_admin_logs(event); break;
-    case api_route::admin_audit: handle_admin_audit(event); break;
-    case api_route::admin_comments: handle_admin_comments(event); break;
-    case api_route::admin_comment_approve:
+    switch (target->id) {
+    case route::static_page: serve_static(event); break;
+    case route::sites: handle_sites(event); break;
+    case route::auth_github_login: handle_login_github(event); break;
+    case route::auth_github_callback: handle_github_callback(event); break;
+    case route::auth_telegram_callback: handle_telegram_callback(event); break;
+    case route::auth_dev: handle_dev_login(event); break;
+    case route::auth_logout: handle_logout(event); break;
+    case route::config: handle_config(event); break;
+    case route::me: handle_me(event); break;
+    case route::admin_pending: handle_admin_pending(event); break;
+    case route::admin_approve: handle_admin_resolve(event, true); break;
+    case route::admin_reject: handle_admin_resolve(event, false); break;
+    case route::admin_site: handle_admin_edit(event); break;
+    case route::admin_site_add: handle_admin_add(event); break;
+    case route::admin_site_delete: handle_admin_delete(event); break;
+    case route::admin_logs: handle_admin_logs(event); break;
+    case route::admin_audit: handle_admin_audit(event); break;
+    case route::admin_comments: handle_admin_comments(event); break;
+    case route::admin_comment_approve:
       handle_admin_comment_resolve(event, true);
       break;
-    case api_route::admin_comment_delete:
+    case route::admin_comment_delete:
       handle_admin_comment_resolve(event, false);
       break;
-    case api_route::sites_add: {
+    case route::admin_stats: handle_admin_stats(event); break;
+    case route::sites_add: {
       let const who = current_account(event);
       if (who.has_value())
         handle_user_add(event, who.value());
@@ -321,7 +365,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
         reply_message(event, 401, "Not signed in");
       break;
     }
-    case api_route::sites_rename: {
+    case route::sites_rename: {
       let const who = current_account(event);
       if (who.has_value())
         handle_user_rename(event, who.value());
@@ -329,7 +373,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
         reply_message(event, 401, "Not signed in");
       break;
     }
-    case api_route::sites_react: {
+    case route::sites_react: {
       let const who = current_account(event);
       if (who.has_value())
         handle_user_react(event, who.value());
@@ -337,8 +381,9 @@ fn App::dispatch(HttpServerEvent &event) -> void
         reply_message(event, 401, "Not signed in");
       break;
     }
-    case api_route::comments_list: handle_comments_list(event); break;
-    case api_route::comments_add: {
+    case route::sites_click: handle_site_click(event); break;
+    case route::comments_list: handle_comments_list(event); break;
+    case route::comments_add: {
       let const who = current_account(event);
       if (who.has_value())
         handle_comment_post(event, who.value());
@@ -350,10 +395,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
     return;
   }
 
-  if (path == "/" || path == "/about" || path == "/panel" || path == "/admin" ||
-      path == "/docs" || path.starts_with("/assets/"))
-  {
-    serve_static(event);
+  if (path.starts_with("/api/v1/")) {
+    reply_message(event, 404, "No such endpoint");
     return;
   }
 
@@ -365,6 +408,17 @@ fn App::dispatch(HttpServerEvent &event) -> void
   StringView rest{};
   let const slug = split_first_segment(path, rest);
   if (!slug.is_empty()) {
+    /* The slug hops share one bucket, above the route ids, capped well above a
+       human pace. Dev mode skips the throttle. */
+    static constexpr u8 SLUG_BUCKET = 255;
+    if (!m_config.is_dev_mode &&
+        !m_limiter.allow(client_address(event, m_config.is_forwarded_trusted),
+                         SLUG_BUCKET, {1000, 60}, now_seconds()))
+    {
+      reply_message(event, 429, "Too many requests, slow down");
+      return;
+    }
+
     StringView remainder{};
     let const first = split_first_segment(rest, remainder);
     let const wants_data = first == "data" || remainder == "data";
@@ -435,6 +489,8 @@ fn App::handle_config(HttpServerEvent &event) -> void
   writer.boolean(!m_config.github_client_id.view().is_empty());
   writer.field("telegram_bot",
                telegram_token.is_empty() ? StringView{} : telegram_bot);
+  writer.key("metrics_enabled");
+  writer.boolean(m_config.is_metrics_enabled);
   writer.object_end();
   reply_json(event, 200, writer.view());
 }
@@ -495,7 +551,9 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   let const count = sites.count();
   usize target = current;
+  bool did_hop = false;
   if (let const stepped = NAV_STEPS.find(step); stepped != nullptr) {
+    did_hop = true;
     switch (*stepped) {
     case nav_step::next: target = (current + 1) % count; break;
     case nav_step::prev: target = (current + count - 1) % count; break;
@@ -509,6 +567,12 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
   }
 
   if (!wants_data) {
+    let const target_slug = sites[target].slug.view();
+    if (did_hop && m_config.is_metrics_enabled &&
+        m_store.record_hop(target_slug).is_error())
+      LOG(Info, "hop record dropped for %.*s",
+          static_cast<int>(target_slug.count()), target_slug.data);
+
     reply_redirect(event, sites[target].url.view());
     return;
   }
@@ -577,9 +641,7 @@ fn App::emit(HttpServerEvent &event, u16 status, const HttpHeaders &headers,
      auth redirects reply directly and are not traced here. */
   let const method = event.method();
   let const uri = event.uri();
-  let const forwarded = event.request_headers().get("x-forwarded-for");
-  let const client =
-      forwarded.has_value() ? forwarded.value() : event.client_ip();
+  let const client = client_address(event, m_config.is_forwarded_trusted);
   LOG(Debug, "%.*s %.*s %.*s -> %u", static_cast<int>(client.count()),
       client.data, static_cast<int>(method.count()), method.data,
       static_cast<int>(uri.count()), uri.data, status);

@@ -270,7 +270,7 @@ fn App::handle_dev_login(HttpServerEvent &event) -> void
   String identity{m_allocator};
   identity.append(is_admin ? "dev:admin" : "dev:user");
   finish_login(event, identity.view(), is_admin ? "dev admin" : "dev user",
-               StringView{}, Maybe<bool>{is_admin});
+               is_admin ? "toiletbril" : "radi0dev", Maybe<bool>{is_admin});
 }
 
 fn App::current_account(HttpServerEvent &event) -> Maybe<account>

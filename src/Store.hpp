@@ -28,6 +28,16 @@ struct reaction_count
   i64 count{0};
 };
 
+/* The traffic tally for one site. The click count is the outbound follows from
+   the ring, and the hop count is the next, prev, and random traversals that
+   landed on it. */
+struct site_metric
+{
+  String slug;
+  i64 click_count{0};
+  i64 hop_count{0};
+};
+
 /* A panel account, keyed by a provider identity such as "github:1234". The
    username is the linkable handle, the github login or the telegram username.
  */
@@ -124,6 +134,10 @@ public:
       -> ErrorOr<ArrayList<reaction_count>>;
   mustuse fn get_user_reactions(StringView slug, StringView identity) const
       -> ErrorOr<ArrayList<String>>;
+
+  fn record_click(StringView slug) -> ErrorOr<Ok>;
+  fn record_hop(StringView slug) -> ErrorOr<Ok>;
+  mustuse fn get_site_metrics() const -> ErrorOr<ArrayList<site_metric>>;
 
   mustuse fn find_account(StringView identity) const -> ErrorOr<Maybe<account>>;
   fn upsert_account(StringView identity, StringView display_name,

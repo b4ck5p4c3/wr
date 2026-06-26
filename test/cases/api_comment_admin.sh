@@ -7,10 +7,10 @@ PORT=18775
 DB=$(mktemp -u /tmp/wr_cadmin_XXXXXX.db)
 AJAR=$(mktemp -u /tmp/wr_cadmin_ajar_XXXXXX)
 
-timeout 2 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
+timeout 2 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
 sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('ops','Ops','https://ops.example','',1,9999999999,'dev:admin',7);"
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"

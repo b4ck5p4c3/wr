@@ -1,7 +1,6 @@
 wr: error: These options are required:
-  --listen <url>
-  --database <path>
-  --public-url <url>
+  --listen-on <url>
+  --database-url <path>
 
 See --help for info.
 exit=1

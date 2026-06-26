@@ -88,4 +88,3 @@ parts.push("} // namespace wr");
 parts.push("");
 
 fs.writeFileSync(outFile, parts.join("\n"));
-console.log("Wrote " + entries.length + " assets to " + outFile + "\n");

@@ -1,1 +1,1 @@
-config: {"is_dev":true,"github":false,"telegram_bot":""}
+config: {"is_dev":true,"github":false,"telegram_bot":"","metrics_enabled":false}

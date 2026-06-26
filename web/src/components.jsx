@@ -319,24 +319,26 @@ export function ReactionBar({ site, me, onLogin, onReacted }) {
 // The owner profile link is built from the provider in the identity and the
 // stored handle, the github login or the telegram username. A site with no
 // handle shows the display name without a link.
-function ownerProfileUrl(owner, username) {
-  if (!username) return null;
-  if (owner && owner.startsWith("github:"))
-    return "https://github.com/" + username;
-  if (owner && owner.startsWith("telegram:")) return "https://t.me/" + username;
+function ownerProfileUrl(oauth, tag) {
+  if (!tag) return null;
+  if (oauth === "github") return "https://github.com/" + tag;
+  if (oauth === "telegram") return "https://t.me/" + tag;
   return null;
 }
 
 function CardOwner({ site }) {
-  const handle = site.owner_username;
-  const label = handle ? "@" + handle : site.owner_display_name;
+  const tag = site.owner_tag;
+  const label = tag ? "@" + tag : site.owner_name;
   if (!label) return null;
-  const url = ownerProfileUrl(site.owner, handle);
+  const oauth = site.owner_oauth;
+  const providerClass = oauth ? " owner-" + oauth : "";
+  const url = ownerProfileUrl(oauth, tag);
   return (
     <span class="tui-owner">
       by{" "}
       {url ? (
         <a
+          class={"owner-handle" + providerClass}
           href={url}
           target="_blank"
           rel="noopener noreferrer"
@@ -345,7 +347,7 @@ function CardOwner({ site }) {
           {label}
         </a>
       ) : (
-        label
+        <span class={"owner-handle" + providerClass}>{label}</span>
       )}
     </span>
   );
@@ -379,6 +381,9 @@ function cardBody(site, ctx) {
           target="_blank"
           rel="noopener noreferrer"
           onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => {
+            if (ctx.metricsEnabled) api.recordClick(site.slug).catch(() => {});
+          }}
         >
           {site.name}
         </a>
@@ -410,8 +415,8 @@ const CARD_BOB_PHASE = 1.1;
 // The transforms are mutated through refs, so a frame never costs a render. Each
 // card is double sided, and a card facing away shows its back. On a phone width
 // the cylinder is replaced by a plain vertical list.
-export function Carousel({ sites, me, onLogin, onReacted }) {
-  const ctx = { me, onLogin, onReacted };
+export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
+  const ctx = { me, onLogin, onReacted, metricsEnabled };
   const [isNarrow, setIsNarrow] = useState(
     typeof matchMedia !== "undefined" && matchMedia(NARROW_QUERY).matches,
   );
@@ -607,7 +612,7 @@ export function Carousel({ sites, me, onLogin, onReacted }) {
   );
 }
 
-export function Landing({ navigate, me, reload, onLogin }) {
+export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
   const [sites, setSites] = useState(null);
   const [error, setError] = useState(null);
   const [showAddSite, setShowAddSite] = useState(false);
@@ -643,6 +648,7 @@ export function Landing({ navigate, me, reload, onLogin }) {
             me={me}
             onLogin={onLogin}
             onReacted={loadSites}
+            metricsEnabled={metricsEnabled}
           />
         )}
       </div>
@@ -985,7 +991,7 @@ function matchComments(comments, query) {
   );
 }
 
-export function Admin({ onLogin }) {
+export function Admin({ onLogin, onLogout }) {
   const [me, setMe] = useState(undefined);
   const [pending, setPending] = useState([]);
   const [pendingComments, setPendingComments] = useState([]);
@@ -1037,13 +1043,23 @@ export function Admin({ onLogin }) {
         <Loading />
       </main>
     );
-  if (me === null || !me.is_admin)
+  if (me === null)
     return (
       <main>
         <h1>admin</h1>
         <p>You need an admin account.</p>
         <button class="primary" onClick={onLogin}>
           login..
+        </button>
+      </main>
+    );
+  if (!me.is_admin)
+    return (
+      <main>
+        <h1>admin</h1>
+        <p>Signed in as {me.display_name}, who is not an admin.</p>
+        <button class="secondary" onClick={onLogout}>
+          logout..
         </button>
       </main>
     );
@@ -1175,9 +1191,65 @@ export function Admin({ onLogin }) {
       />
       <h2>audit log</h2>
       <AuditLog />
+      <h2>traffic stats</h2>
+      <Stats />
       <h2>server logs</h2>
       <LogStream />
     </main>
+  );
+}
+
+// The traffic stats show the per-site click and hop counts when the server runs
+// with the metrics enabled. The totals head the table and each site row carries
+// its own click and hop tally.
+export function Stats() {
+  const [stats, setStats] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    api
+      .adminStats()
+      .then(setStats)
+      .catch((e) => setError(e.message));
+  }, []);
+
+  if (error) return <p class="error">{error}</p>;
+  if (stats === null) return <Loading />;
+  if (!stats.enabled)
+    return (
+      <p class="hint">
+        Metrics are disabled. Launch with --enable-metrics to record them.
+      </p>
+    );
+
+  return (
+    <div class="stats">
+      <p class="stats-totals">
+        {stats.total_clicks} clicks, {stats.total_hops} hops across the ring.
+      </p>
+      {stats.sites.length === 0 ? (
+        <p class="hint">No traffic has been recorded yet.</p>
+      ) : (
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>site</th>
+              <th>clicks</th>
+              <th>hops</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stats.sites.map((row) => (
+              <tr key={row.slug}>
+                <td>/{row.slug}</td>
+                <td>{row.click_count}</td>
+                <td>{row.hop_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
@@ -1277,13 +1349,29 @@ export function LogStream() {
   );
 }
 
-// A comment body is split so an @slug that names a site in the ring becomes a
-// link to that site, and an unknown mention stays plain text.
-function renderMentions(body, slugs) {
-  return body.split(/(@[a-z0-9-]+)/g).map((part) => {
-    if (part[0] === "@" && slugs.includes(part.slice(1))) {
+// A comment body is split so an @slug that names a site in the ring links to
+// that site, and an @handle that names the owner of a site in the ring links to
+// that person's provider profile. An unknown mention stays plain text.
+function renderMentions(body, slugs, people) {
+  return body.split(/(@[A-Za-z0-9_-]+)/g).map((part) => {
+    if (part[0] !== "@") return part;
+    const handle = part.slice(1);
+    if (slugs.includes(handle)) {
       return (
-        <a class="mention" href={"/" + part.slice(1)}>
+        <a class="mention" href={"/" + handle}>
+          {part}
+        </a>
+      );
+    }
+    const person = people[handle];
+    if (person) {
+      return (
+        <a
+          class={"mention owner-" + person.provider}
+          href={person.url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           {part}
         </a>
       );
@@ -1302,6 +1390,7 @@ const COMMENT_LEAVE_MS = 300;
 export function CommentsSection({ me }) {
   const [comments, setComments] = useState(null);
   const [slugs, setSlugs] = useState([]);
+  const [people, setPeople] = useState({});
   const [draft, setDraft] = useState("");
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -1324,7 +1413,17 @@ export function CommentsSection({ me }) {
     loadPage(0);
     api
       .listSites()
-      .then((sites) => setSlugs(sites.map((site) => site.slug)))
+      .then((sites) => {
+        setSlugs(sites.map((site) => site.slug));
+        const handles = {};
+        for (const site of sites) {
+          const oauth = site.owner_oauth;
+          const url = ownerProfileUrl(oauth, site.owner_tag);
+          if (site.owner_tag && oauth && url)
+            handles[site.owner_tag] = { url, provider: oauth };
+        }
+        setPeople(handles);
+      })
       .catch(() => {});
   }, []);
 
@@ -1377,7 +1476,7 @@ export function CommentsSection({ me }) {
           <textarea
             value={draft}
             maxLength={500}
-            placeholder="leave a note, @tag a site by its slug"
+            placeholder="leave a note, @tag a site or a person in the ring"
             onInput={(e) => {
               setDraft(e.target.value);
               setNotice(null);
@@ -1425,7 +1524,7 @@ export function CommentsSection({ me }) {
                 </span>
               </div>
               <span class="comment-body">
-                {renderMentions(comment.body, slugs)}
+                {renderMentions(comment.body, slugs, people)}
               </span>
             </li>
           ))}

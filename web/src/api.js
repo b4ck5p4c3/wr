@@ -50,6 +50,7 @@ export const api = {
   addSite: (site) => postJson("/api/v1/sites/add", site),
   renameSite: (slug, name) => postJson("/api/v1/sites/rename", { slug, name }),
   react: (slug, emoji) => postJson("/api/v1/sites/react", { slug, emoji }),
+  recordClick: (slug) => postJson("/api/v1/sites/click", { slug }),
   listComments: (offset = 0, limit = 5) =>
     getJson(
       "/api/v1/comments?offset=" +
@@ -66,6 +67,7 @@ export const api = {
   adminReject: (id) => deleteJson("/api/v1/admin/pending/reject", { id }),
   adminLogs: () => getJson("/api/v1/admin/logs"),
   adminAudit: () => getJson("/api/v1/admin/audit"),
+  adminStats: () => getJson("/api/v1/admin/stats"),
   adminPendingComments: () => getJson("/api/v1/admin/comments"),
   adminApproveComment: (id) =>
     postJson("/api/v1/admin/comments/approve", { id }),

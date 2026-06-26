@@ -1,6 +1,5 @@
 wr: error: These options are required:
-  --listen <url>
-  --public-url <url>
+  --listen-on <url>
 
 See --help for info.
 exit=1

@@ -2,6 +2,7 @@
 #include "Cli.hpp"
 #include "Common.hpp"
 #include "Curl.hpp"
+#include "Embedded.hpp"
 #include "ErrorOr.hpp"
 #include "Liveness.hpp"
 #include "Mongoose.hpp"
@@ -18,19 +19,29 @@ HELP_SYNOPSIS_DECL("[options]");
 
 FLAG(HELP, Bool, '\0', "help", "Show this help and exit.");
 FLAG(VERSION, Bool, '\0', "version", "Show the version and exit.");
-FLAG(LISTEN, String, 'l', "listen", Server,
+FLAG(LISTEMBEDDED, Bool, '\0', "list-embedded-assets",
+     "List the embedded frontend assets with their sizes and exit.");
+FLAG(LISTEN, String, 'l', "listen-on", Server,
      "URL to listen on, like http://0.0.0.0:8000 (required).");
-FLAG(DATABASE, String, 'd', "database", Server,
-     "Path to the sqlite database (required).");
-FLAG(PUBLICURL, String, 'u', "public-url", Server,
-     "Public base URL for the OAuth redirect (required).");
+FLAG(DATABASE, String, 'd', "database-url", Server,
+     "Path or URL to the database (required).");
+FLAG(DBBACKEND, String, 'D', "database-backend", Server,
+     "Database backend. One of: sqlite (default sqlite).");
+FLAG(PUBLICURL, String, 'u', "web-root-url", Server,
+     "Public base URL for the OAuth redirect, defaults to the listen URL.");
 FLAG(LOGFILE, String, 'L', "log-file", Debug,
      "Append the log to FILE instead of standard error.");
 FLAG(VERBOSE, Bool, 'v', "verbose", Debug,
      "Raise the log verbosity, repeat for more. A single -v adds the "
      "per-request access lines and -vv traces everything.");
-FLAG(DEV, Bool, 'D', "dev", Debug,
-     "Run in dev mode with a login bypass for an admin and a user.");
+FLAG(DEV, Bool, '\0', "enable-dangerous-developer-environment", Debug,
+     "Run with a login bypass for an admin and a user. Dangerous, never use in "
+     "production.");
+FLAG(METRICS, Bool, '\0', "enable-metrics", Server,
+     "Record the per-site click and hop metrics shown in the admin panel.");
+FLAG(TRUSTFWD, Bool, '\0', "trust-forwarded-headers", Server,
+     "Trust the x-forwarded-for and x-real-ip headers for the client address. "
+     "Set this only behind a reverse proxy that overwrites them.");
 
 namespace {
 
@@ -69,6 +80,29 @@ fn main(int argc, char **argv) -> int
   }
   if (FLAG_VERSION.is_enabled()) {
     show_version();
+    print("\n(c) toiletbril <https://github.com/toiletbril>\n");
+    print("    and b4cksp4ce contributors <https://github.com/b4ck5p4c3/wr>\n");
+    flush();
+    return 0;
+  }
+  if (FLAG_LISTEMBEDDED.is_enabled()) {
+    usize total_size = 0;
+    for (usize i = 0; i < EMBEDDED_ASSET_COUNT; i++) {
+      let const &asset = EMBEDDED_ASSETS[i];
+      char size_text[24];
+      std::snprintf(size_text, sizeof(size_text), "%8.1f kB  ",
+                    static_cast<double>(asset.size) / 1000.0);
+      print(size_text);
+      print(asset.path);
+      print("\n");
+      total_size += asset.size;
+    }
+    char summary[64];
+    std::snprintf(summary, sizeof(summary), "\n%.1f kB total, %zu assets\n",
+                  static_cast<double>(total_size) / 1000.0,
+                  static_cast<usize>(EMBEDDED_ASSET_COUNT));
+    print(summary);
+    flush();
     return 0;
   }
 
@@ -87,9 +121,7 @@ fn main(int argc, char **argv) -> int
 
   std::srand(static_cast<u64>(getpid()));
 
-  if (!FLAG_LISTEN.is_set() || !FLAG_DATABASE.is_set() ||
-      !FLAG_PUBLICURL.is_set())
-  {
+  if (!FLAG_LISTEN.is_set() || !FLAG_DATABASE.is_set()) {
     String message{allocator};
     message.append("error: These options are required:\n");
     let const do_note = [&](const FlagString &flag, const char *line) {
@@ -98,17 +130,23 @@ fn main(int argc, char **argv) -> int
       message.append(line);
       message.append("\n");
     };
-    do_note(FLAG_LISTEN, "--listen <url>");
-    do_note(FLAG_DATABASE, "--database <path>");
-    do_note(FLAG_PUBLICURL, "--public-url <url>");
+    do_note(FLAG_LISTEN, "--listen-on <url>");
+    do_note(FLAG_DATABASE, "--database-url <path>");
     message.append("\nSee --help for info.");
     fail(message.view());
   }
 
+  if (FLAG_DBBACKEND.is_set() && FLAG_DBBACKEND.value() != "sqlite")
+    fail("error: Only the sqlite database backend is implemented.");
+
   config cfg;
   cfg.listen_url = String{allocator, FLAG_LISTEN.value()};
   cfg.database_path = String{allocator, FLAG_DATABASE.value()};
-  cfg.public_base_url = String{allocator, FLAG_PUBLICURL.value()};
+  /* The OAuth redirect is built from the public base, so it falls back to the
+     bind url when it is not given. */
+  cfg.public_base_url =
+      String{allocator, FLAG_PUBLICURL.is_set() ? FLAG_PUBLICURL.value()
+                                                : FLAG_LISTEN.value()};
   cfg.github_client_id = String{allocator, env_or("WR_GITHUB_CLIENT_ID", "")};
   cfg.github_client_secret =
       String{allocator, env_or("WR_GITHUB_CLIENT_SECRET", "")};
@@ -116,6 +154,8 @@ fn main(int argc, char **argv) -> int
       String{allocator, env_or("WR_TELEGRAM_BOT_TOKEN", "")};
   cfg.session_key = String{allocator, env_or("WR_SESSION_KEY", "")};
   cfg.is_dev_mode = FLAG_DEV.is_enabled();
+  cfg.is_metrics_enabled = FLAG_METRICS.is_enabled();
+  cfg.is_forwarded_trusted = FLAG_TRUSTFWD.is_enabled();
 
   LOG(Info, "wr is starting up");
   if (cfg.is_dev_mode) LOG(Info, "dev mode is on, the login bypass is enabled");
@@ -129,7 +169,9 @@ fn main(int argc, char **argv) -> int
     message.append("error: No login provider is configured. Set one of:\n");
     message.append("  WR_GITHUB_CLIENT_ID and WR_GITHUB_CLIENT_SECRET\n");
     message.append("  WR_TELEGRAM_BOT_TOKEN\n");
-    message.append("\nOr pass --dev to run with the login bypass.");
+    message.append(
+        "\nOr pass --enable-dangerous-developer-environment to run with the "
+        "login bypass.");
     fail(message.view());
   }
 

@@ -1,0 +1,4 @@
+stats: {"enabled":true,"total_clicks":3,"total_hops":1,"sites":[{"slug":"a","click_count":3,"hop_count":0},{"slug":"b","click_count":0,"hop_count":1}]}
+click-missing: 400
+click-disabled: {"message":"Metrics are disabled"}
+stats-disabled: {"enabled":false,"total_clicks":0,"total_hops":0,"sites":[]}

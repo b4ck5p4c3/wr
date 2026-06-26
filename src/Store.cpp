@@ -146,6 +146,11 @@ static const char *const SCHEMA_MIGRATIONS[] = {
     "ALTER TABLE comments ADD COLUMN is_approved INTEGER NOT NULL DEFAULT 0;",
 
     "ALTER TABLE accounts ADD COLUMN username TEXT NOT NULL DEFAULT '';",
+
+    ("CREATE TABLE IF NOT EXISTS site_metrics ("
+     "  slug TEXT PRIMARY KEY,"
+     "  click_count INTEGER NOT NULL DEFAULT 0,"
+     "  hop_count INTEGER NOT NULL DEFAULT 0);"),
 };
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
@@ -484,6 +489,52 @@ fn Store::get_user_reactions(StringView slug, StringView identity) const
     emojis.push(statement.get<String>());
 
   return emojis;
+}
+
+fn Store::record_click(StringView slug) -> ErrorOr<Ok>
+{
+  let statement = TRY(m_database.prepare(
+      "INSERT INTO site_metrics (slug, click_count, hop_count) "
+      "VALUES (?, 1, 0) "
+      "ON CONFLICT(slug) DO UPDATE SET click_count = click_count + 1;"));
+  statement.bind(slug);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "click recorded, slug=%.*s", static_cast<int>(slug.count()),
+      slug.data);
+  return Success;
+}
+
+fn Store::record_hop(StringView slug) -> ErrorOr<Ok>
+{
+  let statement = TRY(m_database.prepare(
+      "INSERT INTO site_metrics (slug, click_count, hop_count) "
+      "VALUES (?, 0, 1) "
+      "ON CONFLICT(slug) DO UPDATE SET hop_count = hop_count + 1;"));
+  statement.bind(slug);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "hop recorded, slug=%.*s", static_cast<int>(slug.count()),
+      slug.data);
+  return Success;
+}
+
+fn Store::get_site_metrics() const -> ErrorOr<ArrayList<site_metric>>
+{
+  ArrayList<site_metric> metrics{m_allocator};
+
+  let statement = TRY(m_database.prepare(
+      "SELECT slug, click_count, hop_count FROM site_metrics "
+      "ORDER BY click_count DESC, hop_count DESC, slug;"));
+  while (TRY(statement.step())) {
+    site_metric entry{};
+    entry.slug = statement.get<String>();
+    entry.click_count = statement.get<i64>();
+    entry.hop_count = statement.get<i64>();
+    metrics.push(steal(entry));
+  }
+
+  return metrics;
 }
 
 fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>

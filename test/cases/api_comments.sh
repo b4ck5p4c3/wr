@@ -10,10 +10,10 @@ DB=$(mktemp -u /tmp/wr_comment_XXXXXX.db)
 UJAR=$(mktemp -u /tmp/wr_comment_ujar_XXXXXX)
 AJAR=$(mktemp -u /tmp/wr_comment_ajar_XXXXXX)
 
-timeout 2 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
+timeout 2 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
 sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('mine','Mine','https://mine.example','',1,9999999999,'dev:user',7);"
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
@@ -26,7 +26,7 @@ strip='s/"created_at":[0-9]*/"created_at":0/g'
 ct='Content-Type: application/json'
 
 echo "post-owner: $(curl -s -b "$UJAR" -X POST -H "$ct" -d '{"body":"hello @mine and @ghost"}' "$api/comments/add")"
-echo "post-swear: $(curl -s -b "$UJAR" -o /dev/null -w '%{http_code}' -X POST -H "$ct" -d '{"body":"this is shit"}' "$api/comments/add")"
+echo "post-swear: $(curl -s -b "$UJAR" -o /dev/null -w '%{http_code}' -X POST -H "$ct" -d '{"body":"this is bastard"}' "$api/comments/add")"
 echo "post-nonowner: $(curl -s -b "$AJAR" -o /dev/null -w '%{http_code}' -X POST -H "$ct" -d '{"body":"hi"}' "$api/comments/add")"
 echo "post-anon: $(curl -s -o /dev/null -w '%{http_code}' -X POST -H "$ct" -d '{"body":"hi"}' "$api/comments/add")"
 echo "post-empty: $(curl -s -b "$UJAR" -o /dev/null -w '%{http_code}' -X POST -H "$ct" -d '{"body":""}' "$api/comments/add")"

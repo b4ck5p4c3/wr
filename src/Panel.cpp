@@ -51,25 +51,6 @@ fn actor_label(const account &who) -> StringView
                                             : who.display_name.view();
 }
 
-/* Behind a reverse proxy the socket peer is the proxy, so a forwarded header
-   holds the real client address. The first hop of x-forwarded-for is taken,
-   then x-real-ip, and the socket peer is the fallback. */
-fn client_address(HttpServerEvent &event) -> StringView
-{
-  let const &headers = event.request_headers();
-  if (let const forwarded = headers.get("x-forwarded-for");
-      forwarded.has_value())
-  {
-    let const value = forwarded.value();
-    let const comma = value.find_character(',');
-    return comma.has_value() ? value.substring_of_length(0, comma.value())
-                             : value;
-  }
-  if (let const real_ip = headers.get("x-real-ip"); real_ip.has_value())
-    return real_ip.value();
-  return event.client_ip();
-}
-
 fn write_panel_site(JsonWriter &writer, const site &row,
                     const ArrayList<i64> &uptime, StringView owner_display_name)
     -> void
@@ -238,8 +219,9 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who), client_address(event), "submit add",
-                        input.slug, input.name, now_seconds())
+          .record_audit(actor_label(who),
+                        client_address(event, m_config.is_forwarded_trusted),
+                        "submit add", input.slug, input.name, now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for submit add %.*s",
         static_cast<int>(input.slug.count()), input.slug.data);
@@ -273,7 +255,8 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who), client_address(event),
+          .record_audit(actor_label(who),
+                        client_address(event, m_config.is_forwarded_trusted),
                         "submit rename", slug.value(), name.value(),
                         now_seconds())
           .is_error())
@@ -326,7 +309,8 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who), client_address(event),
+          .record_audit(actor_label(who),
+                        client_address(event, m_config.is_forwarded_trusted),
                         toggled.value() ? "react add" : "react remove",
                         slug.value(), emoji.value(), now_seconds())
           .is_error())
@@ -335,6 +319,38 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
 
   reply_message(event, 200,
                 toggled.value() ? "Reaction added" : "Reaction removed");
+}
+
+fn App::handle_site_click(HttpServerEvent &event) -> void
+{
+  if (!m_config.is_metrics_enabled) {
+    reply_message(event, 200, "Metrics are disabled");
+    return;
+  }
+
+  let const document = Json::from(m_allocator, event.body());
+  let const slug = document["slug"].to<StringView>();
+  if (!slug.has_value()) {
+    reply_message(event, 400, "A slug is required");
+    return;
+  }
+
+  let const target = m_store.find_site(slug.value());
+  if (target.is_error()) {
+    reply_message(event, 500, target.error().message().view());
+    return;
+  }
+  if (!target.value().has_value()) {
+    reply_message(event, 404, "No such site");
+    return;
+  }
+
+  if (m_store.record_click(slug.value()).is_error()) {
+    reply_message(event, 500, "Unable to record the click");
+    return;
+  }
+
+  reply_message(event, 200, "Click recorded");
 }
 
 fn App::handle_comments_list(HttpServerEvent &event) -> void
@@ -420,8 +436,9 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
 
   let const audit_detail = to_single_line(m_allocator, body.value());
   if (m_store
-          .record_audit(actor_label(who), client_address(event), "comment", "",
-                        audit_detail.view(), now_seconds())
+          .record_audit(actor_label(who),
+                        client_address(event, m_config.is_forwarded_trusted),
+                        "comment", "", audit_detail.view(), now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for comment by %s", who.identity.c_str());
 
@@ -488,7 +505,8 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
       to_single_line(m_allocator, target.author_name.view());
   let const audit_detail = to_single_line(m_allocator, target.body.view());
   if (m_store
-          .record_audit(actor_label(who.value()), client_address(event),
+          .record_audit(actor_label(who.value()),
+                        client_address(event, m_config.is_forwarded_trusted),
                         should_approve ? "comment approve" : "comment delete",
                         audit_target.view(), audit_detail.view(), now_seconds())
           .is_error())
@@ -539,7 +557,8 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()), client_address(event),
+          .record_audit(actor_label(who.value()),
+                        client_address(event, m_config.is_forwarded_trusted),
                         "add site", input.slug, input.name, now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for add %.*s",
@@ -573,7 +592,8 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()), client_address(event),
+          .record_audit(actor_label(who.value()),
+                        client_address(event, m_config.is_forwarded_trusted),
                         "remove site", slug.value(),
                         found.value().value().name.view(), now_seconds())
           .is_error())
@@ -630,7 +650,8 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
         static_cast<int>(input.slug.count()), input.slug.data);
 
   if (m_store
-          .record_audit(actor_label(who.value()), client_address(event),
+          .record_audit(actor_label(who.value()),
+                        client_address(event, m_config.is_forwarded_trusted),
                         "edit site", input.slug, input.name, now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for edit %.*s",
@@ -721,6 +742,48 @@ fn App::handle_admin_audit(HttpServerEvent &event) -> void
     writer.object_end();
   }
   writer.array_end();
+  reply_json(event, 200, writer.view());
+}
+
+fn App::handle_admin_stats(HttpServerEvent &event) -> void
+{
+  if (!require_admin(event).has_value()) return;
+
+  let const metrics_or = m_store.get_site_metrics();
+  if (metrics_or.is_error()) {
+    reply_message(event, 500, metrics_or.error().message().view());
+    return;
+  }
+  let const &metrics = metrics_or.value();
+
+  i64 total_clicks = 0;
+  i64 total_hops = 0;
+  for (usize i = 0; i < metrics.count(); i++) {
+    total_clicks += metrics[i].click_count;
+    total_hops += metrics[i].hop_count;
+  }
+
+  JsonWriter writer{m_allocator};
+  writer.object_begin();
+  writer.key("enabled");
+  writer.boolean(m_config.is_metrics_enabled);
+  writer.key("total_clicks");
+  writer.number(total_clicks);
+  writer.key("total_hops");
+  writer.number(total_hops);
+  writer.key("sites");
+  writer.array_begin();
+  for (usize i = 0; i < metrics.count(); i++) {
+    writer.object_begin();
+    writer.field("slug", metrics[i].slug.view());
+    writer.key("click_count");
+    writer.number(metrics[i].click_count);
+    writer.key("hop_count");
+    writer.number(metrics[i].hop_count);
+    writer.object_end();
+  }
+  writer.array_end();
+  writer.object_end();
   reply_json(event, 200, writer.view());
 }
 
@@ -815,7 +878,8 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
   action_label.append(should_approve ? "approve " : "reject ");
   action_label.append(action.kind.view());
   if (m_store
-          .record_audit(actor_label(who.value()), client_address(event),
+          .record_audit(actor_label(who.value()),
+                        client_address(event, m_config.is_forwarded_trusted),
                         action_label.view(), action.target_slug.view(),
                         action.owner.view(), now_seconds())
           .is_error())

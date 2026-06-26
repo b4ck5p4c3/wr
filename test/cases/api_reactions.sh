@@ -7,7 +7,7 @@ PORT=18773
 DB=$(mktemp -u /tmp/wr_react_XXXXXX.db)
 UJAR=$(mktemp -u /tmp/wr_react_jar_XXXXXX)
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"

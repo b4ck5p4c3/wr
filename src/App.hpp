@@ -5,6 +5,7 @@
 #include "Containers.hpp"
 #include "Json.hpp"
 #include "Maybe.hpp"
+#include "RateLimiter.hpp"
 #include "Server.hpp"
 #include "Store.hpp"
 #include "Utils.hpp"
@@ -24,6 +25,8 @@ struct config
   String telegram_bot_token;
   String session_key;
   bool is_dev_mode = false;
+  bool is_metrics_enabled = false;
+  bool is_forwarded_trusted = false;
 };
 
 /* The application context threaded through every request. It owns no
@@ -33,7 +36,8 @@ class App
 {
 public:
   App(Allocator allocator, Store &store, HttpClient &client, const config &cfg)
-      : m_allocator(allocator), m_store(store), m_client(client), m_config(cfg)
+      : m_allocator(allocator), m_store(store), m_client(client), m_config(cfg),
+        m_limiter(allocator)
   {}
 
   static fn on_event(HttpServerEvent &event, opaque *user) -> void;
@@ -56,6 +60,7 @@ private:
   fn handle_user_add(HttpServerEvent &event, const account &who) -> void;
   fn handle_user_rename(HttpServerEvent &event, const account &who) -> void;
   fn handle_user_react(HttpServerEvent &event, const account &who) -> void;
+  fn handle_site_click(HttpServerEvent &event) -> void;
   fn handle_comments_list(HttpServerEvent &event) -> void;
   fn handle_comment_post(HttpServerEvent &event, const account &who) -> void;
   fn handle_admin_add(HttpServerEvent &event) -> void;
@@ -65,6 +70,7 @@ private:
   fn handle_admin_resolve(HttpServerEvent &event, bool should_approve) -> void;
   fn handle_admin_logs(HttpServerEvent &event) -> void;
   fn handle_admin_audit(HttpServerEvent &event) -> void;
+  fn handle_admin_stats(HttpServerEvent &event) -> void;
   fn handle_admin_comments(HttpServerEvent &event) -> void;
   fn handle_admin_comment_resolve(HttpServerEvent &event, bool should_approve)
       -> void;
@@ -89,7 +95,11 @@ private:
   Store &m_store;
   HttpClient &m_client;
   const config &m_config;
+  RateLimiter m_limiter;
 };
+
+mustuse fn client_address(HttpServerEvent &event, bool is_forwarded_trusted)
+    -> StringView;
 
 mustuse fn find_query_param(StringView query, StringView name,
                             Allocator allocator) -> Maybe<String>;
@@ -100,7 +110,7 @@ mustuse fn find_cookie(StringView cookie_header, StringView name)
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions = nullptr,
                    const ArrayList<String> *reacted = nullptr,
-                   StringView owner_display_name = StringView{},
-                   StringView owner_username = StringView{}) -> void;
+                   StringView owner_name = StringView{},
+                   StringView owner_tag = StringView{}) -> void;
 
 } // namespace wr

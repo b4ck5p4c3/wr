@@ -5,7 +5,9 @@ info:
   description: >-
     The JSON API of the wr webring backend. The public navigation routes serve
     the ring, the auth routes open a session, and the panel and admin routes
-    manage the member sites behind the session cookie.
+    manage the member sites behind the session cookie. Outside dev mode each
+    route is rate limited per client IP, and a request over the cap is answered
+    with a 429.
 servers:
   - url: /
     description: The server origin, every call is same-origin.
@@ -327,6 +329,30 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/sites/click:
+    post:
+      tags: [panel]
+      summary: Record an outbound click to a site.
+      description: >-
+        The click is counted against the named site when the server runs with
+        the metrics enabled. The endpoint is open to anyone, and a server
+        without the metrics records nothing and answers with a message.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlugInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/comments:
     get:
       tags: [comments]
@@ -386,6 +412,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/admin/pending:
     get:
       tags: [admin]
@@ -553,6 +581,25 @@ paths:
                   $ref: "#/components/schemas/AuditEntry"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/stats:
+    get:
+      tags: [admin]
+      summary: Read the per-site click and hop metrics.
+      description: >-
+        The totals head the response and each site carries its own click and hop
+        tally. The enabled flag is false when the server runs without the
+        metrics, and the site list is then empty.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The traffic tallies, busiest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteStats"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/admin/comments:
     get:
       tags: [admin]
@@ -676,6 +723,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Message"
+    TooManyRequests:
+      description: The per-IP rate limit for the route was exceeded.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
   schemas:
     ClientConfig:
       type: object
@@ -690,7 +743,10 @@ components:
         telegram_bot:
           type: string
           description: The Telegram bot id, an empty string when not configured.
-      required: [is_dev, github, telegram_bot]
+        metrics_enabled:
+          type: boolean
+          description: True when the server records the click and hop metrics.
+      required: [is_dev, github, telegram_bot, metrics_enabled]
     WebringWebsite:
       type: object
       description: A public site in the ring.
@@ -708,17 +764,19 @@ components:
           type: integer
           format: int64
           description: The unix time the site joined the ring.
-        owner:
-          type: string
-          description: The identity that owns the site.
-        owner_display_name:
-          type: string
-          description: The human name of the owner, empty when no account is found.
-        owner_username:
+        owner_oauth:
           type: string
           description: >-
-            The linkable owner handle, the github login or the telegram
-            username, empty when none is set.
+            The owner provider, github or telegram, empty when no account is
+            found. The dev bypass accounts read as github.
+        owner_tag:
+          type: string
+          description: >-
+            The owner handle, the slug after github.com or t.me, empty when none
+            is set.
+        owner_name:
+          type: string
+          description: The owner display name set at login, empty when no account is found.
         reactions:
           type: object
           description: >-
@@ -741,9 +799,9 @@ components:
           url,
           description,
           created_at,
-          owner,
-          owner_display_name,
-          owner_username,
+          owner_oauth,
+          owner_tag,
+          owner_name,
         ]
     WebringWebsiteNavigationData:
       type: object
@@ -966,3 +1024,33 @@ components:
           format: int64
           description: The unix time the action was recorded.
       required: [id, actor, actor_ip, action, target, detail, created_at]
+    SiteStats:
+      type: object
+      description: The per-site click and hop tallies with the ring totals.
+      properties:
+        enabled:
+          type: boolean
+          description: True when the server records the metrics.
+        total_clicks:
+          type: integer
+          format: int64
+          description: The sum of the outbound clicks across the ring.
+        total_hops:
+          type: integer
+          format: int64
+          description: The sum of the next, prev, and random hops across the ring.
+        sites:
+          type: array
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              click_count:
+                type: integer
+                format: int64
+              hop_count:
+                type: integer
+                format: int64
+            required: [slug, click_count, hop_count]
+      required: [enabled, total_clicks, total_hops, sites]

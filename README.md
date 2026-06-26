@@ -18,16 +18,31 @@ and the server carries the bundle with no web root on disk.
 
 then run:
 ```
-./wr --listen http://0.0.0.0:8000 --database wr.db \
-     --public-url https://your.ring
+./wr --listen-on http://0.0.0.0:8000 --database-url wr.db \
+     --web-root-url https://your.ring
 ```
+
+Only `--listen-on` and `--database-url` are required. The `--web-root-url`
+defaults to the listen URL when it is not given.
+
+The per-site click and hop metrics are recorded only when `--enable-metrics` is
+passed, and the admin panel shows the tallies above the server logs. Outside dev
+mode the API is rate limited per client IP, and a flood is answered with a 429
+that backs off and ends in a 24 hour ban.
+
+The client address is read from the socket peer by default, so a forwarded
+header cannot spoof it. Behind a reverse proxy that overwrites
+`x-forwarded-for` and `x-real-ip`, pass `--trust-forwarded-headers` so the rate
+limiter and the audit trail see the real client. The rightmost forwarded hop is
+taken, since the trusted proxy appends it.
 
 ## Environment
 
 The secrets are read from the environment. Outside dev mode at least one login
 provider and a session key are required, and the server refuses to start when
-they are missing. For a local run without any provider, pass `--dev`, which
-exposes a login bypass for an admin and a user.
+they are missing. For a local run without any provider, pass
+`--enable-dangerous-developer-environment`, which exposes a login bypass for an
+admin and a user.
 
 ### WR_SESSION_KEY
 

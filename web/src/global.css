@@ -391,8 +391,20 @@ img {
 
 .tui-owner {
   flex-basis: 100%;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--footer-text);
+}
+
+.owner-handle {
+  font-size: inherit;
+}
+
+.owner-github {
+  color: #c9a0ff;
+}
+
+.owner-telegram {
+  color: var(--telegram-blue);
 }
 
 .tui-desc {
@@ -831,6 +843,36 @@ li.site .description-field {
   line-height: 1.4;
   white-space: pre;
   text-shadow: none;
+}
+
+.stats-totals {
+  color: var(--text-secondary);
+  margin: 0 0 1ch;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--footer-text);
+}
+
+.stats-table th,
+.stats-table td {
+  text-align: left;
+  padding: 0.4ch 1ch;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-table th {
+  color: var(--text-secondary);
+}
+
+.stats-table td:nth-child(2),
+.stats-table td:nth-child(3),
+.stats-table th:nth-child(2),
+.stats-table th:nth-child(3) {
+  text-align: right;
 }
 
 .audit-log {

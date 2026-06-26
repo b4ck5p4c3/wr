@@ -39,7 +39,9 @@ export function App() {
   useEscape(() => setShowLogin(false), showLogin);
   useEscape(() => setShowLogoutConfirm(false), showLogoutConfirm);
 
-  const onLogin = () => setShowLogin(true);
+  // A signed-in visitor cannot sign in again, so the login affordance opens the
+  // logout modal instead.
+  const onLogin = () => (me ? setShowLogoutConfirm(true) : setShowLogin(true));
   const onLogout = () => setShowLogoutConfirm(true);
   const doLogout = async () => {
     setShowLogoutConfirm(false);
@@ -54,7 +56,8 @@ export function App() {
 
   let page;
   if (path === "/about") page = <About />;
-  else if (path === "/admin") page = <Admin onLogin={onLogin} />;
+  else if (path === "/admin")
+    page = <Admin onLogin={onLogin} onLogout={onLogout} />;
   else if (path === "/" || path === "/panel")
     page = (
       <Landing
@@ -62,6 +65,7 @@ export function App() {
         me={me}
         reload={reloadMe}
         onLogin={onLogin}
+        metricsEnabled={config.metrics_enabled}
       />
     );
   else page = <NotFound navigate={navigate} />;
