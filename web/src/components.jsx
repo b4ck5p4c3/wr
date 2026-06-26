@@ -186,13 +186,68 @@ export function UptimeGraph({ history }) {
 // velocity carried on release. The transform is mutated through the ref so a
 // frame never costs a render. Each card is double sided, so a card facing away
 // shows its back rather than vanishing when the count is small.
+// One card's inner content, shared by the 3D ring and the vertical phone list.
+function cardBody(site) {
+  const icon = faviconFor(site.url);
+  return (
+    <>
+      <header class="tui-bar">
+        <span class="tui-dot" />
+        <span class="tui-dot" />
+        <span class="tui-dot" />
+        <span class="tui-title">/{site.slug}</span>
+      </header>
+      <div class="tui-body">
+        {icon ? (
+          <img
+            class="tui-favicon"
+            src={icon}
+            alt=""
+            width="16"
+            height="16"
+            onError={(e) => (e.currentTarget.style.display = "none")}
+          />
+        ) : null}
+        <a href={site.url} target="_blank" rel="noopener noreferrer">
+          {site.name}
+        </a>
+        {site.description ? <p class="tui-desc">{site.description}</p> : null}
+        {site.created_at ? (
+          <p class="tui-age">in the ring for {formatAge(site.created_at)}</p>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+const NARROW_QUERY = "(max-width: 640px)";
+const MAX_TILT_DEGREES = 20;
+const MAX_POP_PIXELS = 140;
+
 export function Carousel({ sites }) {
+  const [isNarrow, setIsNarrow] = useState(
+    typeof matchMedia !== "undefined" && matchMedia(NARROW_QUERY).matches,
+  );
+  useEffect(() => {
+    if (typeof matchMedia === "undefined") return;
+    const query = matchMedia(NARROW_QUERY);
+    const onChange = () => setIsNarrow(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
   const ringRef = useRef(null);
   const motionRef = useRef({
     rotation: 0,
     velocity: 0,
     isDragging: false,
     lastX: 0,
+    downX: 0,
+    downY: 0,
+    tilt: 0,
+    tiltTarget: 0,
+    pop: 0,
+    popTarget: 0,
   });
 
   const count = sites.length;
@@ -202,6 +257,7 @@ export function Carousel({ sites }) {
   const idleSpeed = Math.min(0.18, 0.36 / count);
 
   useEffect(() => {
+    if (isNarrow) return;
     let frame;
     const tick = () => {
       const motion = motionRef.current;
@@ -210,20 +266,32 @@ export function Carousel({ sites }) {
         motion.velocity *= 0.94;
         if (Math.abs(motion.velocity) < 0.05) motion.velocity = 0;
       }
+      // The tilt and the pop ease toward their target, so a release slips the
+      // ring back into place.
+      motion.tilt += (motion.tiltTarget - motion.tilt) * 0.12;
+      motion.pop += (motion.popTarget - motion.pop) * 0.12;
       if (ringRef.current)
         ringRef.current.style.transform =
-          "translateZ(-" + radius + "px) rotateY(" + motion.rotation + "deg)";
+          "translateZ(" +
+          (motion.pop - radius) +
+          "px) rotateX(" +
+          motion.tilt +
+          "deg) rotateY(" +
+          motion.rotation +
+          "deg)";
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [radius]);
+  }, [radius, isNarrow]);
 
   const onPointerDown = (event) => {
     const motion = motionRef.current;
     motion.isDragging = true;
     motion.velocity = 0;
     motion.lastX = event.clientX;
+    motion.downX = event.clientX;
+    motion.downY = event.clientY;
     if (event.currentTarget.setPointerCapture)
       event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -234,10 +302,34 @@ export function Carousel({ sites }) {
     motion.lastX = event.clientX;
     motion.rotation += delta;
     motion.velocity = delta;
+
+    const offsetY = event.clientY - motion.downY;
+    motion.tiltTarget = Math.max(
+      -MAX_TILT_DEGREES,
+      Math.min(MAX_TILT_DEGREES, offsetY * 0.2),
+    );
+    const offsetX = event.clientX - motion.downX;
+    const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    motion.popTarget = Math.min(MAX_POP_PIXELS, distance * 0.35);
   };
   const onPointerUp = () => {
-    motionRef.current.isDragging = false;
+    const motion = motionRef.current;
+    motion.isDragging = false;
+    motion.tiltTarget = 0;
+    motion.popTarget = 0;
   };
+
+  if (isNarrow) {
+    return (
+      <ul class="ring-vertical">
+        {sites.map((site) => (
+          <li class="tui-card" key={site.slug}>
+            {cardBody(site)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <div
@@ -248,59 +340,23 @@ export function Carousel({ sites }) {
       onPointerLeave={onPointerUp}
     >
       <div class="ring" ref={ringRef}>
-        {sites.map((site, i) => {
-          const icon = faviconFor(site.url);
-          const content = () => (
-            <>
-              <header class="tui-bar">
-                <span class="tui-dot" />
-                <span class="tui-dot" />
-                <span class="tui-dot" />
-                <span class="tui-title">/{site.slug}</span>
-              </header>
-              <div class="tui-body">
-                {icon ? (
-                  <img
-                    class="tui-favicon"
-                    src={icon}
-                    alt=""
-                    width="16"
-                    height="16"
-                    onError={(e) => (e.currentTarget.style.display = "none")}
-                  />
-                ) : null}
-                <a href={site.url} target="_blank" rel="noopener noreferrer">
-                  {site.name}
-                </a>
-                {site.description ? (
-                  <p class="tui-desc">{site.description}</p>
-                ) : null}
-                {site.created_at ? (
-                  <p class="tui-age">
-                    in the ring for {formatAge(site.created_at)}
-                  </p>
-                ) : null}
-              </div>
-            </>
-          );
-          return (
-            <article
-              class="tui-window"
-              key={site.slug}
-              style={{
-                transform:
-                  "rotateY(" +
-                  i * anglePerCard +
-                  "deg) translateZ(" +
-                  radius +
-                  "px)",
-              }}
-            >
-              <div class="tui-face">{content()}</div>
-              <div class="tui-face tui-back">{content()}</div>
-            </article>
-          );
-        })}
+        {sites.map((site, i) => (
+          <article
+            class="tui-window"
+            key={site.slug}
+            style={{
+              transform:
+                "rotateY(" +
+                i * anglePerCard +
+                "deg) translateZ(" +
+                radius +
+                "px)",
+            }}
+          >
+            <div class="tui-face">{cardBody(site)}</div>
+            <div class="tui-face tui-back">{cardBody(site)}</div>
+          </article>
+        ))}
       </div>
     </div>
   );
