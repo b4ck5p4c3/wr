@@ -46,6 +46,8 @@ private:
   fn dispatch(HttpServerEvent &event) -> void;
 
   fn handle_sites(HttpServerEvent &event) -> void;
+  fn write_listing_site(JsonWriter &writer, const site &row,
+                        const Maybe<account> &who) -> void;
   fn handle_navigation(HttpServerEvent &event, StringView slug, StringView step,
                        bool wants_data) -> void;
 

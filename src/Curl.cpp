@@ -36,8 +36,9 @@ fn collect_response_header(char *pointer, size_t size, size_t count,
   /* A continuation line of an obsolete folded header starts with whitespace, so
      it is skipped rather than parsed as a header whose name is the whitespace.
    */
-  if (line.count() > 0 && (line[0] == ' ' || line[0] == '\t'))
+  if (line.count() > 0 && (line[0] == ' ' || line[0] == '\t')) {
     return total_length;
+  }
 
   let const colon = line.find_character(':');
   if (colon.has_value()) {

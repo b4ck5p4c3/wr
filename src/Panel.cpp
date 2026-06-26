@@ -74,6 +74,18 @@ fn write_panel_site(JsonWriter &writer, const site &row,
   writer.object_end();
 }
 
+fn write_comment_json(JsonWriter &writer, const comment &row) -> void
+{
+  writer.object_begin();
+  writer.key("id");
+  writer.number(row.id);
+  writer.field("author_name", row.author_name.view());
+  writer.field("body", row.body.view());
+  writer.key("created_at");
+  writer.number(row.created_at);
+  writer.object_end();
+}
+
 struct site_input
 {
   StringView slug;
@@ -92,8 +104,9 @@ fn validate_site_input(const Json &document, site_input &out) -> const char *
   let const url = document["url"].to<StringView>();
   let const description = document["description"].to<StringView>();
 
-  if (!slug.has_value() || !name.has_value() || !url.has_value())
+  if (!slug.has_value() || !name.has_value() || !url.has_value()) {
     return "A slug, a name, and a url are required";
+  }
   if (!is_valid_slug(slug.value()))
     return "The slug may use only a-z, 0-9, and a dash";
   if (!is_valid_site_url(url.value()))
@@ -121,9 +134,9 @@ fn App::handle_me(HttpServerEvent &event) -> void
   }
   let const &me = who.value();
 
-  /* Admins see all sites in the panel; users see only their own. The public
-     landing page uses list_active_sites regardless of role, so admin-owned
-     sites appear there once the liveness sweep marks them reachable. */
+  /* The public landing page uses list_active_sites regardless of role, so an
+     admin-owned site appears there once the liveness sweep marks it
+     reachable. */
   let const sites_or = me.is_admin
                            ? m_store.list_all_sites()
                            : m_store.list_sites_for_owner(me.identity.view());
@@ -154,8 +167,6 @@ fn App::handle_me(HttpServerEvent &event) -> void
     ArrayList<i64> uptime{m_allocator};
     if (!history_or.is_error()) uptime = history_or.value().clone();
 
-    /* The owner identity is opaque, so the display name is attached for the
-       admin to read who owns each site. */
     let const account = m_store.find_account(sites[i].owner.view());
     let const has_name = !account.is_error() && account.value().has_value();
     let const owner_name = has_name
@@ -383,16 +394,8 @@ fn App::handle_comments_list(HttpServerEvent &event) -> void
   JsonWriter writer{m_allocator};
   writer.array_begin();
   let const &comments = comments_or.value();
-  for (usize i = 0; i < comments.count(); i++) {
-    writer.object_begin();
-    writer.key("id");
-    writer.number(comments[i].id);
-    writer.field("author_name", comments[i].author_name.view());
-    writer.field("body", comments[i].body.view());
-    writer.key("created_at");
-    writer.number(comments[i].created_at);
-    writer.object_end();
-  }
+  for (usize i = 0; i < comments.count(); i++)
+    write_comment_json(writer, comments[i]);
   writer.array_end();
   reply_json(event, 200, writer.view());
 }
@@ -459,16 +462,8 @@ fn App::handle_admin_comments(HttpServerEvent &event) -> void
   JsonWriter writer{m_allocator};
   writer.array_begin();
   let const &comments = comments_or.value();
-  for (usize i = 0; i < comments.count(); i++) {
-    writer.object_begin();
-    writer.key("id");
-    writer.number(comments[i].id);
-    writer.field("author_name", comments[i].author_name.view());
-    writer.field("body", comments[i].body.view());
-    writer.key("created_at");
-    writer.number(comments[i].created_at);
-    writer.object_end();
-  }
+  for (usize i = 0; i < comments.count(); i++)
+    write_comment_json(writer, comments[i]);
   writer.array_end();
   reply_json(event, 200, writer.view());
 }
@@ -540,8 +535,6 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
     return;
   }
 
-  /* An admin add bypasses the pending-action workflow and writes the site
-     directly to the store, with the admin's identity as the owner. */
   site row{};
   row.slug = String{m_allocator, input.slug};
   row.name = String{m_allocator, input.name};
@@ -680,8 +673,6 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
     writer.field("kind", actions[i].kind.view());
     writer.field("owner", actions[i].owner.view());
 
-    /* The owner identity is opaque, so the submitter display name is attached
-       for the admin to reach the person behind a request. */
     let const submitter = m_store.find_account(actions[i].owner.view());
     let const has_name = !submitter.is_error() && submitter.value().has_value();
     writer.field("owner_display_name",

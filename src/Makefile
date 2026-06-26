@@ -323,9 +323,13 @@ uninstall:
 	rm -f "$(DESTDIR)$(bindir)/wr"
 	echo "Removed wr from '$(DESTDIR)$(PREFIX)'."
 
-ANSIBLE_DIR := ../deploy/ansible
+ANSIBLE_DIR := ../deploy
 ANSIBLE_PLAYBOOK ?= ansible-playbook
 ANSIBLE_ARGS ?=
+
+deploy:
+	$(MAKE) MODE=rel wr
+	cd $(ANSIBLE_DIR) && $(ANSIBLE_PLAYBOOK) $(ANSIBLE_ARGS) playbooks/wr.yml
 
 CLANG_TIDY ?= clang-tidy
 

@@ -176,7 +176,8 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
                             ? static_cast<i64>(std::strtoll(
                                   auth_date.value().c_str(), nullptr, 10))
                             : 0;
-  if (signed_at <= 0 || now_seconds() - signed_at > 86400) {
+  let const age_seconds = now_seconds() - signed_at;
+  if (signed_at <= 0 || age_seconds < 0 || age_seconds > 86400) {
     reply_message(event, 401, "The Telegram login has expired");
     return;
   }
@@ -218,8 +219,9 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
     is_admin = force_admin.value();
   } else {
     let const existing = m_store.find_account(identity);
-    if (!existing.is_error() && existing.value().has_value())
+    if (!existing.is_error() && existing.value().has_value()) {
       is_admin = existing.value().value().is_admin;
+    }
   }
 
   if (m_store.upsert_account(identity, display_name, username, is_admin)
@@ -281,7 +283,9 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
   if (!token.has_value()) return None;
 
   let const session_row = m_store.find_session(token.value());
-  if (session_row.is_error() || !session_row.value().has_value()) return None;
+  if (session_row.is_error() || !session_row.value().has_value()) {
+    return None;
+  }
   let const &session = session_row.value().value();
   if (session.expires_at < now_seconds()) return None;
 

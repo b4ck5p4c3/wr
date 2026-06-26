@@ -1495,7 +1495,7 @@ export function CommentsSection({ me }) {
       )}
       {notice && !error ? <p class="notice">{notice}</p> : null}
       {error ? <p class="error">{error}</p> : null}
-      {comments === null ? (
+      {comments === null && !error ? (
         <Loading />
       ) : comments.length === 0 ? (
         <p class="comment-empty">No comments yet.</p>

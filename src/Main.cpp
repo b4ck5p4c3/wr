@@ -136,8 +136,9 @@ fn main(int argc, char **argv) -> int
     fail(message.view());
   }
 
-  if (FLAG_DBBACKEND.is_set() && FLAG_DBBACKEND.value() != "sqlite")
+  if (FLAG_DBBACKEND.is_set() && FLAG_DBBACKEND.value() != "sqlite") {
     fail("error: Only the sqlite database backend is implemented.");
+  }
 
   config cfg;
   cfg.listen_url = String{allocator, FLAG_LISTEN.value()};

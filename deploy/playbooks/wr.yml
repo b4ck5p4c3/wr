@@ -5,7 +5,7 @@
 
   vars:
     wr_user: wr
-    wr_binary: "{{ playbook_dir }}/../../../wr"
+    wr_binary: "{{ playbook_dir }}/../../wr"
     wr_config_dir: /etc/wr
     wr_log_dir: /var/log/wr
 

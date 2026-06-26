@@ -30,22 +30,22 @@
 }
 
 :root {
-  --bg-primary: #1e1832;
-  --bg-secondary: #2e2348;
-  --text-primary: #f7f5ff;
-  --text-secondary: #ffd089;
-  --accent: #ffc266d6;
-  --border: #5a4a7a;
-  --background-start: #241a3a;
-  --background-middle: #2c2150;
-  --crt-glow: #ffc266a8;
-  --a-main: #ffd089d8;
-  --a-strong: #ffb24d;
-  --footer-text: #b9a8d0;
-  --panel-glow-inset: rgba(255, 190, 100, 0.1);
-  --panel-outline: rgba(255, 200, 130, 0.1);
-  --tui-shadow: rgba(0, 0, 0, 0.4);
-  --scanline: rgba(0, 0, 0, 0.25);
+  --bg-primary: #2c2350;
+  --bg-secondary: #3d2f66;
+  --text-primary: #fbf9ff;
+  --text-secondary: #ffdc9c;
+  --accent: #ffce80e6;
+  --border: #7361a0;
+  --background-start: #322652;
+  --background-middle: #423173;
+  --crt-glow: #ffce80c0;
+  --a-main: #ffdc9ce8;
+  --a-strong: #ffc266;
+  --footer-text: #cebfe8;
+  --panel-glow-inset: rgba(255, 200, 120, 0.14);
+  --panel-outline: rgba(255, 210, 145, 0.16);
+  --tui-shadow: rgba(0, 0, 0, 0.32);
+  --scanline: rgba(0, 0, 0, 0.18);
   --up: #82e882;
   --down: #ff7a7a;
   --ring-gold: #ffd23f;
@@ -123,12 +123,12 @@ html::after {
   background:
     radial-gradient(
       ellipse at center,
-      transparent 35%,
-      rgba(0, 0, 0, 0.5) 100%
+      transparent 50%,
+      rgba(0, 0, 0, 0.28) 100%
     ),
     url(/noise.webp),
-    radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 1) 100%);
-  opacity: 0.4;
+    radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.62) 100%);
+  opacity: 0.32;
   background-blend-mode: normal, overlay, overlay;
   filter: sepia(1) hue-rotate(230deg) saturate(2);
   z-index: 10001;
@@ -145,8 +145,8 @@ body {
   background:
     radial-gradient(
       ellipse 80% 60% at 50% 40%,
-      rgba(96, 56, 140, 0.3) 0%,
-      transparent 50%
+      rgba(132, 86, 188, 0.42) 0%,
+      transparent 55%
     ),
     linear-gradient(
       180deg,
@@ -226,7 +226,7 @@ img {
 /* The ring area reserves the carousel height while the sites load, so the page
    holds its shape when the ring replaces the placeholder. */
 .ring-area {
-  min-height: 340px;
+  min-height: 348px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,7 +240,7 @@ img {
 
 .ring-stage {
   perspective: 1400px;
-  height: 340px;
+  height: 348px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -256,7 +256,7 @@ img {
 .ring {
   position: relative;
   width: 300px;
-  height: 170px;
+  height: 200px;
   transform-style: preserve-3d;
 }
 
@@ -275,7 +275,7 @@ img {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.95));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.94));
   box-shadow:
     0 0 0 1px var(--panel-outline),
     inset 0 0 24px var(--panel-glow-inset),
@@ -345,7 +345,7 @@ img {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.95));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.94));
   box-shadow:
     0 0 0 1px var(--panel-outline),
     inset 0 0 24px var(--panel-glow-inset),
@@ -384,8 +384,8 @@ img {
   align-content: center;
   align-items: center;
   justify-content: center;
-  gap: 1ch;
-  padding: 2ch;
+  gap: 0.8ch;
+  padding: 1.4ch;
   text-align: center;
 }
 
@@ -412,15 +412,15 @@ img {
   margin: 0;
   max-width: 100%;
   color: var(--footer-text);
-  font-size: 13px;
+  font-size: 10px;
   text-shadow: none;
   overflow: hidden;
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
 }
 
 .reactions {
@@ -645,7 +645,7 @@ button.danger:hover {
 input,
 textarea {
   font: inherit;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.26);
   color: var(--text-primary);
   border: 1px solid var(--border);
   padding: 0.6ch 1ch;
@@ -690,7 +690,7 @@ textarea:focus {
   line-height: 1.4;
   white-space: pre-wrap;
   overflow-wrap: break-word;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.26);
   color: var(--text-primary);
 }
 
@@ -823,10 +823,10 @@ li.site .description-field {
 
 .ghost {
   display: inline-block;
-  height: 1ch;
+  height: 1.4ch;
   border-radius: 0.25ch;
-  background: var(--bg-secondary);
-  animation: ghostPulse 2s ease-in-out infinite;
+  background: var(--border);
+  animation: ghostPulse 1.4s ease-in-out infinite;
 }
 
 /* The error page centers a big glowing status code over the CRT slab. */
@@ -837,7 +837,7 @@ li.site .description-field {
   overflow: auto;
   padding: 1.5ch;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.26);
   color: var(--footer-text);
   font-size: 13px;
   line-height: 1.4;
@@ -1037,7 +1037,7 @@ code {
 }
 
 select.provider {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.26);
   color: var(--text-primary);
   text-align: center;
   cursor: pointer;

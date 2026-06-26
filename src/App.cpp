@@ -39,7 +39,11 @@ fn client_address(HttpServerEvent &event, bool is_forwarded_trusted)
     while (lead < last_hop.count() && last_hop[lead] == ' ')
       lead++;
 
-    return last_hop.substring(lead);
+    usize trail = last_hop.count();
+    while (trail > lead && last_hop[trail - 1] == ' ')
+      trail--;
+
+    return last_hop.substring_of_length(lead, trail - lead);
   }
 
   if (let const real_ip = headers.get("x-real-ip"); real_ip.has_value())
@@ -166,8 +170,9 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
    built from it. The dev bypass accounts point at GitHub. */
 fn owner_oauth_for(StringView owner) -> StringView
 {
-  if (owner.starts_with("github:") || owner.starts_with("dev:"))
+  if (owner.starts_with("github:") || owner.starts_with("dev:")) {
     return "github";
+  }
   if (owner.starts_with("telegram:")) return "telegram";
   return StringView{};
 }
@@ -430,6 +435,31 @@ fn App::dispatch(HttpServerEvent &event) -> void
   serve_static(event);
 }
 
+fn App::write_listing_site(JsonWriter &writer, const site &row,
+                           const Maybe<account> &who) -> void
+{
+  let const counts_or = m_store.get_reactions(row.slug.view());
+  ArrayList<reaction_count> counts{m_allocator};
+  if (!counts_or.is_error()) counts = counts_or.value().clone();
+
+  ArrayList<String> reacted{m_allocator};
+  if (who.has_value()) {
+    let const reacted_or = m_store.get_user_reactions(
+        row.slug.view(), who.value().identity.view());
+    if (!reacted_or.is_error()) reacted = reacted_or.value().clone();
+  }
+
+  let const account = m_store.find_account(row.owner.view());
+  let const has_account = !account.is_error() && account.value().has_value();
+  let const owner_name =
+      has_account ? account.value().value().display_name.view() : StringView{};
+  let const owner_handle =
+      has_account ? account.value().value().username.view() : StringView{};
+
+  write_site_json(writer, row, &counts, who.has_value() ? &reacted : nullptr,
+                  owner_name, owner_handle);
+}
+
 fn App::handle_sites(HttpServerEvent &event) -> void
 {
   let const sites_or = m_store.list_active_sites();
@@ -442,30 +472,8 @@ fn App::handle_sites(HttpServerEvent &event) -> void
   let const &sites = sites_or.value();
   JsonWriter writer{m_allocator};
   writer.array_begin();
-  for (usize i = 0; i < sites.count(); i++) {
-    let const counts_or = m_store.get_reactions(sites[i].slug.view());
-    ArrayList<reaction_count> counts{m_allocator};
-    if (!counts_or.is_error()) counts = counts_or.value().clone();
-
-    ArrayList<String> reacted{m_allocator};
-    if (who.has_value()) {
-      let const reacted_or = m_store.get_user_reactions(
-          sites[i].slug.view(), who.value().identity.view());
-      if (!reacted_or.is_error()) reacted = reacted_or.value().clone();
-    }
-
-    let const account = m_store.find_account(sites[i].owner.view());
-    let const has_account = !account.is_error() && account.value().has_value();
-    let const owner_name = has_account
-                               ? account.value().value().display_name.view()
-                               : StringView{};
-    let const owner_handle =
-        has_account ? account.value().value().username.view() : StringView{};
-
-    write_site_json(writer, sites[i], &counts,
-                    who.has_value() ? &reacted : nullptr, owner_name,
-                    owner_handle);
-  }
+  for (usize i = 0; i < sites.count(); i++)
+    write_listing_site(writer, sites[i], who);
   writer.array_end();
   reply_json(event, 200, writer.view());
 }
@@ -570,8 +578,10 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
     let const target_slug = sites[target].slug.view();
     if (did_hop && m_config.is_metrics_enabled &&
         m_store.record_hop(target_slug).is_error())
+    {
       LOG(Info, "hop record dropped for %.*s",
           static_cast<int>(target_slug.count()), target_slug.data);
+    }
 
     reply_redirect(event, sites[target].url.view());
     return;
@@ -579,14 +589,15 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   let const previous = (target + count - 1) % count;
   let const next = (target + 1) % count;
+  let const who = current_account(event);
   JsonWriter writer{m_allocator};
   writer.object_begin();
   writer.key("previous");
-  write_site_json(writer, sites[previous]);
+  write_listing_site(writer, sites[previous], who);
   writer.key("current");
-  write_site_json(writer, sites[target]);
+  write_listing_site(writer, sites[target], who);
   writer.key("next");
-  write_site_json(writer, sites[next]);
+  write_listing_site(writer, sites[next], who);
   writer.object_end();
   reply_json(event, 200, writer.view());
 }

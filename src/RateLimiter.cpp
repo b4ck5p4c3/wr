@@ -30,7 +30,9 @@ fn RateLimiter::sweep_expired(i64 now) -> void
   m_entries.for_each([&](StringView key, const entry &record) {
     if (now >= record.blocked_until &&
         now - record.window_start >= RATE_DECAY_SECONDS)
+    {
       stale_keys.push(String{allocator, key});
+    }
   });
 
   for (usize i = 0; i < stale_keys.count(); i++)
