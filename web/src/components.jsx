@@ -234,9 +234,9 @@ function cardBody(site, ctx) {
   return (
     <>
       <header class="tui-bar">
-        <span class="tui-dot" />
-        <span class="tui-dot" />
-        <span class="tui-dot" />
+        {site.created_at ? (
+          <span class="tui-age-top">{formatAge(site.created_at)}</span>
+        ) : null}
         <span class="tui-title">/{site.slug}</span>
       </header>
       <div class="tui-body">
@@ -254,9 +254,6 @@ function cardBody(site, ctx) {
           {site.name}
         </a>
         {site.description ? <p class="tui-desc">{site.description}</p> : null}
-        {site.created_at ? (
-          <p class="tui-age">in the ring for {formatAge(site.created_at)}</p>
-        ) : null}
         <ReactionBar
           site={site}
           me={ctx.me}
@@ -270,14 +267,18 @@ function cardBody(site, ctx) {
 
 const NARROW_QUERY = "(max-width: 640px)";
 const MAX_TILT_DEGREES = 20;
-const MAX_POP_PIXELS = 140;
+const MAX_CARD_POP_PIXELS = 90;
+const CARD_BOB_PIXELS = 12;
+const CARD_BOB_SPEED = 0.006;
+const CARD_BOB_PHASE = 1.1;
 
 // The ring is a carousel of terminal windows seated on a 3D cylinder. The ring
 // drifts on its own and a pointer drag grabs it and spins it, with the throw
-// velocity carried on release. A vertical drag tilts the ring and the drag
-// distance pops it toward the viewer, and both ease back on release. The
-// transform is mutated through the ref so a frame never costs a render. Each
-// card is double sided, so a card facing away shows its back. On a phone width
+// velocity carried on release. A vertical drag tilts the ring and the grabbed
+// card pops out along its facing, and both ease back on release. Each card also
+// bobs up and down on a per-card phase to open vertical space between the cards.
+// The transforms are mutated through refs, so a frame never costs a render. Each
+// card is double sided, and a card facing away shows its back. On a phone width
 // the cylinder is replaced by a plain vertical list.
 export function Carousel({ sites, me, onLogin, onReacted }) {
   const ctx = { me, onLogin, onReacted };
@@ -293,17 +294,19 @@ export function Carousel({ sites, me, onLogin, onReacted }) {
   }, []);
 
   const ringRef = useRef(null);
+  const cardRefs = useRef([]);
   const motionRef = useRef({
     rotation: 0,
     velocity: 0,
     isDragging: false,
     lastX: 0,
-    downX: 0,
     downY: 0,
     tilt: 0,
     tiltTarget: 0,
-    pop: 0,
-    popTarget: 0,
+    grabbedIndex: -1,
+    cardPop: 0,
+    cardPopTarget: 0,
+    time: 0,
   });
 
   const count = sites.length;
@@ -311,6 +314,9 @@ export function Carousel({ sites, me, onLogin, onReacted }) {
   const radius = Math.round(150 / Math.tan(Math.PI / Math.max(count, 2))) + 40;
   // The drift slows as the count grows to keep the cards readable.
   const idleSpeed = Math.min(0.18, 0.36 / count);
+  // A pixel of horizontal drag turns the ring by the arc it subtends at the
+  // card radius, so the front card surface tracks the cursor.
+  const degreePerDragPixel = 180 / (Math.PI * radius);
 
   useEffect(() => {
     if (isNarrow) return;
@@ -322,39 +328,76 @@ export function Carousel({ sites, me, onLogin, onReacted }) {
         motion.velocity *= 0.94;
         if (Math.abs(motion.velocity) < 0.05) motion.velocity = 0;
       }
-      // The tilt and the pop ease toward their target, so a release slips the
-      // ring back into place.
+      // The tilt and the card pop ease toward their target, so a release slips
+      // the ring and the grabbed card back into place.
       motion.tilt += (motion.tiltTarget - motion.tilt) * 0.12;
-      motion.pop += (motion.popTarget - motion.pop) * 0.12;
-      if (ringRef.current)
+      motion.cardPop += (motion.cardPopTarget - motion.cardPop) * 0.12;
+      motion.time += 1;
+
+      if (
+        !motion.isDragging &&
+        motion.grabbedIndex >= 0 &&
+        Math.abs(motion.cardPop) < 0.5
+      ) {
+        motion.cardPop = 0;
+        motion.grabbedIndex = -1;
+      }
+
+      if (ringRef.current != null)
         ringRef.current.style.transform =
           "translateZ(" +
-          (motion.pop - radius) +
+          -radius +
           "px) rotateX(" +
           motion.tilt +
           "deg) rotateY(" +
           motion.rotation +
           "deg)";
+
+      const cards = cardRefs.current;
+      for (let i = 0; i < cards.length; i++) {
+        const card = cards[i];
+        if (card == null) continue;
+
+        const bob =
+          Math.sin(motion.time * CARD_BOB_SPEED + i * CARD_BOB_PHASE) *
+          CARD_BOB_PIXELS;
+        const pop = i === motion.grabbedIndex ? motion.cardPop : 0;
+        card.style.transform =
+          "rotateY(" +
+          i * anglePerCard +
+          "deg) translateZ(" +
+          (radius + pop) +
+          "px) translateY(" +
+          bob +
+          "px)";
+      }
+
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [radius, isNarrow]);
+  }, [radius, anglePerCard, isNarrow]);
 
   const onPointerDown = (event) => {
     const motion = motionRef.current;
     motion.isDragging = true;
     motion.velocity = 0;
     motion.lastX = event.clientX;
-    motion.downX = event.clientX;
     motion.downY = event.clientY;
-    if (event.currentTarget.setPointerCapture)
+
+    const grabbed =
+      event.target.closest != null ? event.target.closest(".tui-window") : null;
+    motion.grabbedIndex =
+      grabbed != null ? cardRefs.current.indexOf(grabbed) : -1;
+    motion.cardPopTarget = motion.grabbedIndex >= 0 ? MAX_CARD_POP_PIXELS : 0;
+
+    if (event.currentTarget.setPointerCapture != null)
       event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onPointerMove = (event) => {
     const motion = motionRef.current;
     if (!motion.isDragging) return;
-    const delta = (event.clientX - motion.lastX) * 0.4;
+    const delta = (event.clientX - motion.lastX) * degreePerDragPixel;
     motion.lastX = event.clientX;
     motion.rotation += delta;
     motion.velocity = delta;
@@ -362,17 +405,14 @@ export function Carousel({ sites, me, onLogin, onReacted }) {
     const offsetY = event.clientY - motion.downY;
     motion.tiltTarget = Math.max(
       -MAX_TILT_DEGREES,
-      Math.min(MAX_TILT_DEGREES, offsetY * 0.2),
+      Math.min(MAX_TILT_DEGREES, -offsetY * 0.2),
     );
-    const offsetX = event.clientX - motion.downX;
-    const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-    motion.popTarget = Math.min(MAX_POP_PIXELS, distance * 0.35);
   };
   const onPointerUp = () => {
     const motion = motionRef.current;
     motion.isDragging = false;
     motion.tiltTarget = 0;
-    motion.popTarget = 0;
+    motion.cardPopTarget = 0;
   };
 
   if (isNarrow) {
@@ -400,6 +440,7 @@ export function Carousel({ sites, me, onLogin, onReacted }) {
           <article
             class="tui-window"
             key={site.slug}
+            ref={(el) => (cardRefs.current[i] = el)}
             style={{
               transform:
                 "rotateY(" +
@@ -422,7 +463,7 @@ export function Carousel({ sites, me, onLogin, onReacted }) {
                 "rotateY(" +
                 (i + 0.5) * anglePerCard +
                 "deg) translateZ(" +
-                (radius + 120) +
+                radius +
                 "px)",
             }}
           >

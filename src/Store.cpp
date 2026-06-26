@@ -33,6 +33,18 @@ fn read_pending_action(SqlStatement &statement) -> pending_action
   return row;
 }
 
+fn read_audit_entry(SqlStatement &statement) -> audit_entry
+{
+  audit_entry row{};
+  row.id = statement.get<i64>();
+  row.actor = statement.get<String>();
+  row.action = statement.get<String>();
+  row.target = statement.get<String>();
+  row.detail = statement.get<String>();
+  row.created_at = statement.get<i64>();
+  return row;
+}
+
 const StringView SITE_COLUMNS = "slug, name, url, description, is_reachable, "
                                 "last_seen_at, owner, created_at";
 
@@ -96,6 +108,16 @@ static const char *const SCHEMA_MIGRATIONS[] = {
      "  identity TEXT NOT NULL,"
      "  PRIMARY KEY (slug, emoji, identity));"
      "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"),
+
+    ("CREATE TABLE IF NOT EXISTS audit_log ("
+     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+     "  actor TEXT NOT NULL,"
+     "  action TEXT NOT NULL,"
+     "  target TEXT NOT NULL DEFAULT '',"
+     "  detail TEXT NOT NULL DEFAULT '',"
+     "  created_at INTEGER NOT NULL);"
+     "CREATE INDEX IF NOT EXISTS index_audit_created ON "
+     "audit_log(created_at);"),
 };
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
@@ -580,6 +602,39 @@ fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>
   LOG(Info, "pending action %lld set to %.*s", static_cast<long long>(id),
       static_cast<int>(status.count()), status.data);
   return Success;
+}
+
+fn Store::record_audit(StringView actor, StringView action, StringView target,
+                       StringView detail, i64 created_at) -> ErrorOr<Ok>
+{
+  let statement = TRY(m_database.prepare(
+      "INSERT INTO audit_log (actor, action, target, detail, created_at) "
+      "VALUES (?, ?, ?, ?, ?);"));
+  statement.bind(actor);
+  statement.bind(action);
+  statement.bind(target);
+  statement.bind(detail);
+  statement.bind(created_at);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "audit recorded, actor=%.*s action=%.*s target=%.*s",
+      static_cast<int>(actor.count()), actor.data,
+      static_cast<int>(action.count()), action.data,
+      static_cast<int>(target.count()), target.data);
+  return Success;
+}
+
+fn Store::list_audit(i64 limit_count) const -> ErrorOr<ArrayList<audit_entry>>
+{
+  ArrayList<audit_entry> entries{m_allocator};
+  let statement = TRY(m_database.prepare(
+      "SELECT id, actor, action, target, detail, created_at FROM audit_log "
+      "ORDER BY id DESC LIMIT ?;"));
+  statement.bind(limit_count);
+
+  while (TRY(statement.step()))
+    entries.push(read_audit_entry(statement));
+  return entries;
 }
 
 } // namespace wr

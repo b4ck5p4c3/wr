@@ -42,6 +42,14 @@ fn is_valid_site_url(StringView url) -> bool
   return url.starts_with("http://") || url.starts_with("https://");
 }
 
+/* The audit trail prefers the readable display name, and the opaque identity is
+   the fallback when the account carries no name. */
+fn actor_label(const account &who) -> StringView
+{
+  return who.display_name.view().is_empty() ? who.identity.view()
+                                            : who.display_name.view();
+}
+
 fn write_panel_site(JsonWriter &writer, const site &row,
                     const ArrayList<i64> &uptime) -> void
 {
@@ -311,12 +319,21 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
     reply_message(event, 500, stored.error().message().view());
     return;
   }
+
+  if (m_store
+          .record_audit(actor_label(who.value()), "add site", input.slug,
+                        input.name, now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for add %.*s",
+        static_cast<int>(input.slug.count()), input.slug.data);
+
   reply_message(event, 200, "Site added");
 }
 
 fn App::handle_admin_delete(HttpServerEvent &event) -> void
 {
-  if (!require_admin(event).has_value()) return;
+  let const who = require_admin(event);
+  if (!who.has_value()) return;
 
   let const document = Json::from(m_allocator, event.body());
   let const slug = document["slug"].to<StringView>();
@@ -336,12 +353,21 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
     reply_message(event, 500, removed.error().message().view());
     return;
   }
+
+  if (m_store
+          .record_audit(actor_label(who.value()), "remove site", slug.value(),
+                        found.value().value().name.view(), now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for remove %.*s",
+        static_cast<int>(slug.value().count()), slug.value().data);
+
   reply_message(event, 200, "Site removed");
 }
 
 fn App::handle_admin_edit(HttpServerEvent &event) -> void
 {
-  if (!require_admin(event).has_value()) return;
+  let const who = require_admin(event);
+  if (!who.has_value()) return;
 
   let const document = Json::from(m_allocator, event.body());
   site_input input{};
@@ -382,6 +408,13 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
      recheck instead of waiting out its reachability interval. */
   if (m_store.schedule_recheck(input.slug).is_error())
     LOG(Info, "recheck schedule dropped for %.*s",
+        static_cast<int>(input.slug.count()), input.slug.data);
+
+  if (m_store
+          .record_audit(actor_label(who.value()), "edit site", input.slug,
+                        input.name, now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for edit %.*s",
         static_cast<int>(input.slug.count()), input.slug.data);
 
   reply_message(event, 200, "Saved");
@@ -441,10 +474,41 @@ fn App::handle_admin_logs(HttpServerEvent &event) -> void
   reply_json(event, 200, writer.view());
 }
 
+fn App::handle_admin_audit(HttpServerEvent &event) -> void
+{
+  if (!require_admin(event).has_value()) return;
+
+  static constexpr i64 AUDIT_TAIL_COUNT = 100;
+  let const entries_or = m_store.list_audit(AUDIT_TAIL_COUNT);
+  if (entries_or.is_error()) {
+    reply_message(event, 500, entries_or.error().message().view());
+    return;
+  }
+
+  JsonWriter writer{m_allocator};
+  writer.array_begin();
+  let const &entries = entries_or.value();
+  for (usize i = 0; i < entries.count(); i++) {
+    writer.object_begin();
+    writer.key("id");
+    writer.number(entries[i].id);
+    writer.field("actor", entries[i].actor.view());
+    writer.field("action", entries[i].action.view());
+    writer.field("target", entries[i].target.view());
+    writer.field("detail", entries[i].detail.view());
+    writer.key("created_at");
+    writer.number(entries[i].created_at);
+    writer.object_end();
+  }
+  writer.array_end();
+  reply_json(event, 200, writer.view());
+}
+
 fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
     -> void
 {
-  if (!require_admin(event).has_value()) return;
+  let const who = require_admin(event);
+  if (!who.has_value()) return;
 
   let const request = Json::from(m_allocator, event.body());
   let const id_or = request["id"].to<i64>();
@@ -526,6 +590,18 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
     reply_message(event, 500, resolved.error().message().view());
     return;
   }
+
+  String action_label{m_allocator};
+  action_label.append(should_approve ? "approve " : "reject ");
+  action_label.append(action.kind.view());
+  if (m_store
+          .record_audit(actor_label(who.value()), action_label.view(),
+                        action.target_slug.view(), action.owner.view(),
+                        now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for pending %lld",
+        static_cast<long long>(id));
+
   reply_message(event, 200, should_approve ? "Approved" : "Rejected");
 }
 

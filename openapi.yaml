@@ -458,6 +458,40 @@ paths:
           $ref: "#/components/responses/NotFound"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/admin/logs:
+    get:
+      tags: [admin]
+      summary: Read the server log tail.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The retained server log lines, oldest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/admin/audit:
+    get:
+      tags: [admin]
+      summary: Read the admin audit trail.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: The recorded admin actions, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEntry"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     sessionCookie:
@@ -722,3 +756,27 @@ components:
         message:
           type: string
       required: [message]
+    AuditEntry:
+      type: object
+      description: One recorded admin action.
+      properties:
+        id:
+          type: integer
+          format: int64
+        actor:
+          type: string
+          description: The admin label, the display name or the identity.
+        action:
+          type: string
+          description: The operation, like add site or approve rename.
+        target:
+          type: string
+          description: The affected slug or the pending target.
+        detail:
+          type: string
+          description: A short human note about the action.
+        created_at:
+          type: integer
+          format: int64
+          description: The unix time the action was recorded.
+      required: [id, actor, action, target, detail, created_at]

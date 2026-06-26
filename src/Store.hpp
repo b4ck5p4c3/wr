@@ -56,6 +56,19 @@ struct pending_action
   String status;
 };
 
+/* One admin action kept for the audit trail. The actor is the admin label, the
+   action names the operation, the target is the affected slug or id, and the
+   detail carries a short human note. */
+struct audit_entry
+{
+  i64 id{0};
+  String actor;
+  String action;
+  String target;
+  String detail;
+  i64 created_at{0};
+};
+
 /* The store. It runs the migration and maps the rows over a borrowed
    SqlDatabase backend. Every fallible call returns an ErrorOr. */
 class Store
@@ -111,6 +124,11 @@ public:
                  StringView payload, i64 created_at) -> ErrorOr<Ok>;
   mustuse fn find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>;
   fn set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>;
+
+  fn record_audit(StringView actor, StringView action, StringView target,
+                  StringView detail, i64 created_at) -> ErrorOr<Ok>;
+  mustuse fn list_audit(i64 limit_count) const
+      -> ErrorOr<ArrayList<audit_entry>>;
 
   mustuse pure fn allocator() const noexcept -> Allocator
   {
