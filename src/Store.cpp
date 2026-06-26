@@ -80,7 +80,19 @@ static const char *const SCHEMA_MIGRATIONS[] = {
 
     ("ALTER TABLE sites ADD COLUMN description TEXT NOT NULL DEFAULT ''; "
      "ALTER TABLE sites DROP COLUMN favicon;"),
+
+    ("CREATE TABLE IF NOT EXISTS liveness_buckets ("
+     "  slug TEXT NOT NULL,"
+     "  hour_bucket INTEGER NOT NULL,"
+     "  up_count INTEGER NOT NULL DEFAULT 0,"
+     "  probe_count INTEGER NOT NULL DEFAULT 0,"
+     "  PRIMARY KEY (slug, hour_bucket));"
+     "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "
+     "liveness_buckets(hour_bucket);"),
 };
+
+/* A probe is bucketed by the hour, and seven days of buckets are kept. */
+static constexpr i64 LIVENESS_WINDOW_HOURS = 168;
 
 fn Store::schema_version() const -> ErrorOr<i64>
 {
@@ -270,6 +282,71 @@ fn Store::schedule_recheck(StringView slug) -> ErrorOr<Ok>
   LOG(Info, "site scheduled for a recheck, slug=%.*s",
       static_cast<int>(slug.count()), slug.data);
   return Success;
+}
+
+fn Store::record_liveness(StringView slug, bool is_reachable, i64 now)
+    -> ErrorOr<Ok>
+{
+  let const hour_bucket = now / 3600;
+  let const up_count = is_reachable ? 1 : 0;
+
+  let statement = TRY(m_database.prepare(
+      "INSERT INTO liveness_buckets (slug, hour_bucket, up_count, probe_count) "
+      "VALUES (?, ?, ?, 1) "
+      "ON CONFLICT(slug, hour_bucket) DO UPDATE SET "
+      "up_count = up_count + excluded.up_count, "
+      "probe_count = probe_count + 1;"));
+  statement.bind(slug);
+  statement.bind(hour_bucket);
+  statement.bind(static_cast<i64>(up_count));
+  unused(TRY(statement.step()));
+
+  LOG(Debug, "liveness recorded, slug=%.*s hour=%lld is_reachable=%d",
+      static_cast<int>(slug.count()), slug.data,
+      static_cast<long long>(hour_bucket), is_reachable ? 1 : 0);
+  return Success;
+}
+
+fn Store::rotate_liveness(i64 now) -> ErrorOr<Ok>
+{
+  let const cutoff_hour = (now / 3600) - LIVENESS_WINDOW_HOURS;
+
+  let statement = TRY(m_database.prepare(
+      "DELETE FROM liveness_buckets WHERE hour_bucket < ?;"));
+  statement.bind(cutoff_hour);
+  unused(TRY(statement.step()));
+
+  LOG(Debug, "liveness buckets rotated, cutoff_hour=%lld",
+      static_cast<long long>(cutoff_hour));
+  return Success;
+}
+
+fn Store::get_liveness_history(StringView slug, i64 now) const
+    -> ErrorOr<ArrayList<i64>>
+{
+  let const current_hour = now / 3600;
+
+  ArrayList<i64> history{m_allocator};
+  history.reserve(static_cast<usize>(LIVENESS_WINDOW_HOURS));
+  for (i64 i = 0; i < LIVENESS_WINDOW_HOURS; i++)
+    history.push(-1);
+
+  let statement = TRY(m_database.prepare(
+      "SELECT hour_bucket, up_count, probe_count FROM liveness_buckets "
+      "WHERE slug = ? AND hour_bucket > ? ORDER BY hour_bucket;"));
+  statement.bind(slug);
+  statement.bind(current_hour - LIVENESS_WINDOW_HOURS);
+  while (TRY(statement.step())) {
+    let const hour_bucket = statement.get<i64>();
+    let const up_count = statement.get<i64>();
+    let const probe_count = statement.get<i64>();
+
+    let const slot = hour_bucket - current_hour + LIVENESS_WINDOW_HOURS - 1;
+    if (slot >= 0 && slot < LIVENESS_WINDOW_HOURS && probe_count > 0)
+      history[static_cast<usize>(slot)] = up_count * 100 / probe_count;
+  }
+
+  return history;
 }
 
 fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>

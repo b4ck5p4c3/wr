@@ -80,6 +80,8 @@ fn Liveness::sweep() -> void
             row.slug.c_str());
       if (m_store.set_site_reachability(row.slug.view(), false, now).is_error())
         LOG(Info, "reachability write dropped for %s", row.slug.c_str());
+      if (m_store.record_liveness(row.slug.view(), false, now).is_error())
+        LOG(Info, "liveness record dropped for %s", row.slug.c_str());
       continue;
     }
 
@@ -96,7 +98,12 @@ fn Liveness::sweep() -> void
 
     if (m_store.set_site_reachability(row.slug.view(), is_up, now).is_error())
       LOG(Info, "reachability write dropped for %s", row.slug.c_str());
+    if (m_store.record_liveness(row.slug.view(), is_up, now).is_error())
+      LOG(Info, "liveness record dropped for %s", row.slug.c_str());
   }
+
+  if (m_store.rotate_liveness(now).is_error())
+    LOG(Debug, "liveness bucket rotation dropped");
 }
 
 } // namespace wr

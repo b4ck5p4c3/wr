@@ -75,6 +75,12 @@ public:
       -> ErrorOr<Ok>;
   fn schedule_recheck(StringView slug) -> ErrorOr<Ok>;
 
+  fn record_liveness(StringView slug, bool is_reachable, i64 now)
+      -> ErrorOr<Ok>;
+  fn rotate_liveness(i64 now) -> ErrorOr<Ok>;
+  mustuse fn get_liveness_history(StringView slug, i64 now) const
+      -> ErrorOr<ArrayList<i64>>;
+
   mustuse fn find_account(StringView identity) const -> ErrorOr<Maybe<account>>;
   fn upsert_account(StringView identity, StringView display_name, bool is_admin)
       -> ErrorOr<Ok>;
