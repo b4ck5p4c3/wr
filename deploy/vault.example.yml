@@ -1,9 +1,0 @@
----
-# The secret variables for the deploy. Copy this file to
-# playbooks/group_vars/all/vault.yml, fill in the real values, and encrypt it
-# with `ansible-vault encrypt`. The real vault.yml is gitignored, so a plaintext
-# secret is never committed.
-wr_github_client_id: "REPLACE_ME"
-wr_github_client_secret: "REPLACE_ME"
-wr_telegram_bot_token: "REPLACE_ME"
-wr_session_key: "REPLACE_ME"

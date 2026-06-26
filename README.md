@@ -12,9 +12,7 @@ export MODE=dbg/rel/cov
 make web
 make
 ```
-
-The frontend is embedded into the binary, so `make web` is run before `make`
-and the server carries the bundle with no web root on disk.
+This produces completely static binary with web completely embeded in.
 
 then run:
 ```
