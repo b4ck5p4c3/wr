@@ -1101,6 +1101,10 @@ footer {
   margin: 1.5ch 0;
 }
 
+.comments .hint {
+  margin: 0 0 2ch;
+}
+
 .mention {
   color: var(--accent);
   font-weight: 700;

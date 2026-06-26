@@ -861,12 +861,46 @@ function matchSites(sites, query) {
   );
 }
 
+// A pending action matches on the submitting user or on the requested content.
+function matchPending(actions, query) {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return actions;
+  return actions.filter((action) =>
+    [
+      action.owner,
+      action.owner_display_name,
+      action.kind,
+      action.target_slug,
+      action.payload,
+    ].some((field) => (field || "").toLowerCase().includes(needle)),
+  );
+}
+
+// A pending comment matches on the author or on the body.
+function matchComments(comments, query) {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return comments;
+  return comments.filter((comment) =>
+    [comment.author_name, comment.body].some((field) =>
+      (field || "").toLowerCase().includes(needle),
+    ),
+  );
+}
+
 export function Admin({ onLogin }) {
   const [me, setMe] = useState(undefined);
   const [pending, setPending] = useState([]);
+  const [pendingComments, setPendingComments] = useState([]);
   const [showAllSites, setShowAllSites] = useState(false);
   const [siteQuery, setSiteQuery] = useState("");
+  const [showActions, setShowActions] = useState(false);
+  const [actionQuery, setActionQuery] = useState("");
+  const [showComments, setShowComments] = useState(false);
+  const [commentQuery, setCommentQuery] = useState("");
+  const [busyCommentId, setBusyCommentId] = useState(null);
   useEscape(() => setShowAllSites(false), showAllSites);
+  useEscape(() => setShowActions(false), showActions);
+  useEscape(() => setShowComments(false), showComments);
   const reload = () => {
     api
       .me()
@@ -876,10 +910,28 @@ export function Admin({ onLogin }) {
       .adminPending()
       .then(setPending)
       .catch(() => setPending([]));
+    api
+      .adminPendingComments()
+      .then(setPendingComments)
+      .catch(() => setPendingComments([]));
   };
   useEffect(() => {
     reload();
   }, []);
+
+  const resolveComment = async (id, isApprove) => {
+    setBusyCommentId(id);
+    try {
+      await (isApprove
+        ? api.adminApproveComment(id)
+        : api.adminDeleteComment(id));
+      reload();
+    } catch (_) {
+      // the reload reflects the resulting state
+    } finally {
+      setBusyCommentId(null);
+    }
+  };
 
   if (me === undefined)
     return (
@@ -903,17 +955,91 @@ export function Admin({ onLogin }) {
       <h1>admin</h1>
       <p>Signed in as {me.display_name}.</p>
       <h2>pending actions</h2>
-      {pending.length === 0 ? (
-        <p>Nothing is waiting for review.</p>
-      ) : (
-        <ul class="pendings">
-          {pending.map((action) => (
-            <PendingRow key={action.id} action={action} onResolved={reload} />
-          ))}
-        </ul>
-      )}
+      <button class="primary" onClick={() => setShowActions(true)}>
+        pending actions.. ({pending.length})
+      </button>
+      {showActions ? (
+        <div class="modal-backdrop" onClick={() => setShowActions(false)}>
+          <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            <h2>pending actions</h2>
+            <input
+              class="site-search"
+              placeholder="search by user or content"
+              value={actionQuery}
+              onInput={(e) => setActionQuery(e.target.value)}
+            />
+            {pending.length === 0 ? (
+              <p>Nothing is waiting for review.</p>
+            ) : (
+              <ul class="pendings modal-scroll">
+                {matchPending(pending, actionQuery).map((action) => (
+                  <PendingRow
+                    key={action.id}
+                    action={action}
+                    onResolved={reload}
+                  />
+                ))}
+              </ul>
+            )}
+            <button class="close" onClick={() => setShowActions(false)}>
+              close..
+            </button>
+          </div>
+        </div>
+      ) : null}
       <h2>pending comments</h2>
-      <PendingComments />
+      <button class="primary" onClick={() => setShowComments(true)}>
+        pending comments.. ({pendingComments.length})
+      </button>
+      {showComments ? (
+        <div class="modal-backdrop" onClick={() => setShowComments(false)}>
+          <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            <h2>pending comments</h2>
+            <input
+              class="site-search"
+              placeholder="search by user or content"
+              value={commentQuery}
+              onInput={(e) => setCommentQuery(e.target.value)}
+            />
+            {pendingComments.length === 0 ? (
+              <p>No comments are waiting for review.</p>
+            ) : (
+              <ul class="pending-comments modal-scroll">
+                {matchComments(pendingComments, commentQuery).map((comment) => (
+                  <li class="pending-comment" key={comment.id}>
+                    <div class="comment-head">
+                      <span class="comment-author">{comment.author_name}</span>
+                      <span class="comment-time">
+                        {formatTimestamp(comment.created_at)}
+                      </span>
+                    </div>
+                    <span class="comment-body">{comment.body}</span>
+                    <div class="pending-comment-actions">
+                      <button
+                        class="primary"
+                        disabled={busyCommentId === comment.id}
+                        onClick={() => resolveComment(comment.id, true)}
+                      >
+                        approve..
+                      </button>
+                      <button
+                        class="danger"
+                        disabled={busyCommentId === comment.id}
+                        onClick={() => resolveComment(comment.id, false)}
+                      >
+                        delete..
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button class="close" onClick={() => setShowComments(false)}>
+              close..
+            </button>
+          </div>
+        </div>
+      ) : null}
       <h2>all sites</h2>
       <button class="primary" onClick={() => setShowAllSites(true)}>
         all sites.. ({me.sites.length})
@@ -954,76 +1080,6 @@ export function Admin({ onLogin }) {
       <h2>server logs</h2>
       <LogStream />
     </main>
-  );
-}
-
-// The admin view lists the comments held for approval and resolves each through
-// an approve or a delete action.
-export function PendingComments() {
-  const [comments, setComments] = useState(null);
-  const [error, setError] = useState(null);
-  const [busyId, setBusyId] = useState(null);
-
-  const load = () =>
-    api
-      .adminPendingComments()
-      .then((next) => {
-        setComments(next);
-        setError(null);
-      })
-      .catch((e) => setError(e.message));
-  useEffect(() => {
-    load();
-  }, []);
-
-  const resolve = async (id, isApprove) => {
-    setBusyId(id);
-    try {
-      await (isApprove
-        ? api.adminApproveComment(id)
-        : api.adminDeleteComment(id));
-      await load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  if (error) return <p class="error">{error}</p>;
-  if (comments === null) return <Loading />;
-  if (comments.length === 0) return <p>No comments are waiting for review.</p>;
-
-  return (
-    <ul class="pending-comments">
-      {comments.map((comment) => (
-        <li class="pending-comment" key={comment.id}>
-          <div class="comment-head">
-            <span class="comment-author">{comment.author_name}</span>
-            <span class="comment-time">
-              {formatTimestamp(comment.created_at)}
-            </span>
-          </div>
-          <span class="comment-body">{comment.body}</span>
-          <div class="pending-comment-actions">
-            <button
-              class="primary"
-              disabled={busyId === comment.id}
-              onClick={() => resolve(comment.id, true)}
-            >
-              approve..
-            </button>
-            <button
-              class="danger"
-              disabled={busyId === comment.id}
-              onClick={() => resolve(comment.id, false)}
-            >
-              delete..
-            </button>
-          </div>
-        </li>
-      ))}
-    </ul>
   );
 }
 

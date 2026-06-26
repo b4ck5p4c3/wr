@@ -21,7 +21,7 @@ fn is_valid_slug(StringView slug) -> bool
         (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
     if (!is_allowed) return false;
   }
-  static constexpr StaticStringMap<bool, 8> RESERVED_SLUGS{
+  static constexpr StaticStringMap<bool, 9> RESERVED_SLUGS{
       {{"sites", true},
        {"auth", true},
        {"api", true},
@@ -29,7 +29,8 @@ fn is_valid_slug(StringView slug) -> bool
        {"panel", true},
        {"admin", true},
        {"assets", true},
-       {"index", true}}
+       {"index", true},
+       {"docs", true}}
   };
   return RESERVED_SLUGS.find(slug) == nullptr;
 }

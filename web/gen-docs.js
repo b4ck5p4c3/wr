@@ -343,7 +343,7 @@ function render(spec) {
   if (untagged.length > 0)
     groups.push(renderGroup("other", untagged, spec.schemas));
 
-  const heading = escapeHtml(spec.title);
+  const heading = "wr API documentation";
   const version = spec.version ? " v" + escapeHtml(spec.version) : "";
 
   return `<!doctype html>
