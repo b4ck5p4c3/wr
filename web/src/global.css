@@ -306,6 +306,14 @@ img {
   text-shadow: none;
 }
 
+.tui-age {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
 /* A big panel is the shared block, a bordered slab with the warm inset glow. */
 .bar,
 main,
@@ -515,10 +523,48 @@ li.pending {
   opacity: 0.8;
 }
 
-/* The reachability label is pushed to the trailing edge of a site row. */
+/* The uptime graph and the reachability label sit together at the trailing
+   edge of a site row. */
+li.site .uptime-graph {
+  margin-left: auto;
+}
+
 li.site .up,
 li.site .down {
   margin-left: auto;
+}
+
+.uptime-graph {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uptime-bars {
+  display: flex;
+  gap: 1px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.uptime-bars .up {
+  color: var(--up);
+}
+
+.uptime-bars .down {
+  color: var(--down);
+}
+
+.uptime-bars .gap {
+  color: var(--border);
+}
+
+.uptime-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.7;
 }
 
 li.site input,

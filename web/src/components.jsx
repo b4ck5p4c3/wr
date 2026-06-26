@@ -123,6 +123,64 @@ export function faviconFor(url) {
   }
 }
 
+// A created_at epoch is rendered as a coarse membership age for the card.
+export function formatAge(createdAt) {
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000) - createdAt);
+  const days = Math.floor(seconds / 86400);
+  if (days >= 365) {
+    const years = Math.floor(days / 365);
+    return years + (years > 1 ? " years" : " year");
+  }
+  if (days >= 30) {
+    const months = Math.floor(days / 30);
+    return months + (months > 1 ? " months" : " month");
+  }
+  if (days >= 1) return days + (days > 1 ? " days" : " day");
+  const hours = Math.floor(seconds / 3600);
+  if (hours >= 1) return hours + (hours > 1 ? " hours" : " hour");
+  return "less than an hour";
+}
+
+const UPTIME_COLUMN_COUNT = 48;
+
+// The 7-day hourly history is collapsed into a fixed row of bars, green for a
+// healthy hour, red for a down hour, dim for an hour with no probe.
+export function UptimeGraph({ history }) {
+  if (history == null || history.length === 0) return null;
+
+  const columns = [];
+  const per_column = history.length / UPTIME_COLUMN_COUNT;
+  for (let c = 0; c < UPTIME_COLUMN_COUNT; c++) {
+    const start = Math.floor(c * per_column);
+    const end = Math.floor((c + 1) * per_column);
+    let sum = 0;
+    let sampled_count = 0;
+    for (let k = start; k < end; k++) {
+      if (history[k] >= 0) {
+        sum += history[k];
+        sampled_count++;
+      }
+    }
+    columns.push(sampled_count === 0 ? -1 : sum / sampled_count);
+  }
+
+  return (
+    <div class="uptime-graph" title="uptime over the last 7 days">
+      <div class="uptime-bars">
+        {columns.map((ratio, i) => (
+          <span key={i} class={ratio < 0 ? "gap" : ratio >= 50 ? "up" : "down"}>
+            |
+          </span>
+        ))}
+      </div>
+      <div class="uptime-axis">
+        <span>7d</span>
+        <span>now</span>
+      </div>
+    </div>
+  );
+}
+
 // The ring is a carousel of terminal windows seated on a 3D cylinder. The ring
 // drifts on its own and a pointer drag grabs it and spins it, with the throw
 // velocity carried on release. The transform is mutated through the ref so a
@@ -216,6 +274,11 @@ export function Carousel({ sites }) {
                 </a>
                 {site.description ? (
                   <p class="tui-desc">{site.description}</p>
+                ) : null}
+                {site.created_at ? (
+                  <p class="tui-age">
+                    in the ring for {formatAge(site.created_at)}
+                  </p>
                 ) : null}
               </div>
             </>
@@ -464,6 +527,7 @@ export function OwnedSite({ site, onRenamed }) {
       <div class="row-actions">
         <button onClick={rename}>rename..</button>
       </div>
+      <UptimeGraph history={site.uptime} />
       <span class={site.is_reachable ? "up" : "down"}>
         {site.is_reachable ? "up" : "down"}
       </span>
@@ -556,6 +620,7 @@ export function AdminSite({ site, onSaved, onDeleted }) {
           delete..
         </button>
       </div>
+      <UptimeGraph history={site.uptime} />
       <span class={site.is_reachable ? "up" : "down"}>
         {site.is_reachable ? "up" : "down"}
       </span>
