@@ -33,6 +33,7 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
   HttpHeaders headers{m_allocator};
   headers.set("Location", url.view());
   headers.set("Set-Cookie", cookie.view());
+  LOG(Info, "github login started");
   unused(event.reply(302, headers, "").is_error());
 }
 
@@ -42,6 +43,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   let const state = find_query_param(event.query(), "state", m_allocator);
   let const cookie_header = event.request_headers().get("cookie");
   if (!code.has_value() || !state.has_value() || !cookie_header.has_value()) {
+    LOG(Info, "github callback rejected, missing oauth parameters");
     reply_message(event, 400, "Missing the OAuth parameters");
     return;
   }
@@ -49,6 +51,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   if (!cookie_state.has_value() ||
       !constant_time_equal(state.value().view(), cookie_state.value()))
   {
+    LOG(Info, "github callback rejected, oauth state mismatch");
     reply_message(event, 400, "The OAuth state did not match");
     return;
   }
@@ -71,6 +74,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
           .build();
   let token_response = m_client.send(token_request);
   if (token_response.is_error()) {
+    LOG(Info, "github token exchange failed");
     reply_message(event, 502, "The token exchange failed");
     return;
   }
@@ -78,6 +82,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
       Json::from(m_allocator, token_response.value().body());
   let const access_token = token_document["access_token"].to<StringView>();
   if (!access_token.has_value()) {
+    LOG(Info, "github refused the code");
     reply_message(event, 401, "GitHub refused the code");
     return;
   }
@@ -96,6 +101,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
           .build();
   let user_response = m_client.send(user_request);
   if (user_response.is_error()) {
+    LOG(Info, "github identity fetch failed");
     reply_message(event, 502, "The identity fetch failed");
     return;
   }
@@ -105,6 +111,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   let const id = user_document["id"].to<i64>();
   let const login = user_document["login"].to<StringView>();
   if (!id.has_value() || !login.has_value()) {
+    LOG(Info, "github returned no identity");
     reply_message(event, 502, "GitHub returned no identity");
     return;
   }
@@ -124,6 +131,7 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
   let const provided_hash = find_query_param(query, "hash", m_allocator);
   let const id = find_query_param(query, "id", m_allocator);
   if (!provided_hash.has_value() || !id.has_value()) {
+    LOG(Info, "telegram callback rejected, missing parameters");
     reply_message(event, 400, "Missing the Telegram parameters");
     return;
   }
@@ -165,6 +173,7 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
   String computed{m_allocator};
   append_hex(computed, digest, sizeof(digest));
   if (!constant_time_equal(computed.view(), provided_hash.value().view())) {
+    LOG(Info, "telegram callback rejected, signature mismatch");
     reply_message(event, 401, "The Telegram signature did not match");
     return;
   }
@@ -178,6 +187,7 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
                             : 0;
   let const age_seconds = now_seconds() - signed_at;
   if (signed_at <= 0 || age_seconds < 0 || age_seconds > 86400) {
+    LOG(Info, "telegram callback rejected, login expired");
     reply_message(event, 401, "The Telegram login has expired");
     return;
   }
@@ -266,6 +276,7 @@ fn App::handle_dev_login(HttpServerEvent &event) -> void
 
   let const role = find_query_param(event.query(), "role", m_allocator);
   let const is_admin = role.has_value() && role.value().view() == "admin";
+  LOG(Info, "dev login bypass, role=%s", is_admin ? "admin" : "user");
 
   /* The bypass account is fixed per role, so a dev login reuses the same row
      and the same sites across runs. */
@@ -298,6 +309,7 @@ fn App::require_admin(HttpServerEvent &event) -> Maybe<account>
 {
   let who = current_account(event);
   if (!who.has_value() || !who.value().is_admin) {
+    LOG(Info, "admin access denied");
     reply_message(event, 403, "Admins only");
     return None;
   }

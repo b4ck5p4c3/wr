@@ -217,6 +217,8 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
     return;
   }
   if (existing.value().has_value()) {
+    LOG(Info, "site add rejected, slug taken, slug=%.*s",
+        static_cast<int>(input.slug.count()), input.slug.data);
     reply_message(event, 409, "That slug is already taken");
     return;
   }
@@ -260,6 +262,8 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
   if (owned.is_error() || !owned.value().has_value() ||
       owned.value().value().owner != who.identity)
   {
+    LOG(Info, "site rename rejected, not owned, slug=%.*s",
+        static_cast<int>(slug.value().count()), slug.value().data);
     reply_message(event, 403, "That site is not yours");
     return;
   }
@@ -304,6 +308,8 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
        {"skull", true}}
   };
   if (ALLOWED_EMOJIS.find(emoji.value()) == nullptr) {
+    LOG(Info, "reaction rejected, emoji not allowed, emoji=%.*s",
+        static_cast<int>(emoji.value().count()), emoji.value().data);
     reply_message(event, 400, "That reaction is not allowed");
     return;
   }
@@ -421,6 +427,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
     return;
   }
   if (owned.value().count() == 0) {
+    LOG(Info, "comment rejected, author owns no ring site");
     reply_message(event, 403, "Only owners of a site in the ring may comment");
     return;
   }
@@ -436,6 +443,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
     return;
   }
   if (contains_swear(body.value())) {
+    LOG(Info, "comment rejected, swear filter matched");
     reply_message(event, 400, "The comment contains disallowed language");
     return;
   }
@@ -534,6 +542,7 @@ fn App::handle_admin_cache_clear(HttpServerEvent &event) -> void
   if (!who.has_value()) return;
 
   m_store.clear_statement_cache();
+  LOG(Info, "statement cache cleared");
 
   if (m_store
           .record_audit(actor_label(who.value()),

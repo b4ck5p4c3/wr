@@ -149,6 +149,8 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
 
   let const result = curl_easy_perform(handle);
   if (result != CURLE_OK) {
+    LOG(Info, "curl request failed, %s %s: %s", method_name.data, url.c_str(),
+        curl_easy_strerror(result));
     String message{m_allocator};
     message.append("Curl request failed, ");
     message.append(curl_easy_strerror(result));

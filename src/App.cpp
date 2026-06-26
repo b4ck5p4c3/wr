@@ -325,6 +325,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
                          static_cast<u8>(target->id), target->limit,
                          now_seconds()))
     {
+      LOG(Info, "rate limited, route=%d", static_cast<int>(target->id));
       reply_message(event, 429, "Too many requests, slow down");
       return;
     }
@@ -332,6 +333,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
     if (target->method != HttpMethod::Get &&
         event.method() != http_method_name(target->method))
     {
+      LOG(Info, "method not allowed, uri=%.*s", static_cast<int>(path.count()),
+          path.data);
       String message{m_allocator};
       message.append("This endpoint requires ");
       message.append(http_method_name(target->method));
@@ -424,6 +427,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
         !m_limiter.allow(client_address(event, m_config.is_forwarded_trusted),
                          SLUG_BUCKET, {1000, 60}, now_seconds()))
     {
+      LOG(Info, "rate limited, slug hop=%.*s", static_cast<int>(slug.count()),
+          slug.data);
       reply_message(event, 429, "Too many requests, slow down");
       return;
     }

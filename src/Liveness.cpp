@@ -62,6 +62,7 @@ fn Liveness::sweep() -> void
 
   let const now = now_seconds();
   let const &sites = sites_or.value();
+  LOG(Info, "liveness sweep, checking %zu sites", sites.count());
   for (usize i = 0; i < sites.count(); i++) {
     if (__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST)) return;
 
