@@ -1,6 +1,6 @@
 add-direct: {"message":"Site added"}
-sites: [{"slug":"d","name":"D","url":"https://d.example","description":"first desc","created_at":0}]
+sites: [{"slug":"d","name":"D","url":"https://d.example","description":"first desc","created_at":0,"reactions":{}}]
 edit: {"message":"Saved"}
-sites-after-edit: [{"slug":"d","name":"D2","url":"https://d2.example","description":"second desc","created_at":0}]
+sites-after-edit: [{"slug":"d","name":"D2","url":"https://d2.example","description":"second desc","created_at":0,"reactions":{}}]
 delete: {"message":"Site removed"}
 sites-after-delete: []

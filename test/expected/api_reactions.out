@@ -1,0 +1,8 @@
+react-fire: {"message":"Reaction added"}
+react-star: {"message":"Reaction added"}
+react-bad: {"message":"That reaction is not allowed"}
+react-unauth: 401
+sites-anon: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"reactions":{"fire":1,"star":1}}]
+sites-user: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"reactions":{"fire":1,"star":1},"reacted":["fire","star"]}]
+toggle-off: {"message":"Reaction removed"}
+sites-after: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"reactions":{"star":1},"reacted":["star"]}]
