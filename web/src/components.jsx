@@ -181,11 +181,6 @@ export function UptimeGraph({ history }) {
   );
 }
 
-// The ring is a carousel of terminal windows seated on a 3D cylinder. The ring
-// drifts on its own and a pointer drag grabs it and spins it, with the throw
-// velocity carried on release. The transform is mutated through the ref so a
-// frame never costs a render. Each card is double sided, so a card facing away
-// shows its back rather than vanishing when the count is small.
 // One card's inner content, shared by the 3D ring and the vertical phone list.
 function cardBody(site) {
   const icon = faviconFor(site.url);
@@ -224,6 +219,13 @@ const NARROW_QUERY = "(max-width: 640px)";
 const MAX_TILT_DEGREES = 20;
 const MAX_POP_PIXELS = 140;
 
+// The ring is a carousel of terminal windows seated on a 3D cylinder. The ring
+// drifts on its own and a pointer drag grabs it and spins it, with the throw
+// velocity carried on release. A vertical drag tilts the ring and the drag
+// distance pops it toward the viewer, and both ease back on release. The
+// transform is mutated through the ref so a frame never costs a render. Each
+// card is double sided, so a card facing away shows its back. On a phone width
+// the cylinder is replaced by a plain vertical list.
 export function Carousel({ sites }) {
   const [isNarrow, setIsNarrow] = useState(
     typeof matchMedia !== "undefined" && matchMedia(NARROW_QUERY).matches,
