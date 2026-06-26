@@ -310,7 +310,7 @@ function renderResponses(op, schemas) {
     })
     .join("");
   return (
-    '<div class="block"><span class="label">responses (JSON)</span><ul>' +
+    '<div class="block"><span class="label">JSON responses</span><ul>' +
     rows +
     "</ul></div>"
   );
