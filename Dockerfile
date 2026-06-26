@@ -13,16 +13,14 @@ RUN apk add \
     bash \
     git
 RUN curl -fsSL https://bun.com/install | bash && \
-    ln -sf ~/.bun/bin/bun /usr/bin/bun
+    ln -sf /root/.bun/bin/bun /usr/bin/bun
 
 COPY . /src
 WORKDIR /src
 
 RUN cd ./web && \
     bun install && \
-    bun run build && \
-    cd .. && \
-    MODE=rel make wr
+RUN MODE=rel make web wr
 
 FROM scratch
 
