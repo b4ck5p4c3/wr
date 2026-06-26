@@ -90,16 +90,19 @@ sequenceDiagram
 
 ## Data model
 
-The store holds five kinds of rows.
+The store holds six kinds of rows.
 
-- A site holds a slug, a pretty name, a url, an optional favicon, a reachability
-  state, a last seen time, an owner, and a deleted flag. The slug keys the
-  navigation, and a removal sets the deleted flag rather than dropping the row.
+- A site holds a slug, a pretty name, a url, a description, a reachability state,
+  a last seen time, an owner, a created time, and a deleted flag. The slug keys
+  the navigation, and a removal sets the deleted flag rather than dropping the
+  row.
 - A panel user holds an identity from a provider and a display name.
 - An admin holds an identity that is allowed into the admin panel.
 - A session holds a token, the identity it belongs to, and an expiry.
 - A pending action holds a kind that is an add or a rename, the owner who
   requested it, the target site, the requested payload, and a status.
+- A liveness bucket holds a site slug, an hour, and the up and probe counts for
+  that hour. Seven days of buckets are kept and the rest are rotated out.
 
 A site is added to the ring only after an admin approves a pending action.
 
