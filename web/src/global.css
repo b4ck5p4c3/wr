@@ -1107,6 +1107,16 @@ code {
   border-color: var(--accent);
 }
 
+/* GitHub is the preferred provider, so its button carries a small tag drawn in
+   the accent. */
+.provider-preferred {
+  margin-left: 0.8ch;
+  padding: 0 0.6ch;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  vertical-align: middle;
+}
+
 .provider.github {
   background: var(--github-bg);
   color: var(--github-text);
@@ -1281,6 +1291,12 @@ footer {
 
 .comments .notice {
   color: var(--accent);
+  margin: 0 0 1.5ch;
+}
+
+/* The error paragraph would otherwise fall back to the default block margin and
+   sit unevenly against the section, so it shares the notice spacing. */
+.comments .error {
   margin: 0 0 1.5ch;
 }
 

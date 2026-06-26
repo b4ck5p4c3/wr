@@ -146,6 +146,7 @@ export function LoginModal({ onClose, config }) {
         {config.github ? (
           <a class="provider github" href="/auth/github">
             Continue with GitHub
+            <span class="provider-preferred">preferred</span>
           </a>
         ) : null}
         {telegramBot ? (
@@ -1011,6 +1012,26 @@ export function Submitter({ owner, name, tag }) {
   return <span class="submitter">{label}</span>;
 }
 
+// The comment carries the author provider and handle, so the name links to the
+// github or telegram profile when the handle is known, and shows plain
+// otherwise.
+function CommentAuthor({ comment }) {
+  const url = ownerProfileUrl(comment.author_oauth, comment.author_tag);
+  if (url) {
+    return (
+      <a
+        class="comment-author"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {comment.author_name}
+      </a>
+    );
+  }
+  return <span class="comment-author">{comment.author_name}</span>;
+}
+
 export function AdminSite({ site, onSaved, onDeleted }) {
   const [form, setForm] = useState({ ...site });
   const [message, setMessage] = useState(null);
@@ -1259,7 +1280,7 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
                 {matchComments(pendingComments, commentQuery).map((comment) => (
                   <li class="pending-comment" key={comment.id}>
                     <div class="comment-head">
-                      <span class="comment-author">{comment.author_name}</span>
+                      <CommentAuthor comment={comment} />
                       <span class="comment-time">
                         {formatTimestamp(comment.created_at)}
                       </span>
@@ -1649,7 +1670,7 @@ export function CommentsSection({ me }) {
               key={comment.id}
             >
               <div class="comment-head">
-                <span class="comment-author">{comment.author_name}</span>
+                <CommentAuthor comment={comment} />
                 <span class="comment-meta">
                   <span class="comment-time">
                     {formatTimestamp(comment.created_at)}
