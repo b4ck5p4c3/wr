@@ -42,13 +42,19 @@ fn env_or(const char *name, const char *fallback) -> const char *
   return value != nullptr ? value : fallback;
 }
 
+[[noreturn]] fn fail(StringView message) -> void
+{
+  show_message(message);
+  exit(1);
+}
+
 } // namespace
 
 fn main(int argc, char **argv) -> int
 {
   let parse_result = parse_flags(FLAG_LIST, argc, argv);
   if (parse_result.is_error()) {
-    show_message(parse_result.error().message().view());
+    show_message(parse_result.error().message());
     return 1;
   }
 
@@ -63,14 +69,11 @@ fn main(int argc, char **argv) -> int
     flush();
     return 0;
   }
-
   if (FLAG_VERSION.is_enabled()) {
     show_version();
     return 0;
   }
 
-  /* Each -v raises the level, so -v traces the requests and -vv traces
-     everything. */
   if (FLAG_VERBOSE.count() >= 2)
     LOGGER_VERBOSITY = verbosity::All;
   else if (FLAG_VERBOSE.count() == 1)
@@ -79,20 +82,13 @@ fn main(int argc, char **argv) -> int
   if (FLAG_LOGFILE.is_set()) {
     let const log_path = String{FLAG_LOGFILE.value()};
     let log_result = set_log_file(Path{log_path});
-    if (log_result.is_error()) {
-      show_message(log_result.error().message().view());
-      return 1;
-    }
+    if (log_result.is_error()) fail(log_result.error().message());
   }
 
   let const allocator = heap_allocator();
 
-  /* The random navigation step draws from the C rng, so it is seeded once at
-     startup to vary the sequence across runs. */
-  std::srand(static_cast<unsigned>(std::time(nullptr)));
+  std::srand(static_cast<u64>(getpid()));
 
-  /* The server options carry no default, so a missing one fails early with the
-     names of every option still required. */
   if (!FLAG_LISTEN.is_set() || !FLAG_DATABASE.is_set() ||
       !FLAG_WEBROOT.is_set() || !FLAG_PUBLICURL.is_set())
   {
@@ -109,8 +105,7 @@ fn main(int argc, char **argv) -> int
     do_note(FLAG_WEBROOT, "--web-root <dir>");
     do_note(FLAG_PUBLICURL, "--public-url <url>");
     message.append("\nSee --help for info.");
-    show_message(message.view());
-    return 1;
+    fail(message.view());
   }
 
   config cfg;
@@ -139,8 +134,7 @@ fn main(int argc, char **argv) -> int
     message.append("  WR_GITHUB_CLIENT_ID and WR_GITHUB_CLIENT_SECRET\n");
     message.append("  WR_TELEGRAM_BOT_TOKEN\n");
     message.append("\nOr pass --dev to run with the login bypass.");
-    show_message(message.view());
-    return 1;
+    fail(message.view());
   }
 
   /* A session cookie is signed with the session key, so a non-dev server with
@@ -152,17 +146,12 @@ fn main(int argc, char **argv) -> int
 
   Sqlite database{allocator};
   let database_result = database.open(cfg.database_path.view());
-  if (database_result.is_error()) {
-    show_message(database_result.error().message().view());
-    return 1;
-  }
+  if (database_result.is_error())
+    fail(database_result.error().message().view());
 
   Store store{allocator, database};
   let migrate_result = store.migrate();
-  if (migrate_result.is_error()) {
-    show_message(migrate_result.error().message().view());
-    return 1;
-  }
+  if (migrate_result.is_error()) fail(migrate_result.error().message().view());
 
   /* The OAuth exchange runs on a request thread, so the connect phase is
      bounded to keep a stalled provider from pinning a worker. */
@@ -173,10 +162,7 @@ fn main(int argc, char **argv) -> int
 
   MongooseServer server{allocator};
   let listen_result = server.listen(cfg.listen_url.view(), App::on_event, &app);
-  if (listen_result.is_error()) {
-    show_message(listen_result.error().message().view());
-    return 1;
-  }
+  if (listen_result.is_error()) fail(listen_result.error().message().view());
 
   /* The sweep gets its own client with a short timeout, used only on its own
      thread. */
@@ -186,14 +172,15 @@ fn main(int argc, char **argv) -> int
   probe_options.should_reject_private_addresses = true;
   CurlClient probe_client{allocator, probe_options};
   Liveness liveness{allocator, cfg, probe_client};
-  if (liveness.start().is_error())
-    LOG(Info, "the liveness sweep did not start, the server runs without it");
 
-  let run_result = server.run();
+  let liveness_ret = liveness.start();
+  if (liveness_ret.is_error()) fail(liveness_ret.error().message());
+
+  let run_result = server.run(); /* blocks */
+
   liveness.stop();
-  if (run_result.is_error()) {
-    show_message(run_result.error().message().view());
-    return 1;
-  }
+
+  if (run_result.is_error()) fail(run_result.error().message().view());
+
   return 0;
 }

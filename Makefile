@@ -8,9 +8,7 @@ MODE ?= dbg
 
 export MODE
 
-.DEFAULT_GOAL := wr
-
-all: wr test
+all: wr web
 
 wr:
 	echo Building...

@@ -6,8 +6,6 @@
 #include "Trace.hpp"
 #include "Utils.hpp"
 
-#include <cstdlib>
-
 namespace wr {
 
 fn App::handle_login_github(HttpServerEvent &event) -> void
@@ -234,7 +232,7 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
   }
   let const &token = token_or.value();
 
-  let const expires_at = now_seconds() + i64{30} * 24 * 60 * 60;
+  let const expires_at = now_seconds() + (i64{30} * 24 * 60 * 60);
   if (m_store.create_session(token.view(), identity, expires_at).is_error()) {
     reply_message(event, 500, "Unable to open the session");
     return;

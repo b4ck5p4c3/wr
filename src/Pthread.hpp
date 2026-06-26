@@ -5,9 +5,6 @@
 
 #include <pthread.h>
 
-/* The pthread backend of the threading interface, the only place pthread is
-   named. */
-
 namespace wr {
 
 class PthreadMutex final : public Mutex
