@@ -11,6 +11,8 @@
 #include "Store.hpp"
 #include "Trace.hpp"
 
+#include <signal.h>
+
 using namespace wr;
 
 FLAG_LIST_DECL();
@@ -55,6 +57,33 @@ fn env_or(const char *name, const char *fallback) -> const char *
 {
   show_message(message);
   exit(1);
+}
+
+/* The running server, reached by the shutdown handler. As docker PID 1 the
+   process is delivered no default disposition for a termination signal, so the
+   handler is what lets the container stop. */
+HttpServer *SHUTDOWN_SERVER = nullptr;
+
+extern "C" fn request_shutdown(int signal_number) -> void
+{
+  (void) signal_number;
+  if (SHUTDOWN_SERVER != nullptr) SHUTDOWN_SERVER->request_stop();
+}
+
+fn install_shutdown_handlers(HttpServer &server) -> void
+{
+  SHUTDOWN_SERVER = &server;
+
+  struct sigaction action{};
+  action.sa_handler = request_shutdown;
+  sigemptyset(&action.sa_mask);
+  /* SA_RESTART is left off, so the blocking poll is interrupted and the loop
+     returns at once. */
+  action.sa_flags = 0;
+
+  sigaction(SIGINT, &action, nullptr);
+  sigaction(SIGTERM, &action, nullptr);
+  sigaction(SIGHUP, &action, nullptr);
 }
 
 } // namespace
@@ -215,8 +244,12 @@ fn main(int argc, char **argv) -> int
   let liveness_ret = liveness.start();
   if (liveness_ret.is_error()) fail(liveness_ret.error().message());
 
-  let run_result = server.run(); /* blocks */
+  install_shutdown_handlers(server);
+  LOG(Info, "shutdown handlers installed for SIGINT, SIGTERM, and SIGHUP");
 
+  let run_result = server.run(); /* blocks until a shutdown signal */
+
+  LOG(Info, "server loop stopped, shutting down");
   liveness.stop();
 
   if (run_result.is_error()) fail(run_result.error().message().view());

@@ -99,10 +99,22 @@ public:
                             opaque *user) -> ErrorOr<Ok> = 0;
   mustuse virtual fn poll(u32 timeout_ms) -> ErrorOr<Ok> = 0;
 
-  /* Pumps the loop until a poll fails, for the process lifetime. */
+  /* Pumps the loop until a stop is requested or a poll fails. A signal handler
+     requests the stop, so the flag is read and written through the atomic
+     builtins. */
   mustuse fn run(u32 poll_interval_ms = 1000) -> ErrorOr<Ok>
   {
-    loop { TRY(poll(poll_interval_ms)); }
+    while (!__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST)) {
+      TRY(poll(poll_interval_ms));
+    }
+    return Success;
+  }
+
+  /* Asks the loop to return after the current poll. It only stores the flag,
+     so a signal handler may call it. */
+  fn request_stop() noexcept -> void
+  {
+    __atomic_store_n(&m_should_stop, true, __ATOMIC_SEQ_CST);
   }
 
   /* Write a response on the event's connection, serialized by the backend. */
@@ -112,6 +124,9 @@ public:
 
 protected:
   HttpServer() = default;
+
+private:
+  bool m_should_stop{false};
 };
 
 } // namespace wr
