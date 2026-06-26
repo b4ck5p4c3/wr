@@ -42,7 +42,8 @@ fn is_valid_site_url(StringView url) -> bool
   return url.starts_with("http://") || url.starts_with("https://");
 }
 
-fn write_panel_site(JsonWriter &writer, const site &row) -> void
+fn write_panel_site(JsonWriter &writer, const site &row,
+                    const ArrayList<i64> &uptime) -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -53,6 +54,11 @@ fn write_panel_site(JsonWriter &writer, const site &row) -> void
   writer.boolean(row.is_reachable);
   writer.key("last_seen_at");
   writer.number(row.last_seen_at);
+  writer.key("uptime");
+  writer.array_begin();
+  for (usize i = 0; i < uptime.count(); i++)
+    writer.number(uptime[i]);
+  writer.array_end();
   writer.field("owner", row.owner.view());
   writer.object_end();
 }
@@ -129,8 +135,15 @@ fn App::handle_me(HttpServerEvent &event) -> void
   writer.boolean(me.is_admin);
   writer.key("sites");
   writer.array_begin();
-  for (usize i = 0; i < sites_or.value().count(); i++)
-    write_panel_site(writer, sites_or.value()[i]);
+  let const now = now_seconds();
+  let const &sites = sites_or.value();
+  for (usize i = 0; i < sites.count(); i++) {
+    let const history_or =
+        m_store.get_liveness_history(sites[i].slug.view(), now);
+    ArrayList<i64> uptime{m_allocator};
+    if (!history_or.is_error()) uptime = history_or.value().clone();
+    write_panel_site(writer, sites[i], uptime);
+  }
   writer.array_end();
 
   writer.key("pending");

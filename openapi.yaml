@@ -518,10 +518,14 @@ components:
           type: string
         url:
           type: string
-        favicon:
+        description:
           type: string
-          description: A favicon url, an empty string when none is known.
-      required: [slug, name, url, favicon]
+          description: A short blurb, an empty string when none is given.
+        created_at:
+          type: integer
+          format: int64
+          description: The unix time the site joined the ring.
+      required: [slug, name, url, description, created_at]
     WebringWebsiteNavigationData:
       type: object
       description: The neighbours around a site.
@@ -543,7 +547,7 @@ components:
           type: string
         url:
           type: string
-        favicon:
+        description:
           type: string
         is_reachable:
           type: boolean
@@ -551,10 +555,20 @@ components:
           type: integer
           format: int64
           description: The unix time of the last successful probe.
+        uptime:
+          type: array
+          description: >-
+            The reachability over the last seven days in 168 hourly buckets,
+            oldest first. Each entry is the up percentage from 0 to 100, or -1
+            for an hour with no probe.
+          items:
+            type: integer
+            format: int64
         owner:
           type: string
           description: The identity that owns the site.
-      required: [slug, name, url, favicon, is_reachable, last_seen_at, owner]
+      required:
+        [slug, name, url, description, is_reachable, last_seen_at, uptime, owner]
     PanelAccount:
       type: object
       description: The signed-in account with its sites.

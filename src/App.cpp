@@ -145,6 +145,8 @@ fn write_site_json(JsonWriter &writer, const site &row) -> void
   writer.field("name", row.name.view());
   writer.field("url", row.url.view());
   writer.field("description", row.description.view());
+  writer.key("created_at");
+  writer.number(row.created_at);
   writer.object_end();
 }
 
