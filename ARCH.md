@@ -104,7 +104,7 @@ The store holds seven kinds of rows.
 - A liveness bucket holds a site slug, an hour, and the up and probe counts for
   that hour. Seven days of buckets are kept and the rest are rotated out.
 - A reaction holds a site slug, an emoji, and the identity that reacted. The row
-  is a toggle, so a second react by the same identity removes it.
+  is a toggle. A second react by the same identity removes it.
 
 A site is added to the ring only after an admin approves a pending action.
 

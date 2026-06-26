@@ -305,7 +305,7 @@ paths:
       tags: [panel]
       summary: Toggle an emoji reaction on a site.
       description: >-
-        The reaction is toggled for the signed-in caller, so a second react with
+        The reaction is toggled for the signed-in caller. A second react with
         the same emoji removes it. The emoji is one of poop, like, eyes, fire,
         star, or skull.
       security:

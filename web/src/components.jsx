@@ -181,8 +181,8 @@ export function UptimeGraph({ history }) {
   );
 }
 
-// The reaction set is the open-source Microsoft Fluent Emoji, served as images
-// from the bundle so no unicode glyph is rendered.
+// The reaction set is the open-source Microsoft Fluent Emoji. The glyphs are
+// served as images from the bundle, never as unicode characters.
 const REACTIONS = ["poop", "like", "eyes", "fire", "star", "skull"];
 
 export function ReactionBar({ site, me, onLogin, onReacted }) {
