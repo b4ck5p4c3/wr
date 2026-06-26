@@ -21,6 +21,7 @@ perf*
 
 garbage/
 src/o
+web/node_modules
 
 core.*
 *.db
