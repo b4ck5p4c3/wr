@@ -1,8 +1,5 @@
-# make MODE=dbg/rel/cov/cosmo/cosmo_dbg
 MODE ?= dbg
 
-# The frontend bundle is embedded through a generated source. It is kept out of
-# the formatted and tidied source list and linked through its own object.
 GEN_EMBED_SRC := EmbeddedAssets.gen.cpp
 
 SOURCES := $(filter-out $(GEN_EMBED_SRC),$(wildcard *.cpp))
@@ -13,10 +10,6 @@ DIRS := $(filter-out o/.,$(wildcard */.))
 SOURCES += $(wildcard */**.cpp)
 HEADERS += $(wildcard */**.hpp)
 
-# The vendored third party code is built into the same object tree. mongoose and
-# sqlite are amalgamated C sources compiled with the C compiler. curl and mbedtls
-# are full source trees compiled the same way, each against a committed config
-# header under vendor, curl_config.h and mbedtls_config.h.
 VENDOR_DIR := ../vendor
 
 OBJ_DIR := o/$(MODE)
@@ -24,8 +17,6 @@ OBJ_DIR := o/$(MODE)
 OBJECTS := $(SOURCES:%.cpp=$(OBJ_DIR)/%.o)
 DEPS := $(OBJECTS:.o=.d)
 
-# The embedded frontend source is generated from the web build and compiled into
-# its own object, then linked with the rest.
 WEB_DIST := ../web/dist
 EMBED_INPUTS := $(shell find $(WEB_DIST) -type f 2>/dev/null)
 GEN_EMBED_OBJ := $(OBJ_DIR)/$(GEN_EMBED_SRC:.cpp=.o)
@@ -36,13 +27,6 @@ VENDOR_OBJECTS := \
 	$(OBJ_DIR)/vendor/sqlite3.o
 VENDOR_DEPS := $(VENDOR_OBJECTS:.o=.d)
 
-# curl and mbedtls are compiled from their full source trees. The cosmo toolchain
-# build is excluded for now, so the portable build carries no outbound TLS. Every
-# unused curl protocol and TLS backend self empties through the config macros, so
-# the whole lib tree is compiled. The QUIC core is kept for the HTTP/3 stubs the
-# HTTPS path references, and its ngtcp2 and quiche backends self empty without
-# their libraries. The SSH backend is omitted, since the SCP and SFTP protocols
-# are disabled and nothing references it.
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 CURL_SOURCES := \
 	$(wildcard $(VENDOR_DIR)/curl/lib/*.c) \
@@ -65,8 +49,6 @@ else
 OUT := ../wr$(MODE_SUFFIX).com
 endif
 
-# Clang is the default toolchain for both the C++ sources and the vendored C,
-# while a cosmo build uses the cosmopolitan toolchain.
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 ifeq ($(origin CXX), default)
 CXX := clang++
@@ -83,8 +65,6 @@ OS_INFO := $(shell . /etc/os-release 2>/dev/null; printf '%s%s' "$${PRETTY_NAME:
 LIBC_INFO := $(shell getconf GNU_LIBC_VERSION 2>/dev/null || ldd --version 2>&1 | head -n 1 || echo 'unknown libc')
 COMMIT_HASH := $(shell git rev-parse HEAD || echo "<no git>")
 
-# The cosmoc++ wrapper rejects an argument that contains a space, so the spaces
-# in the shell derived build strings are replaced for the cosmo modes.
 ifneq ($(filter $(MODE),cosmo cosmo_dbg),)
 t__empty :=
 t__space := $(t__empty) $(t__empty)
@@ -93,9 +73,8 @@ LIBC_INFO := $(subst $(t__space),_,$(LIBC_INFO))
 COMMIT_HASH := $(subst $(t__space),_,$(COMMIT_HASH))
 endif
 
-# Remember CXXFLAGS passed to us from the CLI.
 ENVCXXFLAGS := $(CXXFLAGS)
-CXXFLAGS := # nothing
+CXXFLAGS :=
 
 DEFINES := \
 	-DWR_COMPILER_COMMAND="\"$(CXX)\"" \
@@ -137,15 +116,15 @@ CXXFLAGS := \
 	$(DEFINES) \
 	$(ENVCXXFLAGS)
 
-# Vendored C code.
 CFLAGS := \
 	-Wno-deprecated \
+	-Wno-int-conversion \
 	-Wno-unused-command-line-argument \
 	-pipe \
 	-fvisibility=hidden \
 	$(INCLUDES)
 
-LINK_LIBS := # nothing
+LINK_LIBS :=
 
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 ifneq ($(shell which mold > /dev/null 2>&1),)
@@ -159,15 +138,7 @@ else
 USE_LD :=
 endif
 
-# MODE=rel
 ifeq ($(MODE), rel)
-# _FORTIFY_SOURCE is set only here, since it requires an optimized build and a
-# bare -O0 build warns. The macro is undefined first so a toolchain default does
-# not collide with the explicit level.
-# The minimal UndefinedBehaviorSanitizer runtime is used, since the full runtime
-# interposes libc functions such as signal and its interceptors call a null
-# pointer in a fully static-pie binary. The minimal runtime keeps the UB traps
-# without any interceptor.
 CXXFLAGS += \
 	-s \
 	-O2 \
@@ -176,22 +147,16 @@ CXXFLAGS += \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=2 \
 	-fsanitize=undefined \
-	-fsanitize-minimal-runtime
-# The vendored C is third party and is not undefined-behavior clean, so the
-# release does not instrument it.
+	-fsanitize-trap=undefined
 CFLAGS += \
 	-O2 \
 	-flto \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=2
-# The static link warns once that getaddrinfo needs the runtime glibc to match
-# the build glibc. The liveness sweep resolves hosts through it, so the warning
-# is expected, and the deploy host runs the same glibc.
 CXXFLAGS += \
 	-static-pie \
 	-nostdlib++
 LINK_LIBS += -lsupc++
-# MODE=dbg
 else ifeq ($(MODE), dbg)
 CXXFLAGS += \
 	-fno-omit-frame-pointer \
@@ -205,10 +170,7 @@ CFLAGS += \
 	-g3 \
 	-fsanitize=address \
 	-fsanitize=undefined
-# The base flags drop the C++ standard library, so the support library is linked
-# back for the C++ ABI runtime, the same as the rel and cov modes.
 LINK_LIBS += -lsupc++
-# MODE=cov
 else ifeq ($(MODE), cov)
 CXXFLAGS += \
 	-g3 \
@@ -229,7 +191,6 @@ CFLAGS += -O2
 ifneq ($(CXX), cosmoc++)
 $(error Your CXX is "$(CXX)" instead of "cosmoc++" for MODE=cosmo)
 endif
-# MODE=cosmo_dbg
 else ifeq ($(MODE), cosmo_dbg)
 CXXFLAGS += \
 	-mcosmo \
@@ -248,13 +209,6 @@ CXXFLAGS += -pthread
 LINK_LIBS += -lpthread -ldl -lm
 endif
 
-# curl and mbedtls are compiled with the active mode flags plus their own include
-# paths and config selection. The mbedtls config is named with angle brackets, so
-# the committed vendor/mbedtls_config.h is found through -I$(VENDOR_DIR) ahead of
-# the in tree default at include/mbedtls/mbedtls_config.h. curl finds its own
-# vendor/curl_config.h the same way under HAVE_CONFIG_H.
-# _GNU_SOURCE exposes the glibc extensions the vendored C relies on, such as
-# accept4 and memrchr in curl, which curl's own cmake defines globally on glibc.
 MBEDTLS_CONFIG := -DMBEDTLS_CONFIG_FILE='<mbedtls_config.h>'
 MBEDTLS_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -I$(VENDOR_DIR) -I$(VENDOR_DIR)/mbedtls/include $(MBEDTLS_CONFIG)
 CURL_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -DHAVE_CONFIG_H -DBUILDING_LIBCURL -DCURL_STATICLIB \
@@ -267,15 +221,10 @@ $(VENDOR_OBJECTS): | dirs
 $(CURL_OBJECTS): | dirs
 $(MBEDTLS_OBJECTS): | dirs
 
-# The generated source is rebuilt when the web build changes. A missing web
-# build makes the generator stop with a message pointing at `make web`.
 $(GEN_EMBED_SRC): ../web/gen-embed.js $(EMBED_INPUTS)
 	printf "\tEmbedding %-42s $@... %-12s\r" $(WEB_DIST) ' '
 	bun ../web/gen-embed.js $(WEB_DIST) $@
 
-# rapidjson offsets a null pointer in its internal stack, which the minimal
-# UndefinedBehaviorSanitizer runtime traps, so the JSON unit is built without it
-# the way the vendored C is.
 $(OBJ_DIR)/Json.o: CXXFLAGS += -fno-sanitize=undefined
 
 $(OBJ_DIR)/%.o: %.cpp Makefile
@@ -286,8 +235,6 @@ $(OBJ_DIR)/vendor/mongoose.o: $(VENDOR_DIR)/mongoose/mongoose.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-# The extension loader pulls dlopen into the static link and warns. No extension
-# is loaded, so it is omitted.
 $(OBJ_DIR)/vendor/sqlite3.o: $(VENDOR_DIR)/sqlite/sqlite3.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CFLAGS) -DSQLITE_OMIT_LOAD_EXTENSION -MMD -MP -c $< -o $@
@@ -300,7 +247,6 @@ $(OBJ_DIR)/vendor/mbedtls/%.o: $(VENDOR_DIR)/mbedtls/%.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(MBEDTLS_CFLAGS) -MMD -MP -c $< -o $@
 
-# Linking.
 $(OUT): $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)
 	printf "\tLinking $(OUT)... %-64s\r" ' '
 	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS) $(LINK_LIBS) -o $@
@@ -352,7 +298,7 @@ clean:
 	rm -rf ./o ../wr ../wr-$(MODE) ../wr.com ../wr-cosmo.com ../wr-cosmo_dbg.com
 	rm -f $(GEN_EMBED_SRC)
 	rm -rf ../perf*
-	rm -rf ../*.profraw ../*.profdata ../coverage # Coverage
+	rm -rf ../*.profraw ../*.profdata ../coverage
 
 .DEFAULT_GOAL := wr
 .PHONY: dirs wr install uninstall deploy tidy fmt clean
