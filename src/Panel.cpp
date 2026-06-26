@@ -75,12 +75,15 @@ fn write_panel_site(JsonWriter &writer, const site &row,
   writer.object_end();
 }
 
-fn write_comment_json(JsonWriter &writer, const comment &row) -> void
+fn write_comment_json(JsonWriter &writer, const comment &row,
+                      StringView author_tag) -> void
 {
   writer.object_begin();
   writer.key("id");
   writer.number(row.id);
   writer.field("author_name", row.author_name.view());
+  writer.field("author_oauth", owner_oauth_for(row.author_identity.view()));
+  writer.field("author_tag", author_tag);
   writer.field("body", row.body.view());
   writer.key("created_at");
   writer.number(row.created_at);
@@ -397,8 +400,13 @@ fn App::handle_comments_list(HttpServerEvent &event) -> void
   JsonWriter writer{m_allocator};
   writer.array_begin();
   let const &comments = comments_or.value();
-  for (usize i = 0; i < comments.count(); i++)
-    write_comment_json(writer, comments[i]);
+  for (usize i = 0; i < comments.count(); i++) {
+    let const author = m_store.find_account(comments[i].author_identity.view());
+    let const has_author = !author.is_error() && author.value().has_value();
+    let const author_tag =
+        has_author ? author.value().value().username.view() : StringView{};
+    write_comment_json(writer, comments[i], author_tag);
+  }
   writer.array_end();
   reply_json(event, 200, writer.view());
 }
@@ -465,8 +473,13 @@ fn App::handle_admin_comments(HttpServerEvent &event) -> void
   JsonWriter writer{m_allocator};
   writer.array_begin();
   let const &comments = comments_or.value();
-  for (usize i = 0; i < comments.count(); i++)
-    write_comment_json(writer, comments[i]);
+  for (usize i = 0; i < comments.count(); i++) {
+    let const author = m_store.find_account(comments[i].author_identity.view());
+    let const has_author = !author.is_error() && author.value().has_value();
+    let const author_tag =
+        has_author ? author.value().value().username.view() : StringView{};
+    write_comment_json(writer, comments[i], author_tag);
+  }
   writer.array_end();
   reply_json(event, 200, writer.view());
 }

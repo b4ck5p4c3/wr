@@ -29,6 +29,10 @@ struct config
   bool is_forwarded_trusted = false;
 };
 
+/* The provider behind an account identity, github or telegram, read from the
+   identity prefix. The dev bypass accounts point at github. */
+fn owner_oauth_for(StringView owner) -> StringView;
+
 /* The application context threaded through every request. It owns no
    per-request state, so the same instance serves the whole loop. The store and
    the client are borrowed and outlive the App. */

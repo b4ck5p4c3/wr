@@ -1012,13 +1012,24 @@ components:
           format: int64
         author_name:
           type: string
+        author_oauth:
+          type: string
+          description: >-
+            The author provider, github or telegram, empty when no account is
+            found.
+        author_tag:
+          type: string
+          description: >-
+            The author handle, the slug after github.com or t.me, empty when no
+            account is found.
         body:
           type: string
           description: The text, which may mention a site by its slug.
         created_at:
           type: integer
           format: int64
-      required: [id, author_name, body, created_at]
+      required:
+        [id, author_name, author_oauth, author_tag, body, created_at]
     CommentInput:
       type: object
       properties:
