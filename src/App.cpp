@@ -215,7 +215,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
     return;
   }
 
-  if (path.starts_with("/api/")) {
+  if (path.starts_with("/api/v1/")) {
     enum class api_route
     {
       config,
@@ -238,19 +238,19 @@ fn App::dispatch(HttpServerEvent &event) -> void
       bool is_mutation;
     };
     static constexpr StaticStringMap<api_endpoint, 13> API_ROUTES{
-        {{"/api/config", {api_route::config, false}},
-         {"/api/me", {api_route::me, false}},
-         {"/api/admin/pending", {api_route::admin_pending, false}},
-         {"/api/admin/pending/approve", {api_route::admin_approve, true}},
-         {"/api/admin/pending/reject", {api_route::admin_reject, true}},
-         {"/api/admin/site", {api_route::admin_site, true}},
-         {"/api/admin/site/add", {api_route::admin_site_add, true}},
-         {"/api/admin/site/delete", {api_route::admin_site_delete, true}},
-         {"/api/admin/logs", {api_route::admin_logs, false}},
-         {"/api/admin/audit", {api_route::admin_audit, false}},
-         {"/api/sites/add", {api_route::sites_add, true}},
-         {"/api/sites/rename", {api_route::sites_rename, true}},
-         {"/api/sites/react", {api_route::sites_react, true}}}
+        {{"/api/v1/config", {api_route::config, false}},
+         {"/api/v1/me", {api_route::me, false}},
+         {"/api/v1/admin/pending", {api_route::admin_pending, false}},
+         {"/api/v1/admin/pending/approve", {api_route::admin_approve, true}},
+         {"/api/v1/admin/pending/reject", {api_route::admin_reject, true}},
+         {"/api/v1/admin/site", {api_route::admin_site, true}},
+         {"/api/v1/admin/site/add", {api_route::admin_site_add, true}},
+         {"/api/v1/admin/site/delete", {api_route::admin_site_delete, true}},
+         {"/api/v1/admin/logs", {api_route::admin_logs, false}},
+         {"/api/v1/admin/audit", {api_route::admin_audit, false}},
+         {"/api/v1/sites/add", {api_route::sites_add, true}},
+         {"/api/v1/sites/rename", {api_route::sites_rename, true}},
+         {"/api/v1/sites/react", {api_route::sites_react, true}}}
     };
 
     let const endpoint = API_ROUTES.find(path);

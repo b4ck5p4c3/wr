@@ -33,5 +33,6 @@ once it has signed in at least once.
 
 ## API
 
-The internal JSON API is described in [openapi.yaml](openapi.yaml). The public
-webring navigation API is documented at the `/docs` page of a running server.
+The internal JSON API is described in [openapi.yaml](openapi.yaml). The `/docs`
+page of a running server lists every endpoint with its request body and its
+responses. The page is generated from openapi.yaml by the web build.

@@ -11,12 +11,12 @@ printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
-curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/config"
+curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
 
 echo "admin-login: $(curl -s -c "$JAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/auth/dev?role=admin")"
-echo "admin-me: $(curl -s -b "$JAR" "http://127.0.0.1:$PORT/api/me")"
+echo "admin-me: $(curl -s -b "$JAR" "http://127.0.0.1:$PORT/api/v1/me")"
 echo "logout: $(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/auth/logout")"
-echo "after-logout-me: $(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/me")"
+echo "after-logout-me: $(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/me")"
 
 kill "$server" 2>/dev/null
 rm -rf "$WEB" "$DB" "$JAR"

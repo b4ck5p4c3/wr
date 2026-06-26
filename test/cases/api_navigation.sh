@@ -22,7 +22,7 @@ curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.
 echo "sites: $(curl -s "http://127.0.0.1:$PORT/sites")"
 echo "a-data: $(curl -s "http://127.0.0.1:$PORT/a/data")"
 echo "a-next: $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://127.0.0.1:$PORT/a/next")"
-echo "me-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/me")"
+echo "me-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/me")"
 
 kill "$server" 2>/dev/null
 rm -rf "$WEB" "$DB"

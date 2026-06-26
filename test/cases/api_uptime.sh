@@ -11,7 +11,7 @@ printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
-curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/config"
+curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
 
 now_hour=$(( $(date +%s) / 3600 ))
 sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('up','Up','https://up.example','',1,9999999999,'dev:admin',7);"
@@ -20,7 +20,7 @@ sqlite3 "$DB" "INSERT INTO liveness_buckets (slug,hour_bucket,up_count,probe_cou
 curl -s -c "$AJAR" -o /dev/null "http://127.0.0.1:$PORT/auth/dev?role=admin"
 echo "sites: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
 
-me=$(curl -s -b "$AJAR" "http://127.0.0.1:$PORT/api/me")
+me=$(curl -s -b "$AJAR" "http://127.0.0.1:$PORT/api/v1/me")
 uptime=$(printf '%s' "$me" | sed 's/.*"uptime":\[//; s/\].*//')
 echo "uptime-length: $(printf '%s' "$uptime" | tr ',' '\n' | grep -c .)"
 echo "uptime-samples: $(printf '%s' "$uptime" | tr ',' '\n' | grep -vx -- -1 | tr '\n' ' ')"

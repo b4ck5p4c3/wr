@@ -12,12 +12,12 @@ printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
-curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/config"
+curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
 
-echo "unknown-endpoint: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/nope")"
-echo "mutation-get: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/sites/add")"
-echo "admin-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/admin/pending")"
-echo "me-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/me")"
+echo "unknown-endpoint: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/nope")"
+echo "mutation-get: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/sites/add")"
+echo "admin-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/admin/pending")"
+echo "me-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/me")"
 echo "unknown-slug: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/zzz")"
 
 kill "$server" 2>/dev/null
