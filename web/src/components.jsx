@@ -326,77 +326,93 @@ function ownerProfileUrl(oauth, tag) {
   return null;
 }
 
-function CardOwner({ site }) {
-  const tag = site.owner_tag;
-  const label = tag ? "@" + tag : site.owner_name;
-  if (!label) return null;
-  const oauth = site.owner_oauth;
-  const providerClass = oauth ? " owner-" + oauth : "";
-  const url = ownerProfileUrl(oauth, tag);
-  return (
-    <span class="tui-owner">
-      by{" "}
-      {url ? (
-        <a
-          class={"owner-handle" + providerClass}
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {label}
-        </a>
-      ) : (
-        <span class={"owner-handle" + providerClass}>{label}</span>
-      )}
-    </span>
-  );
+function displayUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname === "/" ? "" : parsed.pathname;
+    return (parsed.host + path).replace(/^www\./, "");
+  } catch (_) {
+    return url;
+  }
 }
 
 // One card's inner content, shared by the 3D ring and the vertical phone list.
+// The card reads as a tweet, the site name is the display name, the owner tag is
+// the handle, and the description is the body.
 function cardBody(site, ctx) {
   const icon = faviconFor(site.url);
+  const handle = site.owner_tag ? "@" + site.owner_tag : null;
+  const ownerUrl = ownerProfileUrl(site.owner_oauth, site.owner_tag);
+  const handleClass =
+    "tweet-handle" + (site.owner_oauth ? " owner-" + site.owner_oauth : "");
+  const recordClick = () => {
+    if (ctx.metricsEnabled) api.recordClick(site.slug).catch(() => {});
+  };
   return (
-    <>
-      <header class="tui-bar">
-        {site.created_at ? (
-          <span class="tui-age-top">{formatAge(site.created_at)}</span>
-        ) : null}
-        <span class="tui-title">/{site.slug}</span>
+    <div class="tweet">
+      <header class="tweet-head">
+        <span class="tweet-avatar">
+          {icon ? (
+            <img
+              src={icon}
+              alt=""
+              width="38"
+              height="38"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          ) : null}
+        </span>
+        <span class="tweet-id">
+          <a
+            class="tweet-name"
+            href={site.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={recordClick}
+          >
+            {site.name}
+          </a>
+          <span class="tweet-sub">
+            {handle ? (
+              ownerUrl ? (
+                <a
+                  class={handleClass}
+                  href={ownerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {handle}
+                </a>
+              ) : (
+                <span class={handleClass}>{handle}</span>
+              )
+            ) : null}
+            {site.created_at ? (
+              <span class="tweet-age">{formatAge(site.created_at)}</span>
+            ) : null}
+          </span>
+        </span>
       </header>
-      <div class="tui-body">
-        {icon ? (
-          <img
-            class="tui-favicon"
-            src={icon}
-            alt=""
-            width="16"
-            height="16"
-            onError={(e) => (e.currentTarget.style.display = "none")}
-          />
-        ) : null}
-        <a
-          class="tui-link"
-          href={site.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => {
-            if (ctx.metricsEnabled) api.recordClick(site.slug).catch(() => {});
-          }}
-        >
-          {site.name}
-        </a>
-        <CardOwner site={site} />
-        {site.description ? <p class="tui-desc">{site.description}</p> : null}
-        <ReactionBar
-          site={site}
-          me={ctx.me}
-          onLogin={ctx.onLogin}
-          onReacted={ctx.onReacted}
-        />
-      </div>
-    </>
+      {site.description ? <p class="tweet-text">{site.description}</p> : null}
+      <a
+        class="tweet-link"
+        href={site.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={recordClick}
+      >
+        {displayUrl(site.url)}
+      </a>
+      <ReactionBar
+        site={site}
+        me={ctx.me}
+        onLogin={ctx.onLogin}
+        onReacted={ctx.onReacted}
+      />
+    </div>
   );
 }
 
