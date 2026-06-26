@@ -912,6 +912,8 @@ export function Admin({ onLogin }) {
           ))}
         </ul>
       )}
+      <h2>pending comments</h2>
+      <PendingComments />
       <h2>all sites</h2>
       <button class="primary" onClick={() => setShowAllSites(true)}>
         all sites.. ({me.sites.length})
@@ -952,6 +954,76 @@ export function Admin({ onLogin }) {
       <h2>server logs</h2>
       <LogStream />
     </main>
+  );
+}
+
+// The admin view lists the comments held for approval and resolves each through
+// an approve or a delete action.
+export function PendingComments() {
+  const [comments, setComments] = useState(null);
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  const load = () =>
+    api
+      .adminPendingComments()
+      .then((next) => {
+        setComments(next);
+        setError(null);
+      })
+      .catch((e) => setError(e.message));
+  useEffect(() => {
+    load();
+  }, []);
+
+  const resolve = async (id, isApprove) => {
+    setBusyId(id);
+    try {
+      await (isApprove
+        ? api.adminApproveComment(id)
+        : api.adminDeleteComment(id));
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (error) return <p class="error">{error}</p>;
+  if (comments === null) return <Loading />;
+  if (comments.length === 0) return <p>No comments are waiting for review.</p>;
+
+  return (
+    <ul class="pending-comments">
+      {comments.map((comment) => (
+        <li class="pending-comment" key={comment.id}>
+          <div class="comment-head">
+            <span class="comment-author">{comment.author_name}</span>
+            <span class="comment-time">
+              {formatTimestamp(comment.created_at)}
+            </span>
+          </div>
+          <span class="comment-body">{comment.body}</span>
+          <div class="pending-comment-actions">
+            <button
+              class="primary"
+              disabled={busyId === comment.id}
+              onClick={() => resolve(comment.id, true)}
+            >
+              approve..
+            </button>
+            <button
+              class="danger"
+              disabled={busyId === comment.id}
+              onClick={() => resolve(comment.id, false)}
+            >
+              delete..
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1066,22 +1138,33 @@ function renderMentions(body, slugs) {
   });
 }
 
+const COMMENT_PAGE_SIZE = 20;
+
 // The footer comments. An owner of a site in the ring posts a short note, and an
 // @slug mention links to that site. The slug set is read from the public
-// listing so a mention is linked only when it names a real site.
+// listing so a mention is linked only when it names a real site. A new comment
+// is held for admin approval, and the list is paged through a load-more button.
 export function CommentsSection({ me }) {
   const [comments, setComments] = useState(null);
   const [slugs, setSlugs] = useState([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
 
-  const load = () =>
+  const loadPage = (offset) =>
     api
-      .listComments()
-      .then(setComments)
+      .listComments(offset, COMMENT_PAGE_SIZE)
+      .then((page) => {
+        setComments((prev) =>
+          offset === 0 ? page : (prev || []).concat(page),
+        );
+        setHasMore(page.length === COMMENT_PAGE_SIZE);
+      })
       .catch((e) => setError(e.message));
+
   useEffect(() => {
-    load();
+    loadPage(0);
     api
       .listSites()
       .then((sites) => setSlugs(sites.map((site) => site.slug)))
@@ -1095,11 +1178,14 @@ export function CommentsSection({ me }) {
       await api.postComment(draft.trim());
       setDraft("");
       setError(null);
-      load();
+      setNotice("Your comment was sent and is waiting for approval.");
     } catch (e) {
       setError(e.message);
+      setNotice(null);
     }
   };
+
+  const loadMore = () => loadPage(comments ? comments.length : 0);
 
   return (
     <section class="comments">
@@ -1110,7 +1196,10 @@ export function CommentsSection({ me }) {
             value={draft}
             maxLength={500}
             placeholder="leave a note, @tag a site by its slug"
-            onInput={(e) => setDraft(e.target.value)}
+            onInput={(e) => {
+              setDraft(e.target.value);
+              setNotice(null);
+            }}
           />
           <button class="primary" onClick={post}>
             post..
@@ -1123,6 +1212,7 @@ export function CommentsSection({ me }) {
             : "Sign in as a site owner to comment."}
         </p>
       )}
+      {notice && !error ? <p class="notice">{notice}</p> : null}
       {error ? <p class="error">{error}</p> : null}
       {comments === null ? (
         <Loading />
@@ -1145,6 +1235,11 @@ export function CommentsSection({ me }) {
           ))}
         </ul>
       )}
+      {hasMore ? (
+        <button class="secondary comment-more" onClick={loadMore}>
+          load more..
+        </button>
+      ) : null}
     </section>
   );
 }

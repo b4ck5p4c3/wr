@@ -54,6 +54,7 @@ fn read_comment(SqlStatement &statement) -> comment
   row.author_name = statement.get<String>();
   row.body = statement.get<String>();
   row.created_at = statement.get<i64>();
+  row.is_approved = statement.get<i64>() != 0;
   return row;
 }
 
@@ -141,6 +142,8 @@ static const char *const SCHEMA_MIGRATIONS[] = {
      "  created_at INTEGER NOT NULL);"
      "CREATE INDEX IF NOT EXISTS index_comments_created ON "
      "comments(created_at);"),
+
+    "ALTER TABLE comments ADD COLUMN is_approved INTEGER NOT NULL DEFAULT 0;",
 };
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
@@ -680,17 +683,77 @@ fn Store::add_comment(StringView author_identity, StringView author_name,
   return Success;
 }
 
-fn Store::list_comments(i64 limit_count) const -> ErrorOr<ArrayList<comment>>
+static constexpr const char *COMMENT_COLUMNS =
+    "id, author_identity, author_name, body, created_at, is_approved";
+
+fn Store::list_comments(i64 limit_count, i64 offset_count) const
+    -> ErrorOr<ArrayList<comment>>
 {
   ArrayList<comment> comments{m_allocator};
-  let statement = TRY(m_database.prepare(
-      "SELECT id, author_identity, author_name, body, created_at "
-      "FROM comments ORDER BY id DESC LIMIT ?;"));
+  String sql{m_allocator};
+  sql.append("SELECT ");
+  sql.append(COMMENT_COLUMNS);
+  sql.append(" FROM comments WHERE is_approved = 1 "
+             "ORDER BY id DESC LIMIT ? OFFSET ?;");
+
+  let statement = TRY(m_database.prepare(sql.view()));
+  statement.bind(limit_count);
+  statement.bind(offset_count);
+
+  while (TRY(statement.step()))
+    comments.push(read_comment(statement));
+  return comments;
+}
+
+fn Store::list_pending_comments(i64 limit_count) const
+    -> ErrorOr<ArrayList<comment>>
+{
+  ArrayList<comment> comments{m_allocator};
+  String sql{m_allocator};
+  sql.append("SELECT ");
+  sql.append(COMMENT_COLUMNS);
+  sql.append(" FROM comments WHERE is_approved = 0 ORDER BY id DESC LIMIT ?;");
+
+  let statement = TRY(m_database.prepare(sql.view()));
   statement.bind(limit_count);
 
   while (TRY(statement.step()))
     comments.push(read_comment(statement));
   return comments;
+}
+
+fn Store::find_comment(i64 id) const -> ErrorOr<Maybe<comment>>
+{
+  String sql{m_allocator};
+  sql.append("SELECT ");
+  sql.append(COMMENT_COLUMNS);
+  sql.append(" FROM comments WHERE id = ?;");
+
+  let statement = TRY(m_database.prepare(sql.view()));
+  statement.bind(id);
+  if (TRY(statement.step())) return Maybe<comment>{read_comment(statement)};
+  return Maybe<comment>{None};
+}
+
+fn Store::approve_comment(i64 id) -> ErrorOr<Ok>
+{
+  let statement = TRY(
+      m_database.prepare("UPDATE comments SET is_approved = 1 WHERE id = ?;"));
+  statement.bind(id);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "comment approved, id=%lld", static_cast<long long>(id));
+  return Success;
+}
+
+fn Store::delete_comment(i64 id) -> ErrorOr<Ok>
+{
+  let statement = TRY(m_database.prepare("DELETE FROM comments WHERE id = ?;"));
+  statement.bind(id);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "comment deleted, id=%lld", static_cast<long long>(id));
+  return Success;
 }
 
 } // namespace wr

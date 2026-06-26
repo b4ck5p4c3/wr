@@ -584,6 +584,20 @@ button:hover {
   color: var(--accent);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button:disabled:hover,
+button.primary:disabled:hover,
+button.secondary:disabled:hover,
+button.danger:disabled:hover {
+  border-color: var(--border);
+  color: inherit;
+  background: transparent;
+}
+
 button.primary {
   border-color: var(--accent);
   color: var(--text-secondary);
@@ -1065,4 +1079,37 @@ footer {
 .mention {
   color: var(--accent);
   font-weight: 700;
+}
+
+.comments .notice {
+  color: var(--accent);
+  margin: 0 0 1.5ch;
+}
+
+.comment-more {
+  display: block;
+  margin: 1.5ch auto 0;
+}
+
+.pending-comments {
+  list-style: none;
+  margin: 0 0 1.5ch;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1ch;
+}
+
+.pending-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6ch;
+  padding: 1.2ch;
+  border: 1px solid var(--panel-outline);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.pending-comment-actions {
+  display: flex;
+  gap: 1ch;
 }

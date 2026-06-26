@@ -228,6 +228,9 @@ fn App::dispatch(HttpServerEvent &event) -> void
       admin_site_delete,
       admin_logs,
       admin_audit,
+      admin_comments,
+      admin_comment_approve,
+      admin_comment_delete,
       sites_add,
       sites_rename,
       sites_react,
@@ -239,7 +242,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
       api_route route;
       bool is_mutation;
     };
-    static constexpr StaticStringMap<api_endpoint, 15> API_ROUTES{
+    static constexpr StaticStringMap<api_endpoint, 18> API_ROUTES{
         {{"/api/v1/config", {api_route::config, false}},
          {"/api/v1/me", {api_route::me, false}},
          {"/api/v1/admin/pending", {api_route::admin_pending, false}},
@@ -250,6 +253,11 @@ fn App::dispatch(HttpServerEvent &event) -> void
          {"/api/v1/admin/site/delete", {api_route::admin_site_delete, true}},
          {"/api/v1/admin/logs", {api_route::admin_logs, false}},
          {"/api/v1/admin/audit", {api_route::admin_audit, false}},
+         {"/api/v1/admin/comments", {api_route::admin_comments, false}},
+         {"/api/v1/admin/comments/approve",
+          {api_route::admin_comment_approve, true}},
+         {"/api/v1/admin/comments/delete",
+          {api_route::admin_comment_delete, true}},
          {"/api/v1/sites/add", {api_route::sites_add, true}},
          {"/api/v1/sites/rename", {api_route::sites_rename, true}},
          {"/api/v1/sites/react", {api_route::sites_react, true}},
@@ -282,6 +290,13 @@ fn App::dispatch(HttpServerEvent &event) -> void
     case api_route::admin_site_delete: handle_admin_delete(event); break;
     case api_route::admin_logs: handle_admin_logs(event); break;
     case api_route::admin_audit: handle_admin_audit(event); break;
+    case api_route::admin_comments: handle_admin_comments(event); break;
+    case api_route::admin_comment_approve:
+      handle_admin_comment_resolve(event, true);
+      break;
+    case api_route::admin_comment_delete:
+      handle_admin_comment_resolve(event, false);
+      break;
     case api_route::sites_add: {
       let const who = current_account(event);
       if (who.has_value())

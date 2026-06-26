@@ -1,5 +1,7 @@
 #include "Utils.hpp"
 
+#include "StaticStringMap.hpp"
+
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -81,6 +83,87 @@ fn random_token(Allocator allocator) -> ErrorOr<String>
   String token{allocator};
   append_hex(token, bytes, sizeof(bytes));
   return token;
+}
+
+fn parse_i64(StringView text, i64 fallback) noexcept -> i64
+{
+  usize i = 0;
+  bool is_negative = false;
+  if (i < text.count() && (text[i] == '-' || text[i] == '+')) {
+    is_negative = text[i] == '-';
+    i++;
+  }
+
+  if (i >= text.count()) return fallback;
+
+  constexpr i64 I64_MAX = 9223372036854775807;
+  i64 value = 0;
+  for (; i < text.count(); i++) {
+    if (text[i] < '0' || text[i] > '9') return fallback;
+
+    let const digit = static_cast<i64>(text[i] - '0');
+    if (value > (I64_MAX - digit) / 10) return fallback;
+    value = (value * 10) + digit;
+  }
+
+  return is_negative ? -value : value;
+}
+
+static constexpr StaticStringMap<bool, 12> SWEAR_WORDS{
+    {{"fuck", true},
+     {"shit", true},
+     {"bitch", true},
+     {"asshole", true},
+     {"bastard", true},
+     {"cunt", true},
+     {"dick", true},
+     {"piss", true},
+     {"slut", true},
+     {"whore", true},
+     {"nigger", true},
+     {"faggot", true}}
+};
+
+fn contains_swear(StringView text) noexcept -> bool
+{
+  char token[32];
+  usize token_length = 0;
+  bool is_overflowed = false;
+
+  for (usize i = 0; i <= text.count(); i++) {
+    let const c = i < text.count() ? text[i] : '\0';
+    let const is_letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+
+    if (is_letter) {
+      if (token_length < sizeof(token)) {
+        let const lowered = c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
+        token[token_length++] = static_cast<char>(lowered);
+      } else {
+        is_overflowed = true;
+      }
+      continue;
+    }
+
+    if (token_length > 0 && !is_overflowed) {
+      if (SWEAR_WORDS.find(StringView{token, token_length}) != nullptr)
+        return true;
+    }
+    token_length = 0;
+    is_overflowed = false;
+  }
+
+  return false;
+}
+
+fn to_single_line(Allocator allocator, StringView text) -> String
+{
+  String out{allocator};
+  out.reserve(text.count());
+  for (usize i = 0; i < text.count(); i++) {
+    let const byte = static_cast<unsigned char>(text[i]);
+    out.push(byte < 0x20 || byte == 0x7f ? ' ' : text[i]);
+  }
+  return out;
 }
 
 } // namespace wr

@@ -328,8 +328,26 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
 
 fn App::handle_comments_list(HttpServerEvent &event) -> void
 {
-  static constexpr i64 COMMENT_TAIL_COUNT = 100;
-  let const comments_or = m_store.list_comments(COMMENT_TAIL_COUNT);
+  static constexpr i64 COMMENT_PAGE_LIMIT = 20;
+  static constexpr i64 COMMENT_PAGE_LIMIT_MAX = 100;
+
+  let const offset_param =
+      find_query_param(event.query(), "offset", m_allocator);
+  let const limit_param = find_query_param(event.query(), "limit", m_allocator);
+
+  i64 offset_count = 0;
+  if (offset_param.has_value())
+    offset_count = parse_i64(offset_param.value().view(), 0);
+  if (offset_count < 0) offset_count = 0;
+
+  i64 limit_count = COMMENT_PAGE_LIMIT;
+  if (limit_param.has_value())
+    limit_count = parse_i64(limit_param.value().view(), COMMENT_PAGE_LIMIT);
+  if (limit_count < 1) limit_count = COMMENT_PAGE_LIMIT;
+  if (limit_count > COMMENT_PAGE_LIMIT_MAX)
+    limit_count = COMMENT_PAGE_LIMIT_MAX;
+
+  let const comments_or = m_store.list_comments(limit_count, offset_count);
   if (comments_or.is_error()) {
     reply_message(event, 500, comments_or.error().message().view());
     return;
@@ -376,6 +394,10 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
     reply_message(event, 400, "The comment must be 500 characters or fewer");
     return;
   }
+  if (contains_swear(body.value())) {
+    reply_message(event, 400, "The comment contains disallowed language");
+    return;
+  }
 
   let const stored =
       m_store.add_comment(who.identity.view(), who.display_name.view(),
@@ -385,13 +407,85 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
+  let const audit_detail = to_single_line(m_allocator, body.value());
   if (m_store
           .record_audit(actor_label(who), client_address(event), "comment", "",
-                        body.value(), now_seconds())
+                        audit_detail.view(), now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for comment by %s", who.identity.c_str());
 
   reply_message(event, 200, "Comment posted");
+}
+
+fn App::handle_admin_comments(HttpServerEvent &event) -> void
+{
+  if (!require_admin(event).has_value()) return;
+
+  static constexpr i64 COMMENT_PENDING_COUNT = 100;
+  let const comments_or = m_store.list_pending_comments(COMMENT_PENDING_COUNT);
+  if (comments_or.is_error()) {
+    reply_message(event, 500, comments_or.error().message().view());
+    return;
+  }
+
+  JsonWriter writer{m_allocator};
+  writer.array_begin();
+  let const &comments = comments_or.value();
+  for (usize i = 0; i < comments.count(); i++) {
+    writer.object_begin();
+    writer.key("id");
+    writer.number(comments[i].id);
+    writer.field("author_name", comments[i].author_name.view());
+    writer.field("body", comments[i].body.view());
+    writer.key("created_at");
+    writer.number(comments[i].created_at);
+    writer.object_end();
+  }
+  writer.array_end();
+  reply_json(event, 200, writer.view());
+}
+
+fn App::handle_admin_comment_resolve(HttpServerEvent &event,
+                                     bool should_approve) -> void
+{
+  let const who = require_admin(event);
+  if (!who.has_value()) return;
+
+  let const request = Json::from(m_allocator, event.body());
+  let const id_or = request["id"].to<i64>();
+  if (!id_or.has_value()) {
+    reply_message(event, 400, "An id is required");
+    return;
+  }
+  let const id = id_or.value();
+
+  let const found = m_store.find_comment(id);
+  if (found.is_error() || !found.value().has_value()) {
+    reply_message(event, 404, "No such comment");
+    return;
+  }
+  let const &target = found.value().value();
+
+  let const result =
+      should_approve ? m_store.approve_comment(id) : m_store.delete_comment(id);
+  if (result.is_error()) {
+    reply_message(event, 500, result.error().message().view());
+    return;
+  }
+
+  let const audit_target =
+      to_single_line(m_allocator, target.author_name.view());
+  let const audit_detail = to_single_line(m_allocator, target.body.view());
+  if (m_store
+          .record_audit(actor_label(who.value()), client_address(event),
+                        should_approve ? "comment approve" : "comment delete",
+                        audit_target.view(), audit_detail.view(), now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for comment %lld",
+        static_cast<long long>(id));
+
+  reply_message(event, 200,
+                should_approve ? "Comment approved" : "Comment deleted");
 }
 
 fn App::handle_admin_add(HttpServerEvent &event) -> void

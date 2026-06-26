@@ -1,5 +1,21 @@
 post-owner: {"message":"Comment posted"}
+post-swear: 400
 post-nonowner: 403
 post-anon: 401
 post-empty: 400
+list-pending: []
+admin-pending: [{"id":1,"author_name":"dev user","body":"hello @mine and @ghost","created_at":0}]
+approve-nonadmin: 403
+approve: {"message":"Comment approved"}
 list: [{"id":1,"author_name":"dev user","body":"hello @mine and @ghost","created_at":0}]
+list-with-limit: [{"id":1,"author_name":"dev user","body":"hello @mine and @ghost","created_at":0}]
+list-two: [{"id":2,"author_name":"dev user","body":"the second note","created_at":0},{"id":1,"author_name":"dev user","body":"hello @mine and @ghost","created_at":0}]
+page-first: [{"id":2,"author_name":"dev user","body":"the second note","created_at":0}]
+page-offset: [{"id":1,"author_name":"dev user","body":"hello @mine and @ghost","created_at":0}]
+approve-missing-id: 400
+delete-missing-id: 400
+approve-nonexistent: 404
+delete-nonexistent: 404
+delete: {"message":"Comment deleted"}
+delete-2: {"message":"Comment deleted"}
+list-after-delete: []

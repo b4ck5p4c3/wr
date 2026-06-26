@@ -47,7 +47,13 @@ export const api = {
   addSite: (site) => postJson("/api/v1/sites/add", site),
   renameSite: (slug, name) => postJson("/api/v1/sites/rename", { slug, name }),
   react: (slug, emoji) => postJson("/api/v1/sites/react", { slug, emoji }),
-  listComments: () => getJson("/api/v1/comments"),
+  listComments: (offset = 0, limit = 20) =>
+    getJson(
+      "/api/v1/comments?offset=" +
+        encodeURIComponent(offset) +
+        "&limit=" +
+        encodeURIComponent(limit),
+    ),
   postComment: (body) => postJson("/api/v1/comments/add", { body }),
   adminEditSite: (site) => postJson("/api/v1/admin/site", site),
   adminAddSite: (site) => postJson("/api/v1/admin/site/add", site),
@@ -57,4 +63,8 @@ export const api = {
   adminReject: (id) => postJson("/api/v1/admin/pending/reject", { id }),
   adminLogs: () => getJson("/api/v1/admin/logs"),
   adminAudit: () => getJson("/api/v1/admin/audit"),
+  adminPendingComments: () => getJson("/api/v1/admin/comments"),
+  adminApproveComment: (id) =>
+    postJson("/api/v1/admin/comments/approve", { id }),
+  adminDeleteComment: (id) => postJson("/api/v1/admin/comments/delete", { id }),
 };

@@ -66,6 +66,7 @@ struct comment
   String author_name;
   String body;
   i64 created_at{0};
+  bool is_approved{false};
 };
 
 /* One admin action kept for the audit trail. The actor is the admin label, the
@@ -146,8 +147,13 @@ public:
 
   fn add_comment(StringView author_identity, StringView author_name,
                  StringView body, i64 created_at) -> ErrorOr<Ok>;
-  mustuse fn list_comments(i64 limit_count) const
+  mustuse fn list_comments(i64 limit_count, i64 offset_count) const
       -> ErrorOr<ArrayList<comment>>;
+  mustuse fn list_pending_comments(i64 limit_count) const
+      -> ErrorOr<ArrayList<comment>>;
+  mustuse fn find_comment(i64 id) const -> ErrorOr<Maybe<comment>>;
+  fn approve_comment(i64 id) -> ErrorOr<Ok>;
+  fn delete_comment(i64 id) -> ErrorOr<Ok>;
 
   mustuse pure fn allocator() const noexcept -> Allocator
   {

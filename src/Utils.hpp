@@ -30,4 +30,16 @@ mustuse fn random_bytes(opaque *buffer, usize count) -> ErrorOr<Ok>;
    that fails returns an error, so a predictable token is never issued. */
 mustuse fn random_token(Allocator allocator) -> ErrorOr<String>;
 
+/* Parse a base-ten signed integer. The fallback is returned for empty or
+   malformed text. */
+mustuse fn parse_i64(StringView text, i64 fallback) noexcept -> i64;
+
+/* Whether any whole word in the text matches the profanity filter. Each run of
+   letters is lowercased and looked up in the filter table. */
+mustuse fn contains_swear(StringView text) noexcept -> bool;
+
+/* A control character in a logged value breaks the line or forges another. Each
+   control byte is replaced with a space. */
+mustuse fn to_single_line(Allocator allocator, StringView text) -> String;
+
 } // namespace wr
