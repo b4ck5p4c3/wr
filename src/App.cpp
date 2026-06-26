@@ -459,7 +459,12 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
     switch (*stepped) {
     case nav_step::next: target = (current + 1) % count; break;
     case nav_step::prev: target = (current + count - 1) % count; break;
-    case nav_step::random: target = static_cast<usize>(std::rand()) % count;
+    case nav_step::random: {
+      usize roll = 0;
+      if (random_bytes(&roll, sizeof(roll)).is_error()) roll = 0;
+      target = roll % count;
+      break;
+    }
     }
   }
 

@@ -21,7 +21,12 @@ fn append_hex(String &out, const unsigned char *bytes, usize length) -> void;
    matching prefix length through its timing. */
 mustuse fn constant_time_equal(StringView left, StringView right) -> bool;
 
-/* A random opaque token, sixteen bytes of urandom hex encoded. An entropy read
+/* Fill the buffer with kernel entropy through getrandom. A short read is
+   retried, and a failure returns an error so a predictable value is never
+   issued. */
+mustuse fn random_bytes(opaque *buffer, usize count) -> ErrorOr<Ok>;
+
+/* A random opaque token, sixteen bytes of entropy hex encoded. An entropy read
    that fails returns an error, so a predictable token is never issued. */
 mustuse fn random_token(Allocator allocator) -> ErrorOr<String>;
 

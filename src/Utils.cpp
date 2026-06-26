@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <sys/random.h>
 
 namespace wr {
 
@@ -57,21 +58,25 @@ fn constant_time_equal(StringView left, StringView right) -> bool
   return difference == 0;
 }
 
+fn random_bytes(opaque *buffer, usize count) -> ErrorOr<Ok>
+{
+  let bytes = static_cast<unsigned char *>(buffer);
+  usize filled_count = 0;
+  while (filled_count < count) {
+    let const got = ::getrandom(bytes + filled_count, count - filled_count, 0);
+    if (got < 0) {
+      if (errno == EINTR) continue;
+      return Error{"The entropy source is unavailable"};
+    }
+    filled_count += static_cast<usize>(got);
+  }
+  return Success;
+}
+
 fn random_token(Allocator allocator) -> ErrorOr<String>
 {
   unsigned char bytes[16] = {};
-  std::FILE *source = std::fopen("/dev/urandom", "rb");
-  if (source == nullptr) {
-    String message{allocator};
-    message.append("Unable to open the entropy source, ");
-    message.append(std::strerror(errno));
-    return Error{message.view()};
-  }
-  defer { std::fclose(source); };
-
-  let const read_count = std::fread(bytes, 1, sizeof(bytes), source);
-  if (read_count != sizeof(bytes))
-    return Error{"The entropy source returned too few bytes"};
+  TRY(random_bytes(bytes, sizeof(bytes)));
 
   String token{allocator};
   append_hex(token, bytes, sizeof(bytes));
