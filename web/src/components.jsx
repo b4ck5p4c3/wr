@@ -181,8 +181,55 @@ export function UptimeGraph({ history }) {
   );
 }
 
+// The reaction set is the open-source Microsoft Fluent Emoji, served as images
+// from the bundle so no unicode glyph is rendered.
+const REACTIONS = ["poop", "like", "eyes", "fire", "star", "skull"];
+
+export function ReactionBar({ site, me, onLogin, onReacted }) {
+  const counts = site.reactions || {};
+  const mine = site.reacted || [];
+  const react = async (emoji) => {
+    if (!me) {
+      if (onLogin) onLogin();
+      return;
+    }
+    try {
+      await api.react(site.slug, emoji);
+      if (onReacted) onReacted();
+    } catch (_) {
+      // a failed toggle leaves the counts as they were
+    }
+  };
+  return (
+    <div class="reactions">
+      {REACTIONS.map((emoji) => (
+        <button
+          key={emoji}
+          class={mine.includes(emoji) ? "reaction mine" : "reaction"}
+          title={emoji}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            react(emoji);
+          }}
+        >
+          <img
+            src={"/emoji/" + emoji + ".png"}
+            alt={emoji}
+            width="20"
+            height="20"
+          />
+          {counts[emoji] ? (
+            <span class="reaction-count">{counts[emoji]}</span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // One card's inner content, shared by the 3D ring and the vertical phone list.
-function cardBody(site) {
+function cardBody(site, ctx) {
   const icon = faviconFor(site.url);
   return (
     <>
@@ -210,6 +257,12 @@ function cardBody(site) {
         {site.created_at ? (
           <p class="tui-age">in the ring for {formatAge(site.created_at)}</p>
         ) : null}
+        <ReactionBar
+          site={site}
+          me={ctx.me}
+          onLogin={ctx.onLogin}
+          onReacted={ctx.onReacted}
+        />
       </div>
     </>
   );
@@ -226,7 +279,8 @@ const MAX_POP_PIXELS = 140;
 // transform is mutated through the ref so a frame never costs a render. Each
 // card is double sided, so a card facing away shows its back. On a phone width
 // the cylinder is replaced by a plain vertical list.
-export function Carousel({ sites }) {
+export function Carousel({ sites, me, onLogin, onReacted }) {
+  const ctx = { me, onLogin, onReacted };
   const [isNarrow, setIsNarrow] = useState(
     typeof matchMedia !== "undefined" && matchMedia(NARROW_QUERY).matches,
   );
@@ -326,7 +380,7 @@ export function Carousel({ sites }) {
       <ul class="ring-vertical">
         {sites.map((site) => (
           <li class="tui-card" key={site.slug}>
-            {cardBody(site)}
+            {cardBody(site, ctx)}
           </li>
         ))}
       </ul>
@@ -355,8 +409,8 @@ export function Carousel({ sites }) {
                 "px)",
             }}
           >
-            <div class="tui-face">{cardBody(site)}</div>
-            <div class="tui-face tui-back">{cardBody(site)}</div>
+            <div class="tui-face">{cardBody(site, ctx)}</div>
+            <div class="tui-face tui-back">{cardBody(site, ctx)}</div>
           </article>
         ))}
         {sites.map((_, i) => (
@@ -382,11 +436,11 @@ export function Carousel({ sites }) {
   );
 }
 
-export function Landing({ navigate, me, reload }) {
+export function Landing({ navigate, me, reload, onLogin }) {
   const [sites, setSites] = useState(null);
   const [error, setError] = useState(null);
   const [showAddSite, setShowAddSite] = useState(false);
-  useEffect(() => {
+  const loadSites = () =>
     api
       .listSites()
       .then(setSites)
@@ -397,6 +451,8 @@ export function Landing({ navigate, me, reload }) {
             : e.message,
         ),
       );
+  useEffect(() => {
+    loadSites();
   }, []);
 
   return (
@@ -409,7 +465,12 @@ export function Landing({ navigate, me, reload }) {
       ) : sites.length === 0 ? (
         <p>No sites are in the ring yet.</p>
       ) : (
-        <Carousel sites={sites} />
+        <Carousel
+          sites={sites}
+          me={me}
+          onLogin={onLogin}
+          onReacted={loadSites}
+        />
       )}
 
       {me && me.is_admin ? (

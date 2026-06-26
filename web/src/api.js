@@ -46,6 +46,7 @@ export const api = {
   logout: () => postJson("/auth/logout", {}),
   addSite: (site) => postJson("/api/sites/add", site),
   renameSite: (slug, name) => postJson("/api/sites/rename", { slug, name }),
+  react: (slug, emoji) => postJson("/api/sites/react", { slug, emoji }),
   adminEditSite: (site) => postJson("/api/admin/site", site),
   adminAddSite: (site) => postJson("/api/admin/site/add", site),
   adminDeleteSite: (slug) => postJson("/api/admin/site/delete", { slug }),

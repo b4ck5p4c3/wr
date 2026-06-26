@@ -49,7 +49,14 @@ export function App() {
   if (path === "/about") page = <About />;
   else if (path === "/admin") page = <Admin onLogin={onLogin} />;
   else if (path === "/" || path === "/panel")
-    page = <Landing navigate={navigate} me={me} reload={reloadMe} />;
+    page = (
+      <Landing
+        navigate={navigate}
+        me={me}
+        reload={reloadMe}
+        onLogin={onLogin}
+      />
+    );
   else page = <NotFound navigate={navigate} />;
 
   return (
