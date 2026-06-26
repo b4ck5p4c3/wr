@@ -38,6 +38,7 @@ fn read_audit_entry(SqlStatement &statement) -> audit_entry
   audit_entry row{};
   row.id = statement.get<i64>();
   row.actor = statement.get<String>();
+  row.actor_ip = statement.get<String>();
   row.action = statement.get<String>();
   row.target = statement.get<String>();
   row.detail = statement.get<String>();
@@ -118,6 +119,8 @@ static const char *const SCHEMA_MIGRATIONS[] = {
      "  created_at INTEGER NOT NULL);"
      "CREATE INDEX IF NOT EXISTS index_audit_created ON "
      "audit_log(created_at);"),
+
+    "ALTER TABLE audit_log ADD COLUMN actor_ip TEXT NOT NULL DEFAULT '';",
 };
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
@@ -604,21 +607,24 @@ fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>
   return Success;
 }
 
-fn Store::record_audit(StringView actor, StringView action, StringView target,
-                       StringView detail, i64 created_at) -> ErrorOr<Ok>
+fn Store::record_audit(StringView actor, StringView actor_ip, StringView action,
+                       StringView target, StringView detail, i64 created_at)
+    -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
-      "INSERT INTO audit_log (actor, action, target, detail, created_at) "
-      "VALUES (?, ?, ?, ?, ?);"));
+      "INSERT INTO audit_log (actor, actor_ip, action, target, detail, "
+      "created_at) VALUES (?, ?, ?, ?, ?, ?);"));
   statement.bind(actor);
+  statement.bind(actor_ip);
   statement.bind(action);
   statement.bind(target);
   statement.bind(detail);
   statement.bind(created_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "audit recorded, actor=%.*s action=%.*s target=%.*s",
+  LOG(Info, "audit recorded, actor=%.*s ip=%.*s action=%.*s target=%.*s",
       static_cast<int>(actor.count()), actor.data,
+      static_cast<int>(actor_ip.count()), actor_ip.data,
       static_cast<int>(action.count()), action.data,
       static_cast<int>(target.count()), target.data);
   return Success;
@@ -628,8 +634,8 @@ fn Store::list_audit(i64 limit_count) const -> ErrorOr<ArrayList<audit_entry>>
 {
   ArrayList<audit_entry> entries{m_allocator};
   let statement = TRY(m_database.prepare(
-      "SELECT id, actor, action, target, detail, created_at FROM audit_log "
-      "ORDER BY id DESC LIMIT ?;"));
+      "SELECT id, actor, actor_ip, action, target, detail, created_at "
+      "FROM audit_log ORDER BY id DESC LIMIT ?;"));
   statement.bind(limit_count);
 
   while (TRY(statement.step()))

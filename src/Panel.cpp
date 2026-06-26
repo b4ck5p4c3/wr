@@ -50,6 +50,25 @@ fn actor_label(const account &who) -> StringView
                                             : who.display_name.view();
 }
 
+/* Behind a reverse proxy the socket peer is the proxy, so a forwarded header
+   holds the real client address. The first hop of x-forwarded-for is taken,
+   then x-real-ip, and the socket peer is the fallback. */
+fn client_address(HttpServerEvent &event) -> StringView
+{
+  let const &headers = event.request_headers();
+  if (let const forwarded = headers.get("x-forwarded-for");
+      forwarded.has_value())
+  {
+    let const value = forwarded.value();
+    let const comma = value.find_character(',');
+    return comma.has_value() ? value.substring_of_length(0, comma.value())
+                             : value;
+  }
+  if (let const real_ip = headers.get("x-real-ip"); real_ip.has_value())
+    return real_ip.value();
+  return event.client_ip();
+}
+
 fn write_panel_site(JsonWriter &writer, const site &row,
                     const ArrayList<i64> &uptime) -> void
 {
@@ -206,6 +225,14 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
     reply_message(event, 500, recorded.error().message().view());
     return;
   }
+
+  if (m_store
+          .record_audit(actor_label(who), client_address(event), "submit add",
+                        input.slug, input.name, now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for submit add %.*s",
+        static_cast<int>(input.slug.count()), input.slug.data);
+
   reply_message(event, 200, "Your site was submitted for review");
 }
 
@@ -233,6 +260,15 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
     reply_message(event, 500, recorded.error().message().view());
     return;
   }
+
+  if (m_store
+          .record_audit(actor_label(who), client_address(event),
+                        "submit rename", slug.value(), name.value(),
+                        now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for submit rename %.*s",
+        static_cast<int>(slug.value().count()), slug.value().data);
+
   reply_message(event, 200, "Your rename was submitted for review");
 }
 
@@ -277,6 +313,15 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
     reply_message(event, 500, toggled.error().message().view());
     return;
   }
+
+  if (m_store
+          .record_audit(actor_label(who), client_address(event),
+                        toggled.value() ? "react add" : "react remove",
+                        slug.value(), emoji.value(), now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped for react on %.*s",
+        static_cast<int>(slug.value().count()), slug.value().data);
+
   reply_message(event, 200,
                 toggled.value() ? "Reaction added" : "Reaction removed");
 }
@@ -321,8 +366,8 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()), "add site", input.slug,
-                        input.name, now_seconds())
+          .record_audit(actor_label(who.value()), client_address(event),
+                        "add site", input.slug, input.name, now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for add %.*s",
         static_cast<int>(input.slug.count()), input.slug.data);
@@ -355,7 +400,8 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()), "remove site", slug.value(),
+          .record_audit(actor_label(who.value()), client_address(event),
+                        "remove site", slug.value(),
                         found.value().value().name.view(), now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for remove %.*s",
@@ -411,8 +457,8 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
         static_cast<int>(input.slug.count()), input.slug.data);
 
   if (m_store
-          .record_audit(actor_label(who.value()), "edit site", input.slug,
-                        input.name, now_seconds())
+          .record_audit(actor_label(who.value()), client_address(event),
+                        "edit site", input.slug, input.name, now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for edit %.*s",
         static_cast<int>(input.slug.count()), input.slug.data);
@@ -493,6 +539,7 @@ fn App::handle_admin_audit(HttpServerEvent &event) -> void
     writer.key("id");
     writer.number(entries[i].id);
     writer.field("actor", entries[i].actor.view());
+    writer.field("actor_ip", entries[i].actor_ip.view());
     writer.field("action", entries[i].action.view());
     writer.field("target", entries[i].target.view());
     writer.field("detail", entries[i].detail.view());
@@ -595,9 +642,9 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
   action_label.append(should_approve ? "approve " : "reject ");
   action_label.append(action.kind.view());
   if (m_store
-          .record_audit(actor_label(who.value()), action_label.view(),
-                        action.target_slug.view(), action.owner.view(),
-                        now_seconds())
+          .record_audit(actor_label(who.value()), client_address(event),
+                        action_label.view(), action.target_slug.view(),
+                        action.owner.view(), now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for pending %lld",
         static_cast<long long>(id));

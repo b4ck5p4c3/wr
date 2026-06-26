@@ -813,6 +813,11 @@ li.site .description-field {
   color: var(--footer-text);
 }
 
+.audit-ip {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
 .audit-detail {
   flex-basis: 100%;
   color: var(--footer-text);

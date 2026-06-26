@@ -63,6 +63,7 @@ struct audit_entry
 {
   i64 id{0};
   String actor;
+  String actor_ip;
   String action;
   String target;
   String detail;
@@ -125,8 +126,9 @@ public:
   mustuse fn find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>;
   fn set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>;
 
-  fn record_audit(StringView actor, StringView action, StringView target,
-                  StringView detail, i64 created_at) -> ErrorOr<Ok>;
+  fn record_audit(StringView actor, StringView actor_ip, StringView action,
+                  StringView target, StringView detail, i64 created_at)
+      -> ErrorOr<Ok>;
   mustuse fn list_audit(i64 limit_count) const
       -> ErrorOr<ArrayList<audit_entry>>;
 

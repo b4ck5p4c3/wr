@@ -989,6 +989,9 @@ export function AuditLog() {
           <span class="audit-action">{entry.action}</span>
           <span class="audit-target">{entry.target}</span>
           <span class="audit-actor">{entry.actor}</span>
+          {entry.actor_ip ? (
+            <span class="audit-ip">{entry.actor_ip}</span>
+          ) : null}
           {entry.detail ? (
             <span class="audit-detail">{entry.detail}</span>
           ) : null}
