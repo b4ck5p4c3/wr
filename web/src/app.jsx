@@ -91,7 +91,7 @@ export function App() {
         </div>
       ) : null}
       <footer>
-        <CommentsSection me={me} onLogin={onLogin} />
+        <CommentsSection me={me} />
         <p>
           running on{" "}
           <a

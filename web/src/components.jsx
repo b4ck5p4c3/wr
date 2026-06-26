@@ -1069,7 +1069,7 @@ function renderMentions(body, slugs) {
 // The footer comments. An owner of a site in the ring posts a short note, and an
 // @slug mention links to that site. The slug set is read from the public
 // listing so a mention is linked only when it names a real site.
-export function CommentsSection({ me, onLogin }) {
+export function CommentsSection({ me }) {
   const [comments, setComments] = useState(null);
   const [slugs, setSlugs] = useState([]);
   const [draft, setDraft] = useState("");
@@ -1121,11 +1121,6 @@ export function CommentsSection({ me, onLogin }) {
           {me
             ? "Only owners of a site in the ring may comment."
             : "Sign in as a site owner to comment."}
-          {!me ? (
-            <button class="secondary" onClick={onLogin}>
-              login..
-            </button>
-          ) : null}
         </p>
       )}
       {error ? <p class="error">{error}</p> : null}
