@@ -89,6 +89,13 @@ static const char *const SCHEMA_MIGRATIONS[] = {
      "  PRIMARY KEY (slug, hour_bucket));"
      "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "
      "liveness_buckets(hour_bucket);"),
+
+    ("CREATE TABLE IF NOT EXISTS reactions ("
+     "  slug TEXT NOT NULL,"
+     "  emoji TEXT NOT NULL,"
+     "  identity TEXT NOT NULL,"
+     "  PRIMARY KEY (slug, emoji, identity));"
+     "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"),
 };
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
@@ -347,6 +354,80 @@ fn Store::get_liveness_history(StringView slug, i64 now) const
   }
 
   return history;
+}
+
+fn Store::toggle_reaction(StringView slug, StringView emoji,
+                          StringView identity) -> ErrorOr<bool>
+{
+  let exists = TRY(m_database.prepare(
+      "SELECT 1 FROM reactions WHERE slug = ? AND emoji = ? AND "
+      "identity = ?;"));
+  exists.bind(slug);
+  exists.bind(emoji);
+  exists.bind(identity);
+  let const is_set = TRY(exists.step());
+
+  if (is_set) {
+    let statement = TRY(m_database.prepare(
+        "DELETE FROM reactions WHERE slug = ? AND emoji = ? AND "
+        "identity = ?;"));
+    statement.bind(slug);
+    statement.bind(emoji);
+    statement.bind(identity);
+    unused(TRY(statement.step()));
+
+    LOG(Info, "reaction removed, slug=%.*s emoji=%.*s",
+        static_cast<int>(slug.count()), slug.data,
+        static_cast<int>(emoji.count()), emoji.data);
+    return false;
+  }
+
+  let statement = TRY(m_database.prepare(
+      "INSERT INTO reactions (slug, emoji, identity) VALUES (?, ?, ?);"));
+  statement.bind(slug);
+  statement.bind(emoji);
+  statement.bind(identity);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "reaction added, slug=%.*s emoji=%.*s",
+      static_cast<int>(slug.count()), slug.data,
+      static_cast<int>(emoji.count()), emoji.data);
+  return true;
+}
+
+fn Store::get_reactions(StringView slug) const
+    -> ErrorOr<ArrayList<reaction_count>>
+{
+  ArrayList<reaction_count> counts{m_allocator};
+
+  let statement = TRY(m_database.prepare(
+      "SELECT emoji, COUNT(*) FROM reactions WHERE slug = ? GROUP BY emoji "
+      "ORDER BY emoji;"));
+  statement.bind(slug);
+  while (TRY(statement.step())) {
+    reaction_count entry{};
+    entry.emoji = statement.get<String>();
+    entry.count = statement.get<i64>();
+    counts.push(steal(entry));
+  }
+
+  return counts;
+}
+
+fn Store::get_user_reactions(StringView slug, StringView identity) const
+    -> ErrorOr<ArrayList<String>>
+{
+  ArrayList<String> emojis{m_allocator};
+
+  let statement = TRY(m_database.prepare(
+      "SELECT emoji FROM reactions WHERE slug = ? AND identity = ? "
+      "ORDER BY emoji;"));
+  statement.bind(slug);
+  statement.bind(identity);
+  while (TRY(statement.step()))
+    emojis.push(statement.get<String>());
+
+  return emojis;
 }
 
 fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>

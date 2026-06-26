@@ -21,6 +21,13 @@ struct site
   i64 created_at{0};
 };
 
+/* A tally of one emoji on one site, read back for the public listing. */
+struct reaction_count
+{
+  String emoji;
+  i64 count{0};
+};
+
 /* A panel account, keyed by a provider identity such as "github:1234". */
 struct account
 {
@@ -80,6 +87,13 @@ public:
   fn rotate_liveness(i64 now) -> ErrorOr<Ok>;
   mustuse fn get_liveness_history(StringView slug, i64 now) const
       -> ErrorOr<ArrayList<i64>>;
+
+  mustuse fn toggle_reaction(StringView slug, StringView emoji,
+                             StringView identity) -> ErrorOr<bool>;
+  mustuse fn get_reactions(StringView slug) const
+      -> ErrorOr<ArrayList<reaction_count>>;
+  mustuse fn get_user_reactions(StringView slug, StringView identity) const
+      -> ErrorOr<ArrayList<String>>;
 
   mustuse fn find_account(StringView identity) const -> ErrorOr<Maybe<account>>;
   fn upsert_account(StringView identity, StringView display_name, bool is_admin)
