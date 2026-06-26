@@ -485,6 +485,18 @@ img {
 
 .tui-face:hover .reaction.empty {
   display: inline-flex;
+  animation: reaction-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes reaction-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* A big panel is the shared block, a bordered slab with the warm inset glow. */
@@ -999,8 +1011,12 @@ footer {
   flex-direction: column;
   gap: 0.4ch;
   padding: 1.2ch;
-  border: 1px solid var(--panel-outline);
-  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.32));
+  box-shadow:
+    0 0 0 1px var(--panel-outline),
+    inset 0 0 24px var(--panel-glow-inset),
+    0 8px 24px var(--tui-shadow);
 }
 
 .comment-head {
