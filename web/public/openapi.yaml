@@ -641,7 +641,7 @@ components:
         enum: [next, prev, random]
   responses:
     Message:
-      description: A plain message.
+      description: 'A JSON body, {"message": string}.'
       content:
         application/json:
           schema:

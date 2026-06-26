@@ -310,7 +310,7 @@ function renderResponses(op, schemas) {
     })
     .join("");
   return (
-    '<div class="block"><span class="label">responses</span><ul>' +
+    '<div class="block"><span class="label">responses (JSON)</span><ul>' +
     rows +
     "</ul></div>"
   );
@@ -408,6 +408,7 @@ function render(spec) {
         --border: #5a4a7a;
         --muted: #b9a8d0;
         --post: #82e882;
+        --delete: #f0786c;
       }
       * {
         box-sizing: border-box;
@@ -470,9 +471,11 @@ function render(spec) {
       }
       .method-post,
       .method-put,
-      .method-delete,
       .method-patch {
         background: var(--post);
+      }
+      .method-delete {
+        background: var(--delete);
       }
       .auth {
         margin-left: auto;
