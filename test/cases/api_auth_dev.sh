@@ -4,11 +4,9 @@
 set -u
 PORT=18767
 DB=$(mktemp -u /tmp/wr_auth_XXXXXX.db)
-WEB=$(mktemp -d)
 JAR=$(mktemp -u /tmp/wr_auth_jar_XXXXXX)
-printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
@@ -19,4 +17,4 @@ echo "logout: $(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "http:/
 echo "after-logout-me: $(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/me")"
 
 kill "$server" 2>/dev/null
-rm -rf "$WEB" "$DB" "$JAR"
+rm -rf "$DB" "$JAR"

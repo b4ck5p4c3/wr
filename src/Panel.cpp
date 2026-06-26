@@ -71,7 +71,8 @@ fn client_address(HttpServerEvent &event) -> StringView
 }
 
 fn write_panel_site(JsonWriter &writer, const site &row,
-                    const ArrayList<i64> &uptime) -> void
+                    const ArrayList<i64> &uptime, StringView owner_display_name)
+    -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -88,6 +89,7 @@ fn write_panel_site(JsonWriter &writer, const site &row,
     writer.number(uptime[i]);
   writer.array_end();
   writer.field("owner", row.owner.view());
+  writer.field("owner_display_name", owner_display_name);
   writer.object_end();
 }
 
@@ -170,7 +172,15 @@ fn App::handle_me(HttpServerEvent &event) -> void
         m_store.get_liveness_history(sites[i].slug.view(), now);
     ArrayList<i64> uptime{m_allocator};
     if (!history_or.is_error()) uptime = history_or.value().clone();
-    write_panel_site(writer, sites[i], uptime);
+
+    /* The owner identity is opaque, so the display name is attached for the
+       admin to read who owns each site. */
+    let const account = m_store.find_account(sites[i].owner.view());
+    let const has_name = !account.is_error() && account.value().has_value();
+    let const owner_name = has_name
+                               ? account.value().value().display_name.view()
+                               : sites[i].owner.view();
+    write_panel_site(writer, sites[i], uptime, owner_name);
   }
   writer.array_end();
 

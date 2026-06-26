@@ -8,12 +8,14 @@ import {
   Landing,
   LoginModal,
   NotFound,
+  useButtonParticles,
   useEscape,
   useRoute,
 } from "./components.jsx";
 
 export function App() {
   const [path, navigate] = useRoute();
+  useButtonParticles();
   const [showLogin, setShowLogin] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [me, setMe] = useState(undefined);

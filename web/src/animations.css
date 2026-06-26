@@ -7,3 +7,37 @@
     opacity: 1;
   }
 }
+
+/* A route change crossfades the whole page through the View Transitions API,
+   borrowed from the fennec.support navigation. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.3s;
+  animation-timing-function: ease-out;
+}
+
+::view-transition-old(root) {
+  animation-name: pageFadeOut;
+}
+
+::view-transition-new(root) {
+  animation-name: pageFadeIn;
+}
+
+@keyframes pageFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

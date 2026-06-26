@@ -708,6 +708,17 @@ components:
           type: integer
           format: int64
           description: The unix time the site joined the ring.
+        owner:
+          type: string
+          description: The identity that owns the site.
+        owner_display_name:
+          type: string
+          description: The human name of the owner, empty when no account is found.
+        owner_username:
+          type: string
+          description: >-
+            The linkable owner handle, the github login or the telegram
+            username, empty when none is set.
         reactions:
           type: object
           description: >-
@@ -723,7 +734,17 @@ components:
             public listing only when a session cookie is sent.
           items:
             type: string
-      required: [slug, name, url, description, created_at]
+      required:
+        [
+          slug,
+          name,
+          url,
+          description,
+          created_at,
+          owner,
+          owner_display_name,
+          owner_username,
+        ]
     WebringWebsiteNavigationData:
       type: object
       description: The neighbours around a site.
@@ -765,8 +786,23 @@ components:
         owner:
           type: string
           description: The identity that owns the site.
+        owner_display_name:
+          type: string
+          description: >-
+            The display name behind the owner identity, the identity itself when
+            no account is found.
       required:
-        [slug, name, url, description, is_reachable, last_seen_at, uptime, owner]
+        [
+          slug,
+          name,
+          url,
+          description,
+          is_reachable,
+          last_seen_at,
+          uptime,
+          owner,
+          owner_display_name,
+        ]
     PanelAccount:
       type: object
       description: The signed-in account with its sites.

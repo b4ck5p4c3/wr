@@ -144,6 +144,8 @@ static const char *const SCHEMA_MIGRATIONS[] = {
      "comments(created_at);"),
 
     "ALTER TABLE comments ADD COLUMN is_approved INTEGER NOT NULL DEFAULT 0;",
+
+    "ALTER TABLE accounts ADD COLUMN username TEXT NOT NULL DEFAULT '';",
 };
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
@@ -487,13 +489,14 @@ fn Store::get_user_reactions(StringView slug, StringView identity) const
 fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>
 {
   let statement = TRY(m_database.prepare(
-      "SELECT identity, display_name, is_admin FROM accounts "
+      "SELECT identity, display_name, username, is_admin FROM accounts "
       "WHERE identity = ?;"));
   statement.bind(identity);
   if (TRY(statement.step())) {
     account row{};
     row.identity = statement.get<String>();
     row.display_name = statement.get<String>();
+    row.username = statement.get<String>();
     row.is_admin = statement.get<i64>() != 0;
     return Maybe<account>{steal(row)};
   }
@@ -501,15 +504,17 @@ fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>
 }
 
 fn Store::upsert_account(StringView identity, StringView display_name,
-                         bool is_admin) -> ErrorOr<Ok>
+                         StringView username, bool is_admin) -> ErrorOr<Ok>
 {
   let statement =
       TRY(m_database.prepare("INSERT INTO accounts (identity, display_name, "
-                             "is_admin) VALUES (?, ?, ?) "
+                             "username, is_admin) VALUES (?, ?, ?, ?) "
                              "ON CONFLICT(identity) DO UPDATE SET "
-                             "display_name = excluded.display_name;"));
+                             "display_name = excluded.display_name, "
+                             "username = excluded.username;"));
   statement.bind(identity);
   statement.bind(display_name);
+  statement.bind(username);
   statement.bind(is_admin);
   unused(TRY(statement.step()));
 

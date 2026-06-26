@@ -7,15 +7,13 @@
 set -u
 PORT=18774
 DB=$(mktemp -u /tmp/wr_comment_XXXXXX.db)
-WEB=$(mktemp -d)
 UJAR=$(mktemp -u /tmp/wr_comment_ujar_XXXXXX)
 AJAR=$(mktemp -u /tmp/wr_comment_ajar_XXXXXX)
-printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 
-timeout 2 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1
+timeout 2 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
 sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('mine','Mine','https://mine.example','',1,9999999999,'dev:user',7);"
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
@@ -53,4 +51,4 @@ echo "delete-2: $(curl -s -b "$AJAR" -X DELETE -H "$ct" -d '{"id":2}' "$api/admi
 echo "list-after-delete: $(curl -s "$api/comments" | sed "$strip")"
 
 kill "$server" 2>/dev/null
-rm -rf "$WEB" "$DB" "$UJAR" "$AJAR"
+rm -rf "$DB" "$UJAR" "$AJAR"

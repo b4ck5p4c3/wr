@@ -4,11 +4,9 @@
 set -u
 PORT=18771
 DB=$(mktemp -u /tmp/wr_adm_XXXXXX.db)
-WEB=$(mktemp -d)
 AJAR=$(mktemp -u /tmp/wr_adm_jar_XXXXXX)
-printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
@@ -22,4 +20,4 @@ echo "delete: $(curl -s -b "$AJAR" -X DELETE -H 'Content-Type: application/json'
 echo "sites-after-delete: $(curl -s "http://127.0.0.1:$PORT/sites")"
 
 kill "$server" 2>/dev/null
-rm -rf "$WEB" "$DB" "$AJAR"
+rm -rf "$DB" "$AJAR"

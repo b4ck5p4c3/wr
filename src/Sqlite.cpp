@@ -111,7 +111,10 @@ fn Sqlite::reset_statement(opaque *handle) noexcept -> void
 
 fn Sqlite::bind_text(opaque *handle, int index, StringView text) -> void
 {
-  sqlite3_bind_text(static_cast<sqlite3_stmt *>(handle), index, text.data,
+  /* A null data pointer binds SQL NULL, which a NOT NULL column rejects, so an
+     empty view is bound as the empty string instead. */
+  sqlite3_bind_text(static_cast<sqlite3_stmt *>(handle), index,
+                    text.data != nullptr ? text.data : "",
                     static_cast<int>(text.count()), SQLITE_TRANSIENT);
 }
 

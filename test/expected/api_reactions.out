@@ -3,7 +3,7 @@ react-star: {"message":"Reaction added"}
 react-bad: {"message":"That reaction is not allowed"}
 react-missing: {"message":"No such site"}
 react-unauth: 401
-sites-anon: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"reactions":{"fire":1,"star":1}}]
-sites-user: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"reactions":{"fire":1,"star":1},"reacted":["fire","star"]}]
+sites-anon: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner":"x","owner_display_name":"","owner_username":"","reactions":{"fire":1,"star":1}}]
+sites-user: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner":"x","owner_display_name":"","owner_username":"","reactions":{"fire":1,"star":1},"reacted":["fire","star"]}]
 toggle-off: {"message":"Reaction removed"}
-sites-after: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"reactions":{"star":1},"reacted":["star"]}]
+sites-after: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner":"x","owner_display_name":"","owner_username":"","reactions":{"star":1},"reacted":["star"]}]

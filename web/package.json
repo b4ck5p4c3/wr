@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "docs": "node gen-docs.js",
-    "build": "node gen-docs.js && vite build",
+    "docs": "bun gen-docs.js",
+    "build": "bun gen-docs.js && vite build",
     "preview": "vite preview",
     "format": "prettier --write src"
   },

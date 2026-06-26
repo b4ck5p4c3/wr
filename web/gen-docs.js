@@ -334,7 +334,7 @@ function renderEndpoint(endpoint, schemas) {
     '<span class="summary">' +
     escapeHtml(endpoint.summary) +
     "</span>" +
-    (endpoint.auth ? '<span class="auth">session</span>' : "") +
+    (endpoint.auth ? '<span class="auth">with session cookie</span>' : "") +
     "</div>" +
     (detail ? '<div class="detail">' + detail + "</div>" : "") +
     "</div>"

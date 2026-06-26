@@ -8,7 +8,7 @@ MODE ?= dbg
 
 export MODE
 
-all: wr web
+all: web wr test
 
 wr:
 	echo Building...

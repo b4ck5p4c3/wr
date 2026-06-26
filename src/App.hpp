@@ -18,7 +18,6 @@ struct config
 {
   String listen_url;
   String database_path;
-  String web_root;
   String public_base_url;
   String github_client_id;
   String github_client_secret;
@@ -81,8 +80,8 @@ private:
   fn reply_message(HttpServerEvent &event, u16 status, StringView message)
       -> void;
   fn finish_login(HttpServerEvent &event, StringView identity,
-                  StringView display_name, Maybe<bool> force_admin = {})
-      -> void;
+                  StringView display_name, StringView username,
+                  Maybe<bool> force_admin = {}) -> void;
   mustuse fn current_account(HttpServerEvent &event) -> Maybe<account>;
   mustuse fn require_admin(HttpServerEvent &event) -> Maybe<account>;
 
@@ -100,6 +99,8 @@ mustuse fn find_cookie(StringView cookie_header, StringView name)
 
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions = nullptr,
-                   const ArrayList<String> *reacted = nullptr) -> void;
+                   const ArrayList<String> *reacted = nullptr,
+                   StringView owner_display_name = StringView{},
+                   StringView owner_username = StringView{}) -> void;
 
 } // namespace wr

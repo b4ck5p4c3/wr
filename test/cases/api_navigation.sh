@@ -6,15 +6,13 @@
 set -u
 PORT=18765
 DB=$(mktemp -u /tmp/wr_api_XXXXXX.db)
-WEB=$(mktemp -d)
-printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 
 # Create the schema, then seed. Dev mode is passed so the server boots without a
 # configured login provider.
-timeout 2 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1
+timeout 2 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
 sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('a','Site A','https://a.example','',1,9999999999,'x',1),('b','Site B','https://b.example','',1,9999999999,'x',2);"
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/sites"
@@ -25,4 +23,4 @@ echo "a-next: $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://1
 echo "me-unauth: $(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/me")"
 
 kill "$server" 2>/dev/null
-rm -rf "$WEB" "$DB"
+rm -rf "$DB"

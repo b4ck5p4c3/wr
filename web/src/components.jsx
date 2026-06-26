@@ -1,19 +1,35 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "./api.js";
 
+// A route change is wrapped in the View Transitions API, borrowed from the
+// fennec.support navigation, so the old page crossfades into the new one. A
+// browser without the API swaps the path with no animation. The returned promise
+// yields a tick, so the Preact render commits before the new frame is captured.
+function withViewTransition(applyChange) {
+  if (typeof document === "undefined" || document.startViewTransition == null) {
+    applyChange();
+    return;
+  }
+  document.startViewTransition(() => {
+    applyChange();
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 // The server falls every unknown path back to this shell, so the router reads
 // the path and pushes history without a page reload.
 export function useRoute() {
   const [path, setPath] = useState(location.pathname);
   useEffect(() => {
-    const onPop = () => setPath(location.pathname);
+    const onPop = () => withViewTransition(() => setPath(location.pathname));
     addEventListener("popstate", onPop);
     return () => removeEventListener("popstate", onPop);
   }, []);
-  const navigate = (to) => {
-    history.pushState(null, "", to);
-    setPath(to);
-  };
+  const navigate = (to) =>
+    withViewTransition(() => {
+      history.pushState(null, "", to);
+      setPath(to);
+    });
   return [path, navigate];
 }
 
@@ -28,6 +44,43 @@ export function useEscape(onClose, isOpen) {
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
   }, [onClose, isOpen]);
+}
+
+const CLICK_PARTICLE_COUNT = 12;
+
+// A press scatters a short burst of sparks from the cursor. Each spark is a bare
+// element animated outward by a per-spark angle and distance, and it removes
+// itself when its animation ends.
+function spawnClickParticles(originX, originY) {
+  for (let i = 0; i < CLICK_PARTICLE_COUNT; i++) {
+    const particle = document.createElement("span");
+    particle.className = "click-particle";
+    const angle =
+      (Math.PI * 2 * i) / CLICK_PARTICLE_COUNT + Math.random() * 0.6;
+    const distance = 16 + Math.random() * 26;
+    particle.style.left = originX + "px";
+    particle.style.top = originY + "px";
+    particle.style.setProperty("--dx", Math.cos(angle) * distance + "px");
+    particle.style.setProperty("--dy", Math.sin(angle) * distance + "px");
+    document.body.appendChild(particle);
+    particle.addEventListener("animationend", () => particle.remove());
+  }
+}
+
+// Every enabled button across the site scatters a spark burst on click. The
+// listener sits on the document, so a button added later is covered without a
+// per-button handler.
+export function useButtonParticles() {
+  useEffect(() => {
+    const onClick = (event) => {
+      const button =
+        event.target.closest != null ? event.target.closest("button") : null;
+      if (button == null || button.disabled) return;
+      spawnClickParticles(event.clientX, event.clientY);
+    };
+    addEventListener("click", onClick);
+    return () => removeEventListener("click", onClick);
+  }, []);
 }
 
 // A pulsing placeholder bar shown where a value has not loaded yet, borrowed
@@ -263,6 +316,41 @@ export function ReactionBar({ site, me, onLogin, onReacted }) {
   );
 }
 
+// The owner profile link is built from the provider in the identity and the
+// stored handle, the github login or the telegram username. A site with no
+// handle shows the display name without a link.
+function ownerProfileUrl(owner, username) {
+  if (!username) return null;
+  if (owner && owner.startsWith("github:"))
+    return "https://github.com/" + username;
+  if (owner && owner.startsWith("telegram:")) return "https://t.me/" + username;
+  return null;
+}
+
+function CardOwner({ site }) {
+  const handle = site.owner_username;
+  const label = handle ? "@" + handle : site.owner_display_name;
+  if (!label) return null;
+  const url = ownerProfileUrl(site.owner, handle);
+  return (
+    <span class="tui-owner">
+      by{" "}
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {label}
+        </a>
+      ) : (
+        label
+      )}
+    </span>
+  );
+}
+
 // One card's inner content, shared by the 3D ring and the vertical phone list.
 function cardBody(site, ctx) {
   const icon = faviconFor(site.url);
@@ -285,9 +373,16 @@ function cardBody(site, ctx) {
             onError={(e) => (e.currentTarget.style.display = "none")}
           />
         ) : null}
-        <a href={site.url} target="_blank" rel="noopener noreferrer">
+        <a
+          class="tui-link"
+          href={site.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           {site.name}
         </a>
+        <CardOwner site={site} />
         {site.description ? <p class="tui-desc">{site.description}</p> : null}
         <ReactionBar
           site={site}
@@ -825,6 +920,9 @@ export function AdminSite({ site, onSaved, onDeleted }) {
   return (
     <li class="site">
       <span class="slug">/{site.slug}</span>
+      <span class="owned-by">
+        owned by <Submitter owner={site.owner} name={site.owner_display_name} />
+      </span>
       <input value={form.name} onInput={field("name")} />
       <input value={form.url} onInput={field("url")} />
       <DescriptionField
@@ -1195,6 +1293,7 @@ function renderMentions(body, slugs) {
 }
 
 const COMMENT_PAGE_SIZE = 5;
+const COMMENT_LEAVE_MS = 300;
 
 // The footer comments. An owner of a site in the ring posts a short note, and an
 // @slug mention links to that site. The slug set is read from the public
@@ -1208,6 +1307,7 @@ export function CommentsSection({ me }) {
   const [notice, setNotice] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  const [leavingId, setLeavingId] = useState(null);
 
   const loadPage = (offset) =>
     api
@@ -1249,12 +1349,19 @@ export function CommentsSection({ me }) {
 
   const loadMore = () => loadPage(comments ? comments.length : 0);
 
+  // The row fades and collapses before it leaves the list, so the delete reads
+  // as a motion. The local drop runs after the leave transition rather than a
+  // full reload, so the surviving rows stay mounted and slide up.
   const removeComment = async (id) => {
     setRemovingId(id);
     try {
       await api.adminDeleteComment(id);
       setError(null);
-      loadPage(0);
+      setLeavingId(id);
+      setTimeout(() => {
+        setComments((prev) => (prev || []).filter((c) => c.id !== id));
+        setLeavingId(null);
+      }, COMMENT_LEAVE_MS);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1296,7 +1403,10 @@ export function CommentsSection({ me }) {
       ) : (
         <ul class="comment-list">
           {comments.map((comment) => (
-            <li class="comment" key={comment.id}>
+            <li
+              class={"comment" + (leavingId === comment.id ? " leaving" : "")}
+              key={comment.id}
+            >
               <div class="comment-head">
                 <span class="comment-author">{comment.author_name}</span>
                 <span class="comment-meta">

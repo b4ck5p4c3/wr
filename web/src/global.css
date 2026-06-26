@@ -389,6 +389,12 @@ img {
   text-align: center;
 }
 
+.tui-owner {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--footer-text);
+}
+
 .tui-desc {
   flex-basis: 100%;
   margin: 0;
@@ -722,6 +728,11 @@ li.pending {
   opacity: 0.8;
 }
 
+.owned-by {
+  color: var(--footer-text);
+  font-size: 13px;
+}
+
 /* The uptime graph and the reachability label share their own line at the far
    left of a site row. A blank line is opened above the actions and the uptime
    so they read apart from the edited fields. The label aligns to the top of the
@@ -1052,6 +1063,42 @@ footer {
     0 0 0 1px var(--panel-outline),
     inset 0 0 24px var(--panel-glow-inset),
     0 8px 24px var(--tui-shadow);
+  animation: comment-enter 0.3s ease;
+}
+
+@keyframes comment-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The row collapses its height and margin while it fades, so the rows below
+   slide up to close the gap instead of jumping. */
+.comment.leaving {
+  overflow: hidden;
+  pointer-events: none;
+  animation: comment-leave 0.3s ease forwards;
+}
+
+@keyframes comment-leave {
+  from {
+    opacity: 1;
+    max-height: 40ch;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: -1ch;
+    transform: translateY(-6px);
+  }
 }
 
 .comment-head {
@@ -1077,12 +1124,18 @@ footer {
 }
 
 .comment-meta {
+  position: relative;
   display: flex;
   align-items: baseline;
   gap: 1ch;
 }
 
+/* The delete sits beneath the posted time but out of flow, so an admin control
+   never grows the comment block past its text height. */
 .comment-remove {
+  position: absolute;
+  top: calc(100% + 0.4ch);
+  right: 0;
   padding: 0.2ch 0.8ch;
   font-size: 12px;
   color: var(--down);
@@ -1141,4 +1194,36 @@ footer {
 .pending-comment-actions {
   display: flex;
   gap: 1ch;
+}
+
+/* The site name on a card carries a wider hitbox and sits above the ring grab
+   layer, so a press on the name follows the link instead of spinning the ring. */
+.tui-link {
+  position: relative;
+  z-index: 2;
+  padding: 0.4ch 1.2ch;
+  margin: -0.2ch 0;
+}
+
+/* A button press scatters sparks from the cursor. Each spark is positioned at
+   the click point and flies out along its own offset, set inline per spark. */
+.click-particle {
+  position: fixed;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--crt-glow);
+  pointer-events: none;
+  z-index: 10003;
+  transform: translate(-50%, -50%);
+  animation: click-particle 0.5s ease-out forwards;
+}
+
+@keyframes click-particle {
+  to {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+      scale(0.3);
+    opacity: 0;
+  }
 }

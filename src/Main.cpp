@@ -22,8 +22,6 @@ FLAG(LISTEN, String, 'l', "listen", Server,
      "URL to listen on, like http://0.0.0.0:8000 (required).");
 FLAG(DATABASE, String, 'd', "database", Server,
      "Path to the sqlite database (required).");
-FLAG(WEBROOT, String, 'w', "web-root", Server,
-     "Directory of the built frontend (required).");
 FLAG(PUBLICURL, String, 'u', "public-url", Server,
      "Public base URL for the OAuth redirect (required).");
 FLAG(LOGFILE, String, 'L', "log-file", Debug,
@@ -90,7 +88,7 @@ fn main(int argc, char **argv) -> int
   std::srand(static_cast<u64>(getpid()));
 
   if (!FLAG_LISTEN.is_set() || !FLAG_DATABASE.is_set() ||
-      !FLAG_WEBROOT.is_set() || !FLAG_PUBLICURL.is_set())
+      !FLAG_PUBLICURL.is_set())
   {
     String message{allocator};
     message.append("error: These options are required:\n");
@@ -102,7 +100,6 @@ fn main(int argc, char **argv) -> int
     };
     do_note(FLAG_LISTEN, "--listen <url>");
     do_note(FLAG_DATABASE, "--database <path>");
-    do_note(FLAG_WEBROOT, "--web-root <dir>");
     do_note(FLAG_PUBLICURL, "--public-url <url>");
     message.append("\nSee --help for info.");
     fail(message.view());
@@ -111,7 +108,6 @@ fn main(int argc, char **argv) -> int
   config cfg;
   cfg.listen_url = String{allocator, FLAG_LISTEN.value()};
   cfg.database_path = String{allocator, FLAG_DATABASE.value()};
-  cfg.web_root = String{allocator, FLAG_WEBROOT.value()};
   cfg.public_base_url = String{allocator, FLAG_PUBLICURL.value()};
   cfg.github_client_id = String{allocator, env_or("WR_GITHUB_CLIENT_ID", "")};
   cfg.github_client_secret =

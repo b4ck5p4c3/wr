@@ -4,12 +4,10 @@
 set -u
 PORT=18770
 DB=$(mktemp -u /tmp/wr_panel_XXXXXX.db)
-WEB=$(mktemp -d)
 UJAR=$(mktemp -u /tmp/wr_panel_ujar_XXXXXX)
 AJAR=$(mktemp -u /tmp/wr_panel_ajar_XXXXXX)
-printf '<!doctype html><title>wr</title>' > "$WEB/index.html"
 
-timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -w "$WEB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --dev --listen "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
@@ -26,4 +24,4 @@ echo "approve: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' 
 echo "sites-after: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
 
 kill "$server" 2>/dev/null
-rm -rf "$WEB" "$DB" "$UJAR" "$AJAR"
+rm -rf "$DB" "$UJAR" "$AJAR"

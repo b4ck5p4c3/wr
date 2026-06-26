@@ -115,7 +115,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   String identity{m_allocator};
   identity.append("github:");
   identity.append(id_text);
-  finish_login(event, identity.view(), login.value());
+  finish_login(event, identity.view(), login.value(), login.value());
 }
 
 fn App::handle_telegram_callback(HttpServerEvent &event) -> void
@@ -182,12 +182,13 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
   }
 
   let const display = find_query_param(query, "first_name", m_allocator);
+  let const username = find_query_param(query, "username", m_allocator);
   String identity{m_allocator};
   identity.append("telegram:");
   identity.append(id.value().view());
   finish_login(event, identity.view(),
-               display.has_value() ? display.value().view()
-                                   : id.value().view());
+               display.has_value() ? display.value().view() : id.value().view(),
+               username.has_value() ? username.value().view() : StringView{});
 }
 
 fn App::handle_logout(HttpServerEvent &event) -> void
@@ -207,7 +208,8 @@ fn App::handle_logout(HttpServerEvent &event) -> void
 }
 
 fn App::finish_login(HttpServerEvent &event, StringView identity,
-                     StringView display_name, Maybe<bool> force_admin) -> void
+                     StringView display_name, StringView username,
+                     Maybe<bool> force_admin) -> void
 {
   /* A real provider preserves the admin flag already on the row, while the dev
      bypass forces the role it was asked for. */
@@ -220,7 +222,9 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
       is_admin = existing.value().value().is_admin;
   }
 
-  if (m_store.upsert_account(identity, display_name, is_admin).is_error()) {
+  if (m_store.upsert_account(identity, display_name, username, is_admin)
+          .is_error())
+  {
     reply_message(event, 500, "Unable to store the account");
     return;
   }
@@ -266,7 +270,7 @@ fn App::handle_dev_login(HttpServerEvent &event) -> void
   String identity{m_allocator};
   identity.append(is_admin ? "dev:admin" : "dev:user");
   finish_login(event, identity.view(), is_admin ? "dev admin" : "dev user",
-               Maybe<bool>{is_admin});
+               StringView{}, Maybe<bool>{is_admin});
 }
 
 fn App::current_account(HttpServerEvent &event) -> Maybe<account>

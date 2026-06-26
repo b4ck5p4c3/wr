@@ -1,7 +1,11 @@
 # make MODE=dbg/rel/cov/cosmo/cosmo_dbg
 MODE ?= dbg
 
-SOURCES := $(wildcard *.cpp)
+# The frontend bundle is embedded through a generated source. It is kept out of
+# the formatted and tidied source list and linked through its own object.
+GEN_EMBED_SRC := EmbeddedAssets.gen.cpp
+
+SOURCES := $(filter-out $(GEN_EMBED_SRC),$(wildcard *.cpp))
 HEADERS := $(wildcard *.hpp)
 
 DIRS := $(filter-out o/.,$(wildcard */.))
@@ -19,6 +23,13 @@ OBJ_DIR := o/$(MODE)
 
 OBJECTS := $(SOURCES:%.cpp=$(OBJ_DIR)/%.o)
 DEPS := $(OBJECTS:.o=.d)
+
+# The embedded frontend source is generated from the web build and compiled into
+# its own object, then linked with the rest.
+WEB_DIST := ../web/dist
+EMBED_INPUTS := $(shell find $(WEB_DIST) -type f 2>/dev/null)
+GEN_EMBED_OBJ := $(OBJ_DIR)/$(GEN_EMBED_SRC:.cpp=.o)
+GEN_EMBED_DEP := $(GEN_EMBED_OBJ:.o=.d)
 
 VENDOR_OBJECTS := \
 	$(OBJ_DIR)/vendor/mongoose.o \
@@ -248,9 +259,16 @@ CURL_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -DHAVE_CONFIG_H -DBUILDING_LIBCURL -DCURL
 	-I$(VENDOR_DIR)/mbedtls/include $(MBEDTLS_CONFIG)
 
 $(OBJECTS): | dirs
+$(GEN_EMBED_OBJ): | dirs
 $(VENDOR_OBJECTS): | dirs
 $(CURL_OBJECTS): | dirs
 $(MBEDTLS_OBJECTS): | dirs
+
+# The generated source is rebuilt when the web build changes. A missing web
+# build makes the generator stop with a message pointing at `make web`.
+$(GEN_EMBED_SRC): ../web/gen-embed.js $(EMBED_INPUTS)
+	printf "\tEmbedding %-42s $@... %-12s\r" $(WEB_DIST) ' '
+	bun ../web/gen-embed.js $(WEB_DIST) $@
 
 # rapidjson offsets a null pointer in its internal stack, which the minimal
 # UndefinedBehaviorSanitizer runtime traps, so the JSON unit is built without it
@@ -278,9 +296,9 @@ $(OBJ_DIR)/vendor/mbedtls/%.o: $(VENDOR_DIR)/mbedtls/%.c Makefile
 	$(CC) $(MBEDTLS_CFLAGS) -MMD -MP -c $< -o $@
 
 # Linking.
-$(OUT): $(OBJECTS) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)
+$(OUT): $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)
 	printf "\tLinking $(OUT)... %-64s\r" ' '
-	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS) $(LINK_LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS) $(LINK_LIBS) -o $@
 
 dirs: $(DIRS)
 	mkdir -p $(OBJ_DIR)/ $(OBJ_DIR)/vendor/ $(sort $(dir $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)))
@@ -323,6 +341,7 @@ fmt:
 
 clean:
 	rm -rf ./o ../wr ../wr-$(MODE) ../wr.com ../wr-cosmo.com ../wr-cosmo_dbg.com
+	rm -f $(GEN_EMBED_SRC)
 	rm -rf ../perf*
 	rm -rf ../*.profraw ../*.profdata ../coverage # Coverage
 
@@ -330,6 +349,7 @@ clean:
 .PHONY: dirs wr install uninstall deploy tidy fmt clean
 
 -include $(DEPS)
+-include $(GEN_EMBED_DEP)
 -include $(VENDOR_DEPS)
 -include $(CURL_DEPS)
 -include $(MBEDTLS_DEPS)

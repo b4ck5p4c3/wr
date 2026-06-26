@@ -1,11 +1,19 @@
 #include "App.hpp"
 
+#include "Embedded.hpp"
 #include "Http.hpp"
-#include "Path.hpp"
 #include "StaticStringMap.hpp"
 #include "Trace.hpp"
 
 namespace wr {
+
+fn find_embedded_asset(StringView path) -> const embedded_asset *
+{
+  for (usize i = 0; i < EMBEDDED_ASSET_COUNT; i++)
+    if (path == EMBEDDED_ASSETS[i].path) return &EMBEDDED_ASSETS[i];
+
+  return nullptr;
+}
 
 namespace {
 
@@ -30,23 +38,6 @@ fn content_type_for(StringView path) -> StringView
   for (let const &entry : TABLE)
     if (path.ends_with(entry.suffix)) return entry.type;
   return "application/octet-stream";
-}
-
-fn read_file(Allocator allocator, Path path) -> Maybe<String>
-{
-  let const file = std::fopen(path.c_str(), "rb");
-  if (file == nullptr) return None;
-  defer { std::fclose(file); };
-
-  String contents{allocator};
-  char buffer[8192];
-  loop
-  {
-    let const read_count = std::fread(buffer, 1, sizeof(buffer), file);
-    if (read_count > 0) contents.append(StringView{buffer, read_count});
-    if (read_count < sizeof(buffer)) break;
-  }
-  return Maybe<String>{steal(contents)};
 }
 
 fn split_first_segment(StringView path, StringView &rest) -> StringView
@@ -140,7 +131,9 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
 
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions,
-                   const ArrayList<String> *reacted) -> void
+                   const ArrayList<String> *reacted,
+                   StringView owner_display_name, StringView owner_username)
+    -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -149,6 +142,9 @@ fn write_site_json(JsonWriter &writer, const site &row,
   writer.field("description", row.description.view());
   writer.key("created_at");
   writer.number(row.created_at);
+  writer.field("owner", row.owner.view());
+  writer.field("owner_display_name", owner_display_name);
+  writer.field("owner_username", owner_username);
 
   if (reactions != nullptr) {
     writer.key("reactions");
@@ -404,8 +400,17 @@ fn App::handle_sites(HttpServerEvent &event) -> void
       if (!reacted_or.is_error()) reacted = reacted_or.value().clone();
     }
 
+    let const account = m_store.find_account(sites[i].owner.view());
+    let const has_account = !account.is_error() && account.value().has_value();
+    let const owner_name = has_account
+                               ? account.value().value().display_name.view()
+                               : StringView{};
+    let const owner_handle =
+        has_account ? account.value().value().username.view() : StringView{};
+
     write_site_json(writer, sites[i], &counts,
-                    who.has_value() ? &reacted : nullptr);
+                    who.has_value() ? &reacted : nullptr, owner_name,
+                    owner_handle);
   }
   writer.array_end();
   reply_json(event, 200, writer.view());
@@ -526,29 +531,26 @@ fn App::serve_static(HttpServerEvent &event) -> void
 {
   let const path = event.uri();
 
-  /* A parent traversal is refused so a request can never escape the web root.
-   */
+  /* A parent traversal is refused, since a request can never name an asset
+     outside the embedded table. */
   if (contains_double_dot(path)) {
     reply_message(event, 400, "Bad path");
     return;
   }
 
-  String file_path{m_allocator};
-  file_path.append(m_config.web_root.view());
+  StringView asset_path = path;
   if (path == "/docs") {
-    file_path.append("/docs.html");
+    asset_path = "/docs.html";
   } else if (path == "/" || path == "/about" || path == "/panel" ||
              path == "/admin")
   {
-    file_path.append("/index.html");
-  } else {
-    file_path.append(path);
+    asset_path = "/index.html";
   }
 
-  let contents = read_file(m_allocator, Path{file_path});
-  if (contents.has_value()) {
-    reply_text(event, 200, content_type_for(file_path.view()),
-               contents.value().view());
+  if (let const *asset = find_embedded_asset(asset_path); asset != nullptr) {
+    reply_text(
+        event, 200, content_type_for(asset_path),
+        StringView{reinterpret_cast<const char *>(asset->data), asset->size});
     return;
   }
 
@@ -558,12 +560,10 @@ fn App::serve_static(HttpServerEvent &event) -> void
     return;
   }
 
-  String index_path{m_allocator};
-  index_path.append(m_config.web_root.view());
-  index_path.append("/index.html");
-  let shell = read_file(m_allocator, Path{index_path});
-  if (shell.has_value()) {
-    reply_text(event, 200, "text/html; charset=utf-8", shell.value().view());
+  if (let const *shell = find_embedded_asset("/index.html"); shell != nullptr) {
+    reply_text(
+        event, 200, "text/html; charset=utf-8",
+        StringView{reinterpret_cast<const char *>(shell->data), shell->size});
     return;
   }
   reply_message(event, 404, "Not found");

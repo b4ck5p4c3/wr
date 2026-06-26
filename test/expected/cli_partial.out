@@ -1,6 +1,5 @@
 wr: error: These options are required:
   --listen <url>
-  --web-root <dir>
   --public-url <url>
 
 See --help for info.

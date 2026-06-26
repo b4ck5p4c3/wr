@@ -28,11 +28,14 @@ struct reaction_count
   i64 count{0};
 };
 
-/* A panel account, keyed by a provider identity such as "github:1234". */
+/* A panel account, keyed by a provider identity such as "github:1234". The
+   username is the linkable handle, the github login or the telegram username.
+ */
 struct account
 {
   String identity;
   String display_name;
+  String username;
   bool is_admin{false};
 };
 
@@ -123,8 +126,8 @@ public:
       -> ErrorOr<ArrayList<String>>;
 
   mustuse fn find_account(StringView identity) const -> ErrorOr<Maybe<account>>;
-  fn upsert_account(StringView identity, StringView display_name, bool is_admin)
-      -> ErrorOr<Ok>;
+  fn upsert_account(StringView identity, StringView display_name,
+                    StringView username, bool is_admin) -> ErrorOr<Ok>;
 
   fn create_session(StringView token, StringView identity, i64 expires_at)
       -> ErrorOr<Ok>;
