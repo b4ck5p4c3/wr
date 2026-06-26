@@ -359,6 +359,24 @@ export function Carousel({ sites }) {
             <div class="tui-face tui-back">{cardBody(site)}</div>
           </article>
         ))}
+        {sites.map((_, i) => (
+          <div
+            class="ring-link"
+            key={"link-" + i}
+            style={{
+              transform:
+                "rotateY(" +
+                (i + 0.5) * anglePerCard +
+                "deg) translateZ(" +
+                (radius + 120) +
+                "px)",
+            }}
+          >
+            <span class="coin" />
+            <span class="coin" />
+            <span class="coin" />
+          </div>
+        ))}
       </div>
     </div>
   );
