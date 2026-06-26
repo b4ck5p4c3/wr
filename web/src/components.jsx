@@ -837,6 +837,16 @@ export function About() {
           Learn about b4cksp4ce
         </a>
       </p>
+      <p>
+        <a
+          href="https://fennec.support"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          contact the fennec
+        </a>{" "}
+        to be added to the webring.
+      </p>
     </main>
   );
 }
