@@ -300,6 +300,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/sites/react:
+    post:
+      tags: [panel]
+      summary: Toggle an emoji reaction on a site.
+      description: >-
+        The reaction is toggled for the signed-in caller, so a second react with
+        the same emoji removes it. The emoji is one of poop, like, eyes, fire,
+        star, or skull.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReactInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/admin/pending:
     get:
       tags: [admin]
@@ -525,6 +550,21 @@ components:
           type: integer
           format: int64
           description: The unix time the site joined the ring.
+        reactions:
+          type: object
+          description: >-
+            The emoji reaction counts on the public listing, keyed by the emoji
+            name. The key is one of poop, like, eyes, fire, star, or skull.
+          additionalProperties:
+            type: integer
+            format: int64
+        reacted:
+          type: array
+          description: >-
+            The emoji the signed-in caller has reacted with, present on the
+            public listing only when a session cookie is sent.
+          items:
+            type: string
       required: [slug, name, url, description, created_at]
     WebringWebsiteNavigationData:
       type: object
@@ -642,8 +682,9 @@ components:
         url:
           type: string
           description: An http or https url.
-        favicon:
+        description:
           type: string
+          description: A short blurb, 280 characters or fewer.
       required: [slug, name, url]
     RenameInput:
       type: object
@@ -653,6 +694,15 @@ components:
         name:
           type: string
       required: [slug, name]
+    ReactInput:
+      type: object
+      properties:
+        slug:
+          type: string
+        emoji:
+          type: string
+          description: One of poop, like, eyes, fire, star, or skull.
+      required: [slug, emoji]
     IdInput:
       type: object
       properties:

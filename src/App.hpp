@@ -56,6 +56,7 @@ private:
   fn handle_me(HttpServerEvent &event) -> void;
   fn handle_user_add(HttpServerEvent &event, const account &who) -> void;
   fn handle_user_rename(HttpServerEvent &event, const account &who) -> void;
+  fn handle_user_react(HttpServerEvent &event, const account &who) -> void;
   fn handle_admin_add(HttpServerEvent &event) -> void;
   fn handle_admin_delete(HttpServerEvent &event) -> void;
   fn handle_admin_edit(HttpServerEvent &event) -> void;
@@ -91,6 +92,8 @@ mustuse fn find_query_param(StringView query, StringView name,
 mustuse fn find_cookie(StringView cookie_header, StringView name)
     -> Maybe<StringView>;
 
-fn write_site_json(JsonWriter &writer, const site &row) -> void;
+fn write_site_json(JsonWriter &writer, const site &row,
+                   const ArrayList<reaction_count> *reactions = nullptr,
+                   const ArrayList<String> *reacted = nullptr) -> void;
 
 } // namespace wr

@@ -138,7 +138,9 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
   return None;
 }
 
-fn write_site_json(JsonWriter &writer, const site &row) -> void
+fn write_site_json(JsonWriter &writer, const site &row,
+                   const ArrayList<reaction_count> *reactions,
+                   const ArrayList<String> *reacted) -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -147,6 +149,25 @@ fn write_site_json(JsonWriter &writer, const site &row) -> void
   writer.field("description", row.description.view());
   writer.key("created_at");
   writer.number(row.created_at);
+
+  if (reactions != nullptr) {
+    writer.key("reactions");
+    writer.object_begin();
+    for (usize i = 0; i < reactions->count(); i++) {
+      writer.key((*reactions)[i].emoji.view());
+      writer.number((*reactions)[i].count);
+    }
+    writer.object_end();
+  }
+
+  if (reacted != nullptr) {
+    writer.key("reacted");
+    writer.array_begin();
+    for (usize i = 0; i < reacted->count(); i++)
+      writer.string((*reacted)[i].view());
+    writer.array_end();
+  }
+
   writer.object_end();
 }
 
@@ -208,13 +229,14 @@ fn App::dispatch(HttpServerEvent &event) -> void
       admin_logs,
       sites_add,
       sites_rename,
+      sites_react,
     };
     struct api_endpoint
     {
       api_route route;
       bool is_mutation;
     };
-    static constexpr StaticStringMap<api_endpoint, 11> API_ROUTES{
+    static constexpr StaticStringMap<api_endpoint, 12> API_ROUTES{
         {{"/api/config", {api_route::config, false}},
          {"/api/me", {api_route::me, false}},
          {"/api/admin/pending", {api_route::admin_pending, false}},
@@ -225,7 +247,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
          {"/api/admin/site/delete", {api_route::admin_site_delete, true}},
          {"/api/admin/logs", {api_route::admin_logs, false}},
          {"/api/sites/add", {api_route::sites_add, true}},
-         {"/api/sites/rename", {api_route::sites_rename, true}}}
+         {"/api/sites/rename", {api_route::sites_rename, true}},
+         {"/api/sites/react", {api_route::sites_react, true}}}
     };
 
     let const endpoint = API_ROUTES.find(path);
@@ -268,6 +291,14 @@ fn App::dispatch(HttpServerEvent &event) -> void
         reply_message(event, 401, "Not signed in");
       break;
     }
+    case api_route::sites_react: {
+      let const who = current_account(event);
+      if (who.has_value())
+        handle_user_react(event, who.value());
+      else
+        reply_message(event, 401, "Not signed in");
+      break;
+    }
     }
     return;
   }
@@ -306,11 +337,25 @@ fn App::handle_sites(HttpServerEvent &event) -> void
     return;
   }
 
+  let const who = current_account(event);
   let const &sites = sites_or.value();
   JsonWriter writer{m_allocator};
   writer.array_begin();
-  for (usize i = 0; i < sites.count(); i++)
-    write_site_json(writer, sites[i]);
+  for (usize i = 0; i < sites.count(); i++) {
+    let const counts_or = m_store.get_reactions(sites[i].slug.view());
+    ArrayList<reaction_count> counts{m_allocator};
+    if (!counts_or.is_error()) counts = counts_or.value().clone();
+
+    ArrayList<String> reacted{m_allocator};
+    if (who.has_value()) {
+      let const reacted_or = m_store.get_user_reactions(
+          sites[i].slug.view(), who.value().identity.view());
+      if (!reacted_or.is_error()) reacted = reacted_or.value().clone();
+    }
+
+    write_site_json(writer, sites[i], &counts,
+                    who.has_value() ? &reacted : nullptr);
+  }
   writer.array_end();
   reply_json(event, 200, writer.view());
 }

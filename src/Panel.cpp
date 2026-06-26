@@ -228,6 +228,41 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
   reply_message(event, 200, "Your rename was submitted for review");
 }
 
+fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
+{
+  let const document = Json::from(m_allocator, event.body());
+  let const slug = document["slug"].to<StringView>();
+  let const emoji = document["emoji"].to<StringView>();
+  if (!slug.has_value() || !emoji.has_value()) {
+    reply_message(event, 400, "A slug and an emoji are required");
+    return;
+  }
+
+  /* Only the published set of reactions is accepted, so the table cannot be
+     filled with an arbitrary key. */
+  static constexpr StaticStringMap<bool, 6> ALLOWED_EMOJIS{
+      {{"poop", true},
+       {"like", true},
+       {"eyes", true},
+       {"fire", true},
+       {"star", true},
+       {"skull", true}}
+  };
+  if (ALLOWED_EMOJIS.find(emoji.value()) == nullptr) {
+    reply_message(event, 400, "That reaction is not allowed");
+    return;
+  }
+
+  let const toggled =
+      m_store.toggle_reaction(slug.value(), emoji.value(), who.identity.view());
+  if (toggled.is_error()) {
+    reply_message(event, 500, toggled.error().message().view());
+    return;
+  }
+  reply_message(event, 200,
+                toggled.value() ? "Reaction added" : "Reaction removed");
+}
+
 fn App::handle_admin_add(HttpServerEvent &event) -> void
 {
   let const who = require_admin(event);
