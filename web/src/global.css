@@ -535,10 +535,17 @@ img {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .reaction:hover {
   border-color: var(--border);
+}
+
+.reaction:active {
+  transform: scale(0.88);
 }
 
 .reaction.mine {
@@ -629,6 +636,7 @@ main,
   align-items: center;
   justify-content: space-between;
   padding: 1.5ch 2ch;
+  animation: bar-drop 0.4s ease;
 }
 
 .bar .logo {
@@ -682,12 +690,18 @@ button {
   text-shadow: 0 0 8px var(--crt-glow);
   transition:
     border-color 0.2s ease,
-    color 0.2s ease;
+    color 0.2s ease,
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-button:hover {
+button:hover:not(:disabled) {
   border-color: var(--a-strong);
   color: var(--a-strong);
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 /* A non-clickable button drops the orange for a plain white, so a disabled
@@ -751,6 +765,9 @@ textarea {
   color: var(--text-primary);
   border: 1px solid var(--border);
   padding: 0.6ch 1ch;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 textarea {
@@ -763,6 +780,7 @@ input:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(255, 200, 120, 0.22);
 }
 
 /* A keyboard focus draws a clear amber ring on every interactive control, so a
@@ -1087,11 +1105,13 @@ code {
   align-items: center;
   justify-content: center;
   z-index: 10002;
+  animation: backdrop-fade 0.2s ease;
 }
 
 .modal {
   padding: 3ch;
   width: 360px;
+  animation: modal-pop 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .modal:not(.modal-wide) {

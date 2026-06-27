@@ -42,6 +42,40 @@
   }
 }
 
+/* A modal fades its backdrop in and pops the dialog up on the same bounce the
+   cards and the reaction bar already use. */
+@keyframes backdrop-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* The top bar drops in once on the first paint. */
+@keyframes bar-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* A visitor who asks the system for reduced motion gets the keyframes and the
    transitions cut to a near-zero duration, so the ghost pulse, the coin pulse,
    the reaction reveal, the comment enter and leave, and the click sparks settle
