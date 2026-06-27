@@ -704,6 +704,16 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
     motion.tiltTarget = 0;
     motion.cardPopTarget = 0;
   };
+  // A horizontal wheel or trackpad swipe spins the ring and carries the throw,
+  // and a vertical scroll is left to the page.
+  const onWheel = (event) => {
+    if (event.deltaX === 0) return;
+    event.preventDefault();
+    const motion = motionRef.current;
+    const turn = event.deltaX * degreePerDragPixel;
+    motion.rotation += turn;
+    motion.velocity = turn;
+  };
 
   if (isNarrow) {
     return (
@@ -724,6 +734,7 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerUp}
+      onWheel={onWheel}
     >
       <div class="ring" ref={ringRef}>
         {sites.map((site, i) => (
