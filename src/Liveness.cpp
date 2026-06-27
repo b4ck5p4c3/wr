@@ -95,12 +95,19 @@ fn Liveness::sweep() -> void
 
     HttpRequestBuilder builder{m_allocator};
     let const request =
-        builder.set_method(HttpMethod::Get).set_url(row.url.view()).build();
+        builder.set_method(HttpMethod::Get)
+            .set_url(row.url.view())
+            .add_header("User-Agent", "Mozilla/5.0 (compatible; wr-webring "
+                                      "liveness checker)")
+            .add_header("Accept", "text/html")
+            .build();
     let const response = m_client.send(request);
 
-    let const is_up = !response.is_error() &&
-                      response.value().status() >= 200 &&
-                      response.value().status() < 400;
+    let const status = response.is_error() ? 0 : response.value().status();
+    /* Any reply under 500 means the origin answered, including a 403 bot
+       challenge, so the site is reachable. A 5xx or a failed request is down.
+     */
+    let const is_up = status >= 200 && status < 500;
     if (is_up != row.is_reachable)
       LOG(Info, "site %s is now %s", row.slug.c_str(), is_up ? "up" : "down");
 
