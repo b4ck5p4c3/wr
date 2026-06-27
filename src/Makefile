@@ -151,7 +151,8 @@ CXXFLAGS += \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=2 \
 	-fsanitize=undefined \
-	-fsanitize-minimal-runtime
+	-fsanitize-minimal-runtime \
+	-fno-sanitize-recover=undefined
 CFLAGS += \
 	-O2 \
 	-flto \
