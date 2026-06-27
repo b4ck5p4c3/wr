@@ -29,6 +29,13 @@ public:
     m_request.headers().set(name, value);
     return *this;
   }
+  fn add_auxiliary_headers(StringView user_agent, StringView accept)
+      -> HttpRequestBuilder &
+  {
+    m_request.headers().set("User-Agent", user_agent);
+    m_request.headers().set("Accept", accept);
+    return *this;
+  }
   fn set_body(StringView body) -> HttpRequestBuilder &
   {
     m_request.set_body(body);

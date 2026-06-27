@@ -8,3 +8,6 @@ emoji: 200 image/png
 favicon: 200 image/x-icon
 unknown: 404 application/json
 traversal: 400
+sec-headers: 5
+html-cache-control: 0
+json-no-store: 1

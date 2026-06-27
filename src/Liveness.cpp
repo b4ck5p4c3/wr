@@ -11,6 +11,9 @@
 
 namespace wr {
 
+static const StringView LIVENESS_USER_AGENT =
+    "Mozilla/5.0 (compatible; wr-webring liveness checker)";
+
 fn Liveness::start() -> ErrorOr<Ok>
 {
   TRY(m_database.open(m_config.database_path.view()));
@@ -97,9 +100,7 @@ fn Liveness::sweep() -> void
     let const request =
         builder.set_method(HttpMethod::Get)
             .set_url(row.url.view())
-            .add_header("User-Agent", "Mozilla/5.0 (compatible; wr-webring "
-                                      "liveness checker)")
-            .add_header("Accept", "text/html")
+            .add_auxiliary_headers(LIVENESS_USER_AGENT, "text/html")
             .build();
     let const response = m_client.send(request);
 

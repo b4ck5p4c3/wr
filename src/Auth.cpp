@@ -8,6 +8,8 @@
 
 namespace wr {
 
+static const StringView GITHUB_USER_AGENT = "wr-webring";
+
 fn App::handle_login_github(HttpServerEvent &event) -> void
 {
   let const state_or = random_token(m_allocator);
@@ -34,6 +36,7 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
   headers.set("Location", url.view());
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "github login started");
+  fill_response_headers(headers);
   unused(event.reply(302, headers, "").is_error());
 }
 
@@ -68,7 +71,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   let const token_request =
       token_builder.set_method(HttpMethod::Post)
           .set_url("https://github.com/login/oauth/access_token")
-          .add_header("Accept", "application/json")
+          .add_auxiliary_headers(GITHUB_USER_AGENT, "application/json")
           .add_header("Content-Type", "application/x-www-form-urlencoded")
           .set_body(token_body.view())
           .build();
@@ -96,8 +99,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
       user_builder.set_method(HttpMethod::Get)
           .set_url("https://api.github.com/user")
           .add_header("Authorization", authorization.view())
-          .add_header("User-Agent", "wr-webring")
-          .add_header("Accept", "application/json")
+          .add_auxiliary_headers(GITHUB_USER_AGENT, "application/json")
           .build();
   let user_response = m_client.send(user_request);
   if (user_response.is_error()) {
@@ -208,6 +210,7 @@ fn App::handle_logout(HttpServerEvent &event) -> void
   headers.set("Location", "/");
   headers.set("Set-Cookie",
               "wr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+  fill_response_headers(headers);
   unused(event.reply(302, headers, "").is_error());
 }
 
@@ -253,6 +256,7 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
   headers.set("Location", is_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "login for %s", who.name.c_str());
+  fill_response_headers(headers);
   unused(event.reply(302, headers, "").is_error());
 }
 

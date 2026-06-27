@@ -80,7 +80,7 @@ private:
 
   fn serve_static(HttpServerEvent &event) -> void;
 
-  fn emit(HttpServerEvent &event, u16 status, const HttpHeaders &headers,
+  fn emit(HttpServerEvent &event, u16 status, HttpHeaders &headers,
           StringView body) -> void;
   fn reply_json(HttpServerEvent &event, u16 status, StringView json) -> void;
   fn reply_text(HttpServerEvent &event, u16 status, StringView content_type,
@@ -104,6 +104,8 @@ private:
 
 mustuse fn client_address(HttpServerEvent &event, bool is_forwarded_trusted)
     -> StringView;
+
+fn fill_response_headers(HttpHeaders &headers) -> void;
 
 mustuse fn find_query_param(StringView query, StringView name,
                             Allocator allocator) -> Maybe<String>;

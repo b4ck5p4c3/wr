@@ -23,6 +23,9 @@ echo "emoji: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/emo
 echo "favicon: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/favicon.ico")"
 echo "unknown: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/no/such/page")"
 echo "traversal: $(curl -s --path-as-is -o /dev/null -w '%{http_code}' "$base/x/../y")"
+echo "sec-headers: $(curl -s -D - -o /dev/null "$base/" | grep -ciE 'x-content-type-options: nosniff|x-frame-options: DENY|referrer-policy: strict-origin-when-cross-origin|permissions-policy:|strict-transport-security: max-age=63072000')"
+echo "html-cache-control: $(curl -s -D - -o /dev/null "$base/" | grep -ic 'cache-control')"
+echo "json-no-store: $(curl -s -D - -o /dev/null "$base/api/v1/config" | grep -ic 'cache-control: no-store')"
 
 kill "$server" 2>/dev/null
 rm -rf "$DB"
