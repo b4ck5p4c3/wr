@@ -161,6 +161,7 @@ fn Store::query_sites(const char *filter_sql, Maybe<StringView> owner) const
 
   while (TRY(statement.step()))
     sites.push(read_site(statement));
+
   return sites;
 }
 
@@ -651,6 +652,7 @@ fn Store::list_audit(i64 limit_count) const -> ErrorOr<ArrayList<audit_entry>>
 
   while (TRY(statement.step()))
     entries.push(read_audit_entry(statement));
+
   return entries;
 }
 
@@ -693,6 +695,7 @@ fn Store::list_comments(i64 limit_count, i64 offset_count) const
 
   while (TRY(statement.step()))
     comments.push(read_comment(statement));
+
   return comments;
 }
 
@@ -710,6 +713,7 @@ fn Store::list_pending_comments(i64 limit_count) const
 
   while (TRY(statement.step()))
     comments.push(read_comment(statement));
+
   return comments;
 }
 

@@ -135,6 +135,7 @@ private:
         }
       }
     }
+
     m_out.append("\"");
   }
 

@@ -184,6 +184,7 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
 
     /* The header map lives only for the handler call. */
     HttpHeaders request_headers{m_allocator};
+
     for (usize i = 0; i < MG_MAX_HTTP_HEADERS; i++) {
       let const &header = message->headers[i];
       if (header.name.len == 0) break;

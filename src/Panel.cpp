@@ -180,6 +180,7 @@ fn App::handle_me(HttpServerEvent &event) -> void
         has_name ? account.value().value().username.view() : StringView{};
     write_panel_site(writer, sites[i], uptime, owner_name, owner_tag);
   }
+
   writer.array_end();
 
   writer.key("pending");
@@ -413,6 +414,7 @@ fn App::handle_comments_list(HttpServerEvent &event) -> void
         has_author ? author.value().value().username.view() : StringView{};
     write_comment_json(writer, comments[i], author_tag);
   }
+
   writer.array_end();
   reply_json(event, 200, writer.view());
 }
@@ -488,6 +490,7 @@ fn App::handle_admin_comments(HttpServerEvent &event) -> void
         has_author ? author.value().value().username.view() : StringView{};
     write_comment_json(writer, comments[i], author_tag);
   }
+
   writer.array_end();
   reply_json(event, 200, writer.view());
 }
@@ -726,6 +729,7 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
     writer.field("payload", actions[i].payload.view());
     writer.object_end();
   }
+
   writer.array_end();
   reply_json(event, 200, writer.view());
 }
@@ -776,6 +780,7 @@ fn App::handle_admin_audit(HttpServerEvent &event) -> void
     writer.number(entries[i].created_at);
     writer.object_end();
   }
+
   writer.array_end();
   reply_json(event, 200, writer.view());
 }

@@ -483,6 +483,7 @@ fn App::handle_sites(HttpServerEvent &event) -> void
   writer.array_begin();
   for (usize i = 0; i < sites.count(); i++)
     write_listing_site(writer, sites[i], who);
+
   writer.array_end();
   reply_json(event, 200, writer.view());
 }

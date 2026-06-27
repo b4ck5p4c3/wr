@@ -22,9 +22,15 @@ fn percent_decode(Allocator allocator, StringView text) -> String
       out.push(' ');
     } else if (c == '%' && i + 2 < text.count()) {
       let const do_hex = [](char digit) -> int {
-        if (digit >= '0' && digit <= '9') return digit - '0';
-        if (digit >= 'a' && digit <= 'f') return digit - 'a' + 10;
-        if (digit >= 'A' && digit <= 'F') return digit - 'A' + 10;
+        if (digit >= '0' && digit <= '9') {
+          return digit - '0';
+        }
+        if (digit >= 'a' && digit <= 'f') {
+          return digit - 'a' + 10;
+        }
+        if (digit >= 'A' && digit <= 'F') {
+          return digit - 'A' + 10;
+        }
         return -1;
       };
       let const high = do_hex(text[i + 1]);
@@ -99,7 +105,9 @@ fn parse_i64(StringView text, i64 fallback) noexcept -> i64
   constexpr i64 I64_MAX = 9223372036854775807;
   i64 value = 0;
   for (; i < text.count(); i++) {
-    if (text[i] < '0' || text[i] > '9') return fallback;
+    if (text[i] < '0' || text[i] > '9') {
+      return fallback;
+    }
 
     let const digit = static_cast<i64>(text[i] - '0');
     if (value > (I64_MAX - digit) / 10) return fallback;

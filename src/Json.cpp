@@ -207,6 +207,7 @@ fn Json::operator[](StringView key) const noexcept -> const Json &
   if (m_kind != kind::object) return INVALID;
   for (usize i = 0; i < m_keys.count(); i++)
     if (m_keys[i].view() == key) return m_values[i];
+
   return INVALID;
 }
 

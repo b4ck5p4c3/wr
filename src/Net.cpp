@@ -38,6 +38,7 @@ fn ipv4_is_private(u32 host_order) -> bool
 fn extract_http_host(StringView url, char *out, usize capacity) -> bool
 {
   usize scheme_end = url.count();
+
   for (usize i = 0; i + 2 < url.count(); i++) {
     if (url[i] == ':' && url[i + 1] == '/' && url[i + 2] == '/') {
       scheme_end = i;
@@ -58,6 +59,7 @@ fn extract_http_host(StringView url, char *out, usize capacity) -> bool
       url.substring_of_length(scheme_end + 3, authority_end - scheme_end - 3);
 
   usize host_begin = 0;
+
   for (usize i = 0; i < authority.count(); i++)
     if (authority[i] == '@') host_begin = i + 1;
   let const host_port = authority.substring(host_begin);
@@ -75,7 +77,9 @@ fn extract_http_host(StringView url, char *out, usize capacity) -> bool
     host = host_port.substring_of_length(0, colon);
   }
 
-  if (host.is_empty() || host.count() >= capacity) return false;
+  if (host.is_empty() || host.count() >= capacity) {
+    return false;
+  }
   for (usize i = 0; i < host.count(); i++)
     out[i] = host[i];
   out[host.count()] = '\0';
@@ -94,7 +98,7 @@ fn address_is_private(const sockaddr *address) -> bool
     let const bytes =
         reinterpret_cast<const sockaddr_in6 *>(address)->sin6_addr.s6_addr;
     bool is_loopback = bytes[15] == 1;
-    for (int i = 0; i < 15; i++)
+    for (usize i = 0; i < 15; i++)
       if (bytes[i] != 0) is_loopback = false;
     if (is_loopback) return true;
     if ((bytes[0] & 0xfe) == 0xfc) return true;
@@ -103,7 +107,7 @@ fn address_is_private(const sockaddr *address) -> bool
     }
 
     bool is_v4_mapped = bytes[10] == 0xff && bytes[11] == 0xff;
-    for (int i = 0; i < 10; i++)
+    for (usize i = 0; i < 10; i++)
       if (bytes[i] != 0) is_v4_mapped = false;
     if (is_v4_mapped) {
       let const v4 = (static_cast<u32>(bytes[12]) << 24) |
