@@ -3,7 +3,8 @@ FROM alpine:3.24 AS builder
 SHELL ["sh", "-eux", "-c"]
 
 RUN apk add --no-cache \
-    build-base clang compiler-rt musl-dev linux-headers curl bash git
+    build-base clang compiler-rt musl-dev linux-headers curl bash git \
+    ca-certificates
 RUN curl -fsSL https://bun.com/install | bash && \
     ln -sf /root/.bun/bin/bun /usr/bin/bun
 
@@ -14,6 +15,7 @@ RUN cd web && bun install && cd .. && MODE=rel make web wr
 
 FROM scratch
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /src/wr /
 
 ENTRYPOINT ["/wr"]
