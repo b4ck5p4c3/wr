@@ -9,10 +9,10 @@ DB=$(mktemp -u /tmp/wr_stats_XXXXXX.db)
 DBOFF=$(mktemp -u /tmp/wr_stats_off_XXXXXX.db)
 AJAR=$(mktemp -u /tmp/wr_stats_jar_XXXXXX)
 
-timeout 2 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
+timeout 2 "$BIN" --enable-dangerous-developer-environment --listen-address "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
 sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('a','Site A','https://a.example','',1,9999999999,'x',1),('b','Site B','https://b.example','',1,9999999999,'x',2);"
 
-timeout 15 "$BIN" --enable-dangerous-developer-environment --enable-metrics --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --enable-dangerous-developer-environment --enable-metrics --listen-address "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
@@ -31,7 +31,7 @@ echo "click-missing: $(curl -s -o /dev/null -w '%{http_code}' -X POST -H "$ct" -
 
 kill "$server" 2>/dev/null
 
-timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$DBPORT" -d "$DBOFF" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-address "http://127.0.0.1:$DBPORT" -d "$DBOFF" -u http://x >/dev/null 2>&1 &
 server_off=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$DBPORT/api/v1/config"

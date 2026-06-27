@@ -7,7 +7,7 @@ PORT=18772
 DB=$(mktemp -u /tmp/wr_logs_XXXXXX.db)
 AJAR=$(mktemp -u /tmp/wr_logs_jar_XXXXXX)
 
-timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-on "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
+timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-address "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"

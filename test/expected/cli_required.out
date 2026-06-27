@@ -1,5 +1,5 @@
 wr: error: These options are required:
-  --listen-on <url>
+  --listen-address <url>
   --database-url <path>
 
 See --help for info.

@@ -16,11 +16,11 @@ This produces completely static binary with web assets embeded inside.
 
 To run:
 ```
-./wr --listen-on http://0.0.0.0:8000 --database-url wr.db \
+./wr --listen-address http://0.0.0.0:8000 --database-url wr.db \
      --web-root-url https://your.ring
 ```
 
-Only `--listen-on` and `--database-url` are required. The `--web-root-url`
+Only `--listen-address` and `--database-url` are required. The `--web-root-url`
 defaults to the listen URL when it is not given.
 
 ## Environment

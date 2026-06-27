@@ -23,14 +23,17 @@ FLAG(HELP, Bool, '\0', "help", "Show this help and exit.");
 FLAG(VERSION, Bool, '\0', "version", "Show the version and exit.");
 FLAG(LISTEMBEDDED, Bool, '\0', "list-embedded-assets",
      "List the embedded frontend assets with their sizes and exit.");
-FLAG(LISTEN, String, 'l', "listen-on", Server,
-     "URL to listen on, like http://0.0.0.0:8000 (required).");
+FLAG(LISTEN, String, 'l', "listen-address", Server,
+     "URL to listen on, like http://0.0.0.0:8000 (required). Or set "
+     "WR_LISTEN_ADDRESS.");
 FLAG(DATABASE, String, 'd', "database-url", Server,
-     "Path or URL to the database (required).");
+     "Path or URL to the database (required). Or set WR_DATABASE_URL.");
 FLAG(DBBACKEND, String, 'D', "database-backend", Server,
-     "Database backend. One of: sqlite (default sqlite).");
+     "Database backend. One of: sqlite (default sqlite). Or set "
+     "WR_DATABASE_BACKEND.");
 FLAG(PUBLICURL, String, 'u', "web-root-url", Server,
-     "Public base URL for the OAuth redirect, defaults to the listen URL.");
+     "Public base URL for the OAuth redirect, defaults to the listen URL. Or "
+     "set WR_WEB_ROOT_URL.");
 FLAG(LOGFILE, String, 'L', "log-file", Debug,
      "Append the log to FILE instead of standard error.");
 FLAG(VERBOSE, Bool, 'v', "verbose", Debug,
@@ -150,6 +153,21 @@ fn main(int argc, char **argv) -> int
 
   std::srand(static_cast<u64>(getpid()));
 
+  /* A server option falls back to WR_ plus the long flag uppercased, so the
+     server runs from the environment with no arguments. The CLI value wins. */
+  let const do_string_env = [](FlagString &flag, const char *name) {
+    if (flag.is_set()) return;
+    let const value = std::getenv(name);
+    if (value != nullptr && value[0] != '\0') {
+      flag.set(StringView{value});
+    }
+  };
+
+  do_string_env(FLAG_LISTEN, "WR_LISTEN_ADDRESS");
+  do_string_env(FLAG_DATABASE, "WR_DATABASE_URL");
+  do_string_env(FLAG_DBBACKEND, "WR_DATABASE_BACKEND");
+  do_string_env(FLAG_PUBLICURL, "WR_WEB_ROOT_URL");
+
   if (!FLAG_LISTEN.is_set() || !FLAG_DATABASE.is_set()) {
     String message{allocator};
     message.append("error: These options are required:\n");
@@ -159,7 +177,7 @@ fn main(int argc, char **argv) -> int
       message.append(line);
       message.append("\n");
     };
-    do_note(FLAG_LISTEN, "--listen-on <url>");
+    do_note(FLAG_LISTEN, "--listen-address <url>");
     do_note(FLAG_DATABASE, "--database-url <path>");
     message.append("\nSee --help for info.");
     fail(message.view());

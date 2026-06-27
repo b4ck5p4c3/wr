@@ -8,7 +8,7 @@ PORT=18778
 DB=$(mktemp -u /tmp/wr_rl_XXXXXX.db)
 
 WR_SESSION_KEY=test-key WR_GITHUB_CLIENT_ID=id WR_GITHUB_CLIENT_SECRET=secret \
-  timeout 15 "$BIN" --listen-on "http://127.0.0.1:$PORT" -d "$DB" \
+  timeout 15 "$BIN" --listen-address "http://127.0.0.1:$PORT" -d "$DB" \
   -u http://x >/dev/null 2>&1 &
 server=$!
 disown
