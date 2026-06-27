@@ -377,6 +377,23 @@ fn App::handle_site_click(HttpServerEvent &event) -> void
   reply_message(event, 200, "Click recorded");
 }
 
+fn App::reply_comments_json(HttpServerEvent &event,
+                            const ArrayList<comment> &comments) -> void
+{
+  JsonWriter writer{m_allocator};
+  writer.array_begin();
+  for (usize i = 0; i < comments.count(); i++) {
+    let const author = m_store.find_account(comments[i].author_identity.view());
+    let const has_author = !author.is_error() && author.value().has_value();
+    let const author_tag =
+        has_author ? author.value().value().username.view() : StringView{};
+    write_comment_json(writer, comments[i], author_tag);
+  }
+
+  writer.array_end();
+  reply_json(event, 200, writer.view());
+}
+
 fn App::handle_comments_list(HttpServerEvent &event) -> void
 {
   static constexpr i64 COMMENT_PAGE_LIMIT = 5;
@@ -404,19 +421,7 @@ fn App::handle_comments_list(HttpServerEvent &event) -> void
     return;
   }
 
-  JsonWriter writer{m_allocator};
-  writer.array_begin();
-  let const &comments = comments_or.value();
-  for (usize i = 0; i < comments.count(); i++) {
-    let const author = m_store.find_account(comments[i].author_identity.view());
-    let const has_author = !author.is_error() && author.value().has_value();
-    let const author_tag =
-        has_author ? author.value().value().username.view() : StringView{};
-    write_comment_json(writer, comments[i], author_tag);
-  }
-
-  writer.array_end();
-  reply_json(event, 200, writer.view());
+  reply_comments_json(event, comments_or.value());
 }
 
 fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
@@ -480,19 +485,7 @@ fn App::handle_admin_comments(HttpServerEvent &event) -> void
     return;
   }
 
-  JsonWriter writer{m_allocator};
-  writer.array_begin();
-  let const &comments = comments_or.value();
-  for (usize i = 0; i < comments.count(); i++) {
-    let const author = m_store.find_account(comments[i].author_identity.view());
-    let const has_author = !author.is_error() && author.value().has_value();
-    let const author_tag =
-        has_author ? author.value().value().username.view() : StringView{};
-    write_comment_json(writer, comments[i], author_tag);
-  }
-
-  writer.array_end();
-  reply_json(event, 200, writer.view());
+  reply_comments_json(event, comments_or.value());
 }
 
 fn App::handle_admin_comment_resolve(HttpServerEvent &event,

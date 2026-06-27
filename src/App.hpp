@@ -92,6 +92,8 @@ private:
   fn reply_redirect(HttpServerEvent &event, StringView location) -> void;
   fn reply_message(HttpServerEvent &event, u16 status, StringView message)
       -> void;
+  fn reply_comments_json(HttpServerEvent &event,
+                         const ArrayList<comment> &comments) -> void;
   fn finish_login(HttpServerEvent &event, StringView identity,
                   StringView display_name, StringView username,
                   Maybe<bool> force_admin = {}) -> void;
