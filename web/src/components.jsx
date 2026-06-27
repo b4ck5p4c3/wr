@@ -705,12 +705,15 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
     motion.cardPopTarget = 0;
   };
   // A horizontal wheel or trackpad swipe spins the ring and carries the throw,
-  // and a vertical scroll is left to the page.
+  // and a vertical scroll is left to the page. The swipe direction matches the
+  // card travel, so the turn is negated, and the gain is damped so a flick
+  // covers a calm arc.
+  const wheelGain = 0.35;
   const onWheel = (event) => {
     if (event.deltaX === 0) return;
     event.preventDefault();
     const motion = motionRef.current;
-    const turn = event.deltaX * degreePerDragPixel;
+    const turn = -event.deltaX * degreePerDragPixel * wheelGain;
     motion.rotation += turn;
     motion.velocity = turn;
   };
