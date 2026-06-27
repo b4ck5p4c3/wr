@@ -460,20 +460,6 @@ cold fn show_version() -> void
   flush();
 }
 
-cold fn show_short_version() -> void
-{
-  let s = String{};
-  s += WR_VERSION_STRING;
-  s += '-';
-  s += WR_BUILD_MODE;
-  s += '-';
-  s += StringView{WR_COMMIT_HASH}.substring_of_length(0, 7);
-  s += '\n';
-
-  print(s);
-  flush();
-}
-
 cold fn make_synopsis(StringView program_name,
                       const ArrayList<StringView> &lines) -> String
 {
@@ -490,39 +476,6 @@ cold fn make_synopsis(StringView program_name,
   }
 
   return s;
-}
-
-cold fn wrap_text(StringView text, usize indent, usize width) -> String
-{
-  let out = String{};
-  const usize text_width = width > indent ? width - indent : 1;
-  usize line_used = 0;
-  usize word_start = 0;
-  bool line_started = false;
-  for (usize i = 0; i <= text.length; i++) {
-    const bool at_end = i == text.length;
-    if (!at_end && text[i] != ' ') continue;
-    const usize word_length = i - word_start;
-    if (word_length > 0) {
-      if (line_started && line_used + 1 + word_length > text_width) {
-        out += '\n';
-        line_started = false;
-        line_used = 0;
-      }
-      if (!line_started) {
-        for (usize j = 0; j < indent; j++)
-          out += ' ';
-        line_started = true;
-      } else {
-        out += ' ';
-        line_used++;
-      }
-      out += text.substring_of_length(word_start, word_length);
-      line_used += word_length;
-    }
-    word_start = i + 1;
-  }
-  return out;
 }
 
 cold fn make_flag_help(const ArrayList<Flag *> &flags) -> String

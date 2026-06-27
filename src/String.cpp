@@ -128,45 +128,6 @@ fn String::operator+=(char c) -> String &
   return *this;
 }
 
-hot fn String::operator<(const String &other) const noexcept -> bool
-{
-  let const shared_length =
-      m_length < other.m_length ? m_length : other.m_length;
-  let const order = shared_length == 0
-                        ? 0
-                        : std::memcmp(c_str(), other.c_str(), shared_length);
-
-  if (order != 0) return order < 0;
-  return m_length < other.m_length;
-}
-
-fn String::find_substring(StringView needle, usize from) const noexcept
-    -> Maybe<usize>
-{
-  if (needle.length == 0) return from <= m_length ? Maybe<usize>{from} : None;
-  if (needle.length > m_length) return None;
-  let i = from;
-  while (i + needle.length <= m_length) {
-    let const scan_length = m_length - needle.length - i + 1;
-    let const found = std::memchr(
-        m_data + i, static_cast<unsigned char>(needle.data[0]), scan_length);
-    if (found == nullptr) return None;
-    let const candidate =
-        static_cast<usize>(static_cast<const char *>(found) - m_data);
-    if (std::memcmp(m_data + candidate, needle.data, needle.length) == 0)
-      return candidate;
-    i = candidate + 1;
-  }
-  return None;
-}
-
-fn String::find_last_character(char wanted) const noexcept -> Maybe<usize>
-{
-  for (usize i = m_length; i > 0; i--)
-    if (m_data[i - 1] == wanted) return i - 1;
-  return None;
-}
-
 cold fn String::free_storage() noexcept -> void
 {
   if (m_data != nullptr && m_data != m_inline) {

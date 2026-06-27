@@ -111,20 +111,6 @@ public:
     return !(view() == other);
   }
 
-  hot mustuse pure fn operator<(const String &other) const noexcept -> bool;
-
-  mustuse pure fn first_character() const noexcept -> char
-  {
-    ASSERT(m_length > 0, "first_character() on an empty string");
-    return m_data[0];
-  }
-
-  mustuse pure fn find_substring(StringView needle,
-                                 usize from = 0) const noexcept -> Maybe<usize>;
-
-  mustuse pure fn find_last_character(char wanted) const noexcept
-      -> Maybe<usize>;
-
 private:
   cold fn free_storage() noexcept -> void;
 

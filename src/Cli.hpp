@@ -150,13 +150,10 @@ fn join_command_line(int argc, const char *const *argv) -> String;
 fn reset_flags(const ArrayList<Flag *> &flags) -> void;
 
 fn show_version() -> void;
-fn show_short_version() -> void;
 
 fn make_synopsis(StringView program_name, const ArrayList<StringView> &lines)
     -> String;
 fn make_flag_help(const ArrayList<Flag *> &flags) -> String;
-
-fn wrap_text(StringView text, usize indent, usize width) -> String;
 
 fn show_message(StringView err) -> void;
 
