@@ -39,13 +39,9 @@ pure fn reason_phrase(u16 status) noexcept -> const char *
 /* The logger verbosity drives the mongoose level, so one knob controls both. */
 pure fn mongoose_level_for(verbosity level) noexcept -> int
 {
-  switch (level) {
-  case verbosity::Nothing: return MG_LL_NONE;
-  case verbosity::Info: return MG_LL_ERROR;
-  case verbosity::Debug: return MG_LL_INFO;
-  case verbosity::All: return MG_LL_VERBOSE;
-  }
-  return MG_LL_ERROR;
+  /* The mongoose trace is the noisiest sink, so it is raised only at the All
+     level and stays silent below it. */
+  return level == verbosity::All ? MG_LL_VERBOSE : MG_LL_NONE;
 }
 
 fn contains_substring(StringView haystack, StringView needle) noexcept -> bool
@@ -91,7 +87,7 @@ fn MongooseServer::log_sink(char character, opaque *user) -> void
       /* The poll line fires on every event loop tick and carries no signal, so
          it is dropped while the rest of the mongoose trace is kept. */
       if (!contains_substring(line, "mg_mgr_poll"))
-        LOG(Debug, "mongoose: %.*s", static_cast<int>(line.count()), line.data);
+        LOG(All, "mongoose: %.*s", static_cast<int>(line.count()), line.data);
       server->m_log_line_length = 0;
     }
     return;
