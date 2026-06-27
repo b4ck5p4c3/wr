@@ -48,6 +48,24 @@ pure fn mongoose_level_for(verbosity level) noexcept -> int
   return MG_LL_ERROR;
 }
 
+fn contains_substring(StringView haystack, StringView needle) noexcept -> bool
+{
+  if (needle.count() == 0 || needle.count() > haystack.count()) {
+    return false;
+  }
+  for (usize start = 0; start + needle.count() <= haystack.count(); start++) {
+    bool is_match = true;
+    for (usize i = 0; i < needle.count(); i++) {
+      if (haystack[start + i] != needle[i]) {
+        is_match = false;
+        break;
+      }
+    }
+    if (is_match) return true;
+  }
+  return false;
+}
+
 } // namespace
 
 MongooseServer::MongooseServer(Allocator allocator) : m_allocator(allocator)
@@ -68,8 +86,12 @@ fn MongooseServer::log_sink(char character, opaque *user) -> void
 
   if (character == '\n') {
     if (server->m_log_line_length > 0) {
-      LOG(Debug, "mongoose: %.*s", static_cast<int>(server->m_log_line_length),
-          server->m_log_line);
+      let const line =
+          StringView{server->m_log_line, server->m_log_line_length};
+      /* The poll line fires on every event loop tick and carries no signal, so
+         it is dropped while the rest of the mongoose trace is kept. */
+      if (!contains_substring(line, "mg_mgr_poll"))
+        LOG(Debug, "mongoose: %.*s", static_cast<int>(line.count()), line.data);
       server->m_log_line_length = 0;
     }
     return;
