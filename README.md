@@ -23,6 +23,22 @@ To run:
 Only `--listen-address` and `--database-url` are required. The `--web-root-url`
 defaults to the listen URL when it is not given.
 
+## Docker
+
+The image builds the static binary and ships it from `scratch`. The compose
+file reads the `WR_` variables from a `.env` file, so the server runs with no
+arguments.
+
+```
+cp .env.example .env
+docker compose up --build
+```
+
+The `--listen-address`, `--database-url`, `--database-backend`, and
+`--web-root-url` options each fall back to an environment variable named `WR_`
+plus the long flag uppercased, so `--listen-address` reads `WR_LISTEN_ADDRESS`.
+A command line value wins over the environment.
+
 ## Environment
 
 The secrets are read from the environment. Outside dev mode at least one login
