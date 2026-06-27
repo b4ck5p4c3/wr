@@ -35,9 +35,8 @@ fn is_valid_slug(StringView slug) -> bool
   return RESERVED_SLUGS.find(slug) == nullptr;
 }
 
-/* A site url is rendered as a link and served as a navigation redirect, so only
-   an http or https scheme is accepted, which keeps a javascript or data url out
-   of the ring. */
+/* A site url is rendered as a link and served as a navigation redirect. Only
+   an http or https scheme is accepted. A javascript or data url is refused. */
 fn is_valid_site_url(StringView url) -> bool
 {
   return url.starts_with("http://") || url.starts_with("https://");
@@ -298,8 +297,8 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  /* Only the published set of reactions is accepted, so the table cannot be
-     filled with an arbitrary key. */
+  /* Only the published set of reactions is accepted. An arbitrary key cannot
+     fill the table. */
   static constexpr StaticStringMap<bool, 6> ALLOWED_EMOJIS{
       {{"poop", true},
        {"like", true},
@@ -426,8 +425,8 @@ fn App::handle_comments_list(HttpServerEvent &event) -> void
 
 fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
 {
-  /* Only a writer who owns a live site may comment, so the footer is open to
-     the ring members and not to every signed-in visitor. */
+  /* Only a writer who owns a live site may comment. The footer is open to the
+     ring members alone. */
   let const owned = m_store.list_sites_for_owner(who.identity.view());
   if (owned.is_error()) {
     reply_message(event, 500, owned.error().message().view());

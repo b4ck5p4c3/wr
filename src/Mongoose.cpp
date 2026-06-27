@@ -200,7 +200,7 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
     char client_ip[52];
     usize ip_length = mg_snprintf(client_ip, sizeof(client_ip), "%M",
                                   mg_print_ip, &connection->rem);
-    // mg_snprintf reports the count it would have written, so a truncation is
+    // mg_snprintf reports the count it would have written. A truncation is
     // clamped to the buffer before the view is taken.
     if (ip_length >= sizeof(client_ip)) ip_length = sizeof(client_ip) - 1;
     request_event.set_client_ip(StringView{client_ip, ip_length});
