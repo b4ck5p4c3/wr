@@ -46,8 +46,18 @@ fn client_address(HttpServerEvent &event, bool is_forwarded_trusted)
     return last_hop.substring_of_length(lead, trail - lead);
   }
 
-  if (let const real_ip = headers.get("x-real-ip"); real_ip.has_value())
-    return real_ip.value();
+  if (let const real_ip = headers.get("x-real-ip"); real_ip.has_value()) {
+    let const value = real_ip.value();
+    usize lead = 0;
+    while (lead < value.count() && value[lead] == ' ')
+      lead++;
+
+    usize trail = value.count();
+    while (trail > lead && value[trail - 1] == ' ')
+      trail--;
+
+    return value.substring_of_length(lead, trail - lead);
+  }
 
   return event.client_ip();
 }
