@@ -1125,6 +1125,15 @@ code {
   color: var(--text-primary);
 }
 
+/* The link providers center their label and the preferred tag on one row, so
+   the tag sits on the same line as the text. The select keeps the block box. */
+a.provider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8ch;
+}
+
 .provider:hover {
   border-color: var(--accent);
 }
@@ -1132,11 +1141,9 @@ code {
 /* GitHub is the preferred provider, so its button carries a small tag drawn in
    the accent. */
 .provider-preferred {
-  margin-left: 0.8ch;
   padding: 0 0.6ch;
   border: 1px solid var(--accent);
   color: var(--accent);
-  vertical-align: middle;
 }
 
 .provider.github {
