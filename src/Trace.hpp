@@ -27,6 +27,22 @@ inline fn log_output_stream() noexcept -> std::FILE *
   return LOGGER_OUTPUT != nullptr ? LOGGER_OUTPUT : stderr;
 }
 
+inline u32 LOG_THREAD_COUNTER = 0;
+
+// Each thread is stamped with a small sequential id on its first log line, so
+// the event loop and the liveness sweep are told apart in the trace. The
+// thread-locals are constant-initialized, so no runtime guard is pulled in.
+inline fn current_thread_id() noexcept -> u32
+{
+  thread_local u32 thread_id = 0;
+  thread_local bool was_assigned = false;
+  if (!was_assigned) {
+    thread_id = __atomic_fetch_add(&LOG_THREAD_COUNTER, 1, __ATOMIC_RELAXED);
+    was_assigned = true;
+  }
+  return thread_id;
+}
+
 inline fn set_log_file(Path path) -> ErrorOr<Ok>
 {
   let const opened = std::fopen(path.c_str(), "a");
@@ -102,10 +118,10 @@ inline fn log_emit(verbosity level, const char *file_line, const char *func,
 {
   char timestamp_buffer[16];
   char header[256];
-  let const header_length =
-      std::snprintf(header, sizeof(header), "[%s] [%s] %32s %32s(): ",
-                    log_timestamp(timestamp_buffer, sizeof(timestamp_buffer)),
-                    verbosity_to_string(level), file_line, func);
+  let const header_length = std::snprintf(
+      header, sizeof(header), "[%s] [%s] [t%u] %32s %32s(): ",
+      log_timestamp(timestamp_buffer, sizeof(timestamp_buffer)),
+      verbosity_to_string(level), current_thread_id(), file_line, func);
   let const header_view = header_length > 0 ? StringView{header} : StringView{};
 
   let const stream = log_output_stream();

@@ -278,27 +278,71 @@ fn App::handle_dev_login(HttpServerEvent &event) -> void
 fn App::current_account(HttpServerEvent &event) -> Maybe<account>
 {
   let const cookie_header = event.request_headers().get("cookie");
-  if (!cookie_header.has_value()) return None;
+  if (!cookie_header.has_value()) {
+    LOG(Debug, "current account none, request carries no cookie header");
+    return None;
+  }
   let const token = find_cookie(cookie_header.value(), "wr_session");
-  if (!token.has_value()) return None;
+  if (!token.has_value()) {
+    LOG(Debug, "current account none, cookie header has no wr_session");
+    return None;
+  }
 
   let const session_row = m_store.find_session(token.value());
-  if (session_row.is_error() || !session_row.value().has_value()) {
+  if (session_row.is_error()) {
+    LOG(Debug, "current account none, session lookup failed, %.*s",
+        static_cast<int>(session_row.error().message().view().count()),
+        session_row.error().message().view().data);
+    return None;
+  }
+  if (!session_row.value().has_value()) {
+    LOG(Debug, "current account none, no session row for the cookie token");
     return None;
   }
   let const &session = session_row.value().value();
-  if (session.expires_at < now_seconds()) return None;
+  if (session.expires_at < now_seconds()) {
+    LOG(Debug, "current account none, session expired at %lld, now %lld",
+        static_cast<long long>(session.expires_at),
+        static_cast<long long>(now_seconds()));
+    return None;
+  }
 
   let const found = m_store.find_account(session.who);
-  if (found.is_error()) return None;
+  if (found.is_error()) {
+    LOG(Debug, "current account none, account lookup failed");
+    return None;
+  }
+  if (!found.value().has_value()) {
+    LOG(Debug, "current account none, session source=%d name=%s has no account",
+        static_cast<int>(session.who.source), session.who.name.c_str());
+    return None;
+  }
+
+  let const &resolved = found.value().value();
+  LOG(Debug, "current account resolved, source=%d name=%s is_admin=%d",
+      static_cast<int>(resolved.who.source), resolved.who.name.c_str(),
+      resolved.is_admin ? 1 : 0);
   return found.value();
 }
 
 fn App::require_admin(HttpServerEvent &event) -> Maybe<account>
 {
+  let const ip = client_address(event, m_config.is_forwarded_trusted);
+  let const ip_count = static_cast<int>(ip.count());
+
   let who = current_account(event);
-  if (!who.has_value() || !who.value().is_admin) {
-    LOG(Info, "admin access denied");
+  if (!who.has_value()) {
+    LOG(Info, "admin access denied, no signed-in account, ip=%.*s", ip_count,
+        ip.data);
+    reply_message(event, 403, "Admins only");
+    return None;
+  }
+  if (!who.value().is_admin) {
+    LOG(Info,
+        "admin access denied, source=%d name=%s is signed in but not admin, "
+        "ip=%.*s",
+        static_cast<int>(who.value().who.source), who.value().who.name.c_str(),
+        ip_count, ip.data);
     reply_message(event, 403, "Admins only");
     return None;
   }
