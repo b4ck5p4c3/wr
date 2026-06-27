@@ -12,13 +12,11 @@ export ASAN_OPTIONS := detect_leaks=0
 CASES := $(wildcard cases/*.sh)
 NAMES := $(CASES:cases/%.sh=%)
 
-# Run one case, comparing its output to the golden. A blocking server in a case
-# is the case's own concern, every server launch is wrapped in a timeout.
 %: expected/%.out
 	@out=$$(mktemp); \
 	bash cases/$@.sh > $$out 2>&1; \
 	if diff $(DIFF_FLAGS) $< $$out >/dev/null 2>&1; then \
-		printf "\t%-50s ok\n" $@; \
+		printf "\t%-50s ok\r" $@; \
 	else \
 		{ echo "### $@"; diff $(DIFF_FLAGS) $< $$out; } >> $(FAILED); \
 		printf "\t%-50s FAILED\n" $@; \
@@ -30,11 +28,9 @@ test: $(BIN)
 	@$(MAKE) -s run
 	@touch $(FAILED)
 	@cat $(FAILED)
-	@test ! -s $(FAILED) && echo "all tests passed"
 
 run: $(NAMES)
 
-# Regenerate every golden. Each one is read before it is trusted.
 refill: $(BIN)
 	@mkdir -p expected
 	@for case_name in $(NAMES); do \

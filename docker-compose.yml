@@ -3,16 +3,11 @@ services:
     build: .
     env_file: .env
     ports:
-      - "8000:8000"
+      - "1234:1234"
     volumes:
       - wr-data:/data
     restart: unless-stopped
-    # For a local run without a configured login provider, uncomment the bypass.
     # command: ["--enable-dangerous-developer-environment"]
-    # The default bridge inherits the host resolver. On a host whose resolver is
-    # reachable only from the host network, such as a Tailscale MagicDNS address
-    # at 100.100.100.100, the liveness probes cannot resolve a site. Switch to
-    # host networking or set a reachable dns there.
     # network_mode: host
 
 volumes:

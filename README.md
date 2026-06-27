@@ -16,28 +16,20 @@ This produces completely static binary with web assets embeded inside.
 
 To run:
 ```
-./wr --listen-address http://0.0.0.0:8000 --database-url wr.db \
-     --web-root-url https://your.ring
+./wr --listen-address http://0.0.0.0:8000 --database-url wr.db --web-root-url https://your.ring
 ```
 
-Only `--listen-address` and `--database-url` are required. The `--web-root-url`
-defaults to the listen URL when it is not given.
-
-## Docker
-
-The image builds the static binary and ships it from `scratch`. The compose
-file reads the `WR_` variables from a `.env` file, so the server runs with no
-arguments.
+Or use docker:
 
 ```
-cp .env.example .env
+cp ./.env.example ./.env
+nvim ./.env
 docker compose up --build
 ```
 
-The `--listen-address`, `--database-url`, `--database-backend`, and
-`--web-root-url` options each fall back to an environment variable named `WR_`
-plus the long flag uppercased, so `--listen-address` reads `WR_LISTEN_ADDRESS`.
-A command line value wins over the environment.
+Only `--listen-address` and `--database-url` are required. The `--web-root-url`
+defaults to the listen URL when it is not given. Each of these flags can also
+read from the environment. See `--help` output for more information.
 
 ## Environment
 
