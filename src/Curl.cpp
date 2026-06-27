@@ -106,7 +106,11 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
     header_line.append(name);
     header_line.append(": ");
     header_line.append(value);
-    header_list = curl_slist_append(header_list, header_line.c_str());
+
+    // A failed append returns null and leaves the prior list untouched, so the
+    // pointer is kept and only the one header is dropped.
+    curl_slist *appended = curl_slist_append(header_list, header_line.c_str());
+    if (appended != nullptr) header_list = appended;
   });
   defer
   {
