@@ -104,9 +104,6 @@ fn Liveness::sweep() -> void
     let const response = m_client.send(request);
 
     let const status = response.is_error() ? 0 : response.value().status();
-    /* Any reply under 500 means the origin answered, including a 403 bot
-       challenge, so the site is reachable. A 5xx or a failed request is down.
-     */
     let const is_up = status >= 200 && status < 500;
     if (is_up != row.is_reachable)
       LOG(Info, "site %s is now %s", row.slug.c_str(), is_up ? "up" : "down");

@@ -9,8 +9,6 @@
 
 namespace wr {
 
-/* The provider an identity comes from. The value is stored as the integer in
-   the source column, so a reorder would rewrite existing rows. */
 enum class identity_source : u8
 {
   github = 0,
@@ -18,8 +16,6 @@ enum class identity_source : u8
   dev = 2,
 };
 
-/* A panel identity, the provider source and the handle within it. The pair
-   replaces the old packed "github:1234" string and is stored as two columns. */
 struct identity
 {
   identity_source source{identity_source::github};
@@ -31,8 +27,6 @@ struct identity
   }
 };
 
-/* The provider label for the profile link, github or telegram. The dev bypass
-   reads as github. */
 fn source_oauth(identity_source source) -> StringView;
 
 struct site

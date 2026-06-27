@@ -1591,9 +1591,6 @@ export function LogStream() {
     2000,
   );
 
-  // The newest line is shown when the panel first fills, and a later poll
-  // leaves the scroll position alone so a reader is not pulled off the line
-  // they are reading.
   useEffect(() => {
     if (
       viewRef.current != null &&

@@ -1125,8 +1125,6 @@ code {
   color: var(--text-primary);
 }
 
-/* The link providers center their label and the preferred tag on one row, so
-   the tag sits on the same line as the text. The select keeps the block box. */
 a.provider {
   display: flex;
   align-items: center;

@@ -89,10 +89,6 @@ fn install_shutdown_handlers(HttpServer &server) -> void
   sigaction(SIGHUP, &action, nullptr);
 }
 
-/* The handler points at the stack-bound server, which the teardown destroys
-   before the database is closed. The default disposition is restored once the
-   loop returns, so a signal during the slow database close terminates the
-   process instead of writing into the destroyed server. */
 fn clear_shutdown_handlers() -> void
 {
   SHUTDOWN_SERVER = nullptr;

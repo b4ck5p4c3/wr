@@ -656,9 +656,6 @@ fn App::emit(HttpServerEvent &event, u16 status, const HttpHeaders &headers,
   let const uri = event.uri();
   let const client = client_address(event, m_config.is_forwarded_trusted);
 
-  /* A GET is a read, polled often by the panel, so it is traced only at All. A
-     write through POST or DELETE is traced at Debug, so the Debug trace carries
-     the mutations and the read traffic stays at All. */
   if (method == "GET") {
     LOG(All, "%.*s %.*s %.*s -> %u", static_cast<int>(client.count()),
         client.data, static_cast<int>(method.count()), method.data,

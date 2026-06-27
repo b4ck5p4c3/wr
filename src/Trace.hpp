@@ -29,9 +29,6 @@ inline fn log_output_stream() noexcept -> std::FILE *
 
 inline u32 LOG_THREAD_COUNTER = 0;
 
-// Each thread is stamped with a small sequential id on its first log line, so
-// the event loop and the liveness sweep are told apart in the trace. The
-// thread-locals are constant-initialized, so no runtime guard is pulled in.
 inline fn current_thread_id() noexcept -> u32
 {
   thread_local u32 thread_id = 0;
