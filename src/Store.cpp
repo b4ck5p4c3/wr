@@ -63,24 +63,24 @@ const StringView SITE_COLUMNS = "slug, name, url, description, is_reachable, "
 
 } // namespace
 
-/* The schema is the sum of the ordered migrations below. A migration is run
-   once, and the applied count is held in PRAGMA user_version, so a new database
-   runs every step and an older one runs only the steps it is missing. A
-   migration is never edited once released, a schema change is a new entry. */
-static const char *const SCHEMA_MIGRATIONS[] = {
+/* The schema is one idempotent baseline. Every statement is a CREATE IF NOT
+   EXISTS, so a boot against a database that already holds it does nothing. */
+static const char *const SCHEMA =
     "CREATE TABLE IF NOT EXISTS sites ("
     "  slug TEXT PRIMARY KEY,"
     "  name TEXT NOT NULL,"
     "  url TEXT NOT NULL,"
-    "  favicon TEXT NOT NULL DEFAULT '',"
     "  is_reachable INTEGER NOT NULL DEFAULT 1,"
     "  last_seen_at INTEGER NOT NULL DEFAULT 0,"
     "  owner TEXT NOT NULL DEFAULT '',"
-    "  created_at INTEGER NOT NULL DEFAULT 0);"
+    "  created_at INTEGER NOT NULL DEFAULT 0,"
+    "  is_deleted INTEGER NOT NULL DEFAULT 0,"
+    "  description TEXT NOT NULL DEFAULT '');"
     "CREATE TABLE IF NOT EXISTS accounts ("
     "  identity TEXT PRIMARY KEY,"
     "  display_name TEXT NOT NULL DEFAULT '',"
-    "  is_admin INTEGER NOT NULL DEFAULT 0);"
+    "  is_admin INTEGER NOT NULL DEFAULT 0,"
+    "  username TEXT NOT NULL DEFAULT '');"
     "CREATE TABLE IF NOT EXISTS sessions ("
     "  token TEXT PRIMARY KEY,"
     "  identity TEXT NOT NULL,"
@@ -93,124 +93,56 @@ static const char *const SCHEMA_MIGRATIONS[] = {
     "  payload TEXT NOT NULL DEFAULT '',"
     "  created_at INTEGER NOT NULL,"
     "  status TEXT NOT NULL DEFAULT 'pending');"
+    "CREATE TABLE IF NOT EXISTS liveness_buckets ("
+    "  slug TEXT NOT NULL,"
+    "  hour_bucket INTEGER NOT NULL,"
+    "  up_count INTEGER NOT NULL DEFAULT 0,"
+    "  probe_count INTEGER NOT NULL DEFAULT 0,"
+    "  PRIMARY KEY (slug, hour_bucket));"
+    "CREATE TABLE IF NOT EXISTS reactions ("
+    "  slug TEXT NOT NULL,"
+    "  emoji TEXT NOT NULL,"
+    "  identity TEXT NOT NULL,"
+    "  PRIMARY KEY (slug, emoji, identity));"
+    "CREATE TABLE IF NOT EXISTS audit_log ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  actor TEXT NOT NULL,"
+    "  action TEXT NOT NULL,"
+    "  target TEXT NOT NULL DEFAULT '',"
+    "  detail TEXT NOT NULL DEFAULT '',"
+    "  created_at INTEGER NOT NULL,"
+    "  actor_ip TEXT NOT NULL DEFAULT '');"
+    "CREATE TABLE IF NOT EXISTS comments ("
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  author_identity TEXT NOT NULL,"
+    "  author_name TEXT NOT NULL DEFAULT '',"
+    "  body TEXT NOT NULL,"
+    "  created_at INTEGER NOT NULL,"
+    "  is_approved INTEGER NOT NULL DEFAULT 0);"
+    "CREATE TABLE IF NOT EXISTS site_metrics ("
+    "  slug TEXT PRIMARY KEY,"
+    "  click_count INTEGER NOT NULL DEFAULT 0,"
+    "  hop_count INTEGER NOT NULL DEFAULT 0);"
     "CREATE INDEX IF NOT EXISTS index_sites_owner ON sites(owner);"
     "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
     "CREATE INDEX IF NOT EXISTS index_pending_owner ON pending_actions(owner);"
     "CREATE INDEX IF NOT EXISTS index_pending_status ON "
     "pending_actions(status);"
-    "CREATE INDEX IF NOT EXISTS index_sessions_expires ON "
-    "sessions(expires_at);",
-
-    "ALTER TABLE sites ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0;",
-
-    ("ALTER TABLE sites ADD COLUMN description TEXT NOT NULL DEFAULT ''; "
-     "ALTER TABLE sites DROP COLUMN favicon;"),
-
-    ("CREATE TABLE IF NOT EXISTS liveness_buckets ("
-     "  slug TEXT NOT NULL,"
-     "  hour_bucket INTEGER NOT NULL,"
-     "  up_count INTEGER NOT NULL DEFAULT 0,"
-     "  probe_count INTEGER NOT NULL DEFAULT 0,"
-     "  PRIMARY KEY (slug, hour_bucket));"
-     "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "
-     "liveness_buckets(hour_bucket);"),
-
-    ("CREATE TABLE IF NOT EXISTS reactions ("
-     "  slug TEXT NOT NULL,"
-     "  emoji TEXT NOT NULL,"
-     "  identity TEXT NOT NULL,"
-     "  PRIMARY KEY (slug, emoji, identity));"
-     "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"),
-
-    ("CREATE TABLE IF NOT EXISTS audit_log ("
-     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-     "  actor TEXT NOT NULL,"
-     "  action TEXT NOT NULL,"
-     "  target TEXT NOT NULL DEFAULT '',"
-     "  detail TEXT NOT NULL DEFAULT '',"
-     "  created_at INTEGER NOT NULL);"
-     "CREATE INDEX IF NOT EXISTS index_audit_created ON "
-     "audit_log(created_at);"),
-
-    "ALTER TABLE audit_log ADD COLUMN actor_ip TEXT NOT NULL DEFAULT '';",
-
-    ("CREATE TABLE IF NOT EXISTS comments ("
-     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-     "  author_identity TEXT NOT NULL,"
-     "  author_name TEXT NOT NULL DEFAULT '',"
-     "  body TEXT NOT NULL,"
-     "  created_at INTEGER NOT NULL);"
-     "CREATE INDEX IF NOT EXISTS index_comments_created ON "
-     "comments(created_at);"),
-
-    "ALTER TABLE comments ADD COLUMN is_approved INTEGER NOT NULL DEFAULT 0;",
-
-    "ALTER TABLE accounts ADD COLUMN username TEXT NOT NULL DEFAULT '';",
-
-    ("CREATE TABLE IF NOT EXISTS site_metrics ("
-     "  slug TEXT PRIMARY KEY,"
-     "  click_count INTEGER NOT NULL DEFAULT 0,"
-     "  hop_count INTEGER NOT NULL DEFAULT 0);"),
-};
+    "CREATE INDEX IF NOT EXISTS index_sessions_expires ON sessions(expires_at);"
+    "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "
+    "liveness_buckets(hour_bucket);"
+    "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"
+    "CREATE INDEX IF NOT EXISTS index_audit_created ON audit_log(created_at);"
+    "CREATE INDEX IF NOT EXISTS index_comments_created ON "
+    "comments(created_at);";
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
 static constexpr i64 LIVENESS_WINDOW_HOURS = 168;
 
-fn Store::schema_version() const -> ErrorOr<i64>
-{
-  let statement = TRY(m_database.prepare("PRAGMA user_version;"));
-  if (TRY(statement.step())) return statement.get<i64>();
-  return i64{0};
-}
-
-/* A database created before versioning carries a user_version of zero, so its
-   real baseline is read from the schema it already holds. */
-fn Store::detect_baseline() const -> ErrorOr<i64>
-{
-  let table_statement = TRY(m_database.prepare(
-      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sites';"));
-  if (!TRY(table_statement.step())) return i64{0};
-
-  let info_statement = TRY(m_database.prepare("PRAGMA table_info(sites);"));
-  while (TRY(info_statement.step())) {
-    unused(info_statement.get<i64>());
-    let const name = info_statement.get<String>();
-    if (name.view() == "is_deleted") return i64{2};
-  }
-  return i64{1};
-}
-
-fn Store::set_schema_version(i64 version) -> ErrorOr<Ok>
-{
-  char pragma[48];
-  std::snprintf(pragma, sizeof(pragma), "PRAGMA user_version = %lld;",
-                static_cast<long long>(version));
-  return m_database.execute(StringView{pragma});
-}
-
 fn Store::migrate() -> ErrorOr<Ok>
 {
-  let const stored_count = TRY(schema_version());
-  let const applied_count =
-      stored_count == 0 ? TRY(detect_baseline()) : stored_count;
-  let const target_count = static_cast<i64>(countof(SCHEMA_MIGRATIONS));
-
-  if (applied_count >= target_count) {
-    if (applied_count != stored_count) TRY(set_schema_version(applied_count));
-    LOG(Debug, "schema already at version %lld",
-        static_cast<long long>(applied_count));
-    return Success;
-  }
-
-  TRY(m_database.execute("BEGIN;"));
-  for (i64 version = applied_count; version < target_count; version++)
-    TRY(m_database.execute(SCHEMA_MIGRATIONS[version]));
-  TRY(set_schema_version(target_count));
-  TRY(m_database.execute("COMMIT;"));
-
-  LOG(Info, "schema migrated from version %lld to %lld",
-      static_cast<long long>(applied_count),
-      static_cast<long long>(target_count));
+  TRY(m_database.execute(SCHEMA));
+  LOG(Info, "schema ensured");
   return Success;
 }
 
