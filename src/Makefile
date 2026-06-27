@@ -1,3 +1,4 @@
+# make MODE=dbg/rel/cov/cosmo/cosmo_dbg
 MODE ?= dbg
 
 GEN_EMBED_SRC := EmbeddedAssets.gen.cpp
@@ -73,8 +74,9 @@ LIBC_INFO := $(subst $(t__space),_,$(LIBC_INFO))
 COMMIT_HASH := $(subst $(t__space),_,$(COMMIT_HASH))
 endif
 
+# Remember CXXFLAGS passed to us from the CLI.
 ENVCXXFLAGS := $(CXXFLAGS)
-CXXFLAGS :=
+CXXFLAGS := # nothing
 
 DEFINES := \
 	-DWR_COMPILER_COMMAND="\"$(CXX)\"" \
@@ -116,6 +118,7 @@ CXXFLAGS := \
 	$(DEFINES) \
 	$(ENVCXXFLAGS)
 
+# Vendored C code.
 CFLAGS := \
 	-Wno-deprecated \
 	-Wno-int-conversion \
@@ -124,7 +127,7 @@ CFLAGS := \
 	-fvisibility=hidden \
 	$(INCLUDES)
 
-LINK_LIBS :=
+LINK_LIBS := # nothing
 
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 ifneq ($(shell which mold > /dev/null 2>&1),)
@@ -138,6 +141,7 @@ else
 USE_LD :=
 endif
 
+# MODE=rel
 ifeq ($(MODE), rel)
 CXXFLAGS += \
 	-s \
@@ -147,7 +151,7 @@ CXXFLAGS += \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=2 \
 	-fsanitize=undefined \
-	-fsanitize-trap=undefined
+	-fsanitize-minimal-runtime
 CFLAGS += \
 	-O2 \
 	-flto \
@@ -157,6 +161,7 @@ CXXFLAGS += \
 	-static-pie \
 	-nostdlib++
 LINK_LIBS += -lsupc++
+# MODE=dbg
 else ifeq ($(MODE), dbg)
 CXXFLAGS += \
 	-fno-omit-frame-pointer \
@@ -170,7 +175,10 @@ CFLAGS += \
 	-g3 \
 	-fsanitize=address \
 	-fsanitize=undefined
+# The base flags drop the C++ standard library, so the support library is linked
+# back for the C++ ABI runtime, the same as the rel and cov modes.
 LINK_LIBS += -lsupc++
+# MODE=cov
 else ifeq ($(MODE), cov)
 CXXFLAGS += \
 	-g3 \
@@ -191,6 +199,7 @@ CFLAGS += -O2
 ifneq ($(CXX), cosmoc++)
 $(error Your CXX is "$(CXX)" instead of "cosmoc++" for MODE=cosmo)
 endif
+# MODE=cosmo_dbg
 else ifeq ($(MODE), cosmo_dbg)
 CXXFLAGS += \
 	-mcosmo \
@@ -235,6 +244,8 @@ $(OBJ_DIR)/vendor/mongoose.o: $(VENDOR_DIR)/mongoose/mongoose.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
+# The extension loader pulls dlopen into the static link and warns. No extension
+# is loaded, so it is omitted.
 $(OBJ_DIR)/vendor/sqlite3.o: $(VENDOR_DIR)/sqlite/sqlite3.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CFLAGS) -DSQLITE_OMIT_LOAD_EXTENSION -MMD -MP -c $< -o $@
@@ -247,6 +258,7 @@ $(OBJ_DIR)/vendor/mbedtls/%.o: $(VENDOR_DIR)/mbedtls/%.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(MBEDTLS_CFLAGS) -MMD -MP -c $< -o $@
 
+# Linking.
 $(OUT): $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)
 	printf "\tLinking $(OUT)... %-64s\r" ' '
 	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS) $(LINK_LIBS) -o $@
@@ -298,7 +310,7 @@ clean:
 	rm -rf ./o ../wr ../wr-$(MODE) ../wr.com ../wr-cosmo.com ../wr-cosmo_dbg.com
 	rm -f $(GEN_EMBED_SRC)
 	rm -rf ../perf*
-	rm -rf ../*.profraw ../*.profdata ../coverage
+	rm -rf ../*.profraw ../*.profdata ../coverage # Coverage
 
 .DEFAULT_GOAL := wr
 .PHONY: dirs wr install uninstall deploy tidy fmt clean
