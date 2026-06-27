@@ -44,7 +44,7 @@ periodic liveness check.
 - A function is written in the `fn name(...) -> ret` form, and a function that never unwinds is marked `noexcept`.
 - A comment is avoided where the code can carry the meaning. A clearer name or a smaller function is reached for first, and a comment is kept only when the reason still does not read from the code. A comment states why the code is the way it is, never what it does, and the "so" justification shape and the justify-by-contrast shape are not used.
 - A new comment is the last resort. A comment that restates the code or repeats a clear name is deleted on sight, and a comment survives only when it records a reason that cannot be recovered from the code, such as an external constraint, a security invariant, or a non-obvious sentinel value.
-- A local is written with `let` and `let const`, so a deducible type is never spelled out.
+- A local is written with `let` and `let const`, so a deducible type is never spelled out. A literal counter such as `usize i = 0` keeps its spelled type, since `let i = 0` would deduce int rather than the unsigned type.
 - The integer aliases are `usize`, `u8` through `u64`, and `i8` through `i64`.
 - A null pointer check is written `!= nullptr` or `== nullptr`, never a bare truthiness test.
 - A boolean is named with an `is_`, `should_`, `was_`, `did_`, or `has_` prefix, and a number carries a `_count` or a measure suffix.
@@ -54,6 +54,10 @@ periodic liveness check.
 - A stray enum or struct is lower_snake_case, and only a class and a nested type are CamelCase.
 - A file operation takes a Path, not a String or a StringView.
 - State is threaded through context structs and constructors, and no mutable global holds per-request state.
+- A logical block is separated by a blank line, before and after a loop, before a return, and after a group of declarations.
+- A free helper whose receiver is a value type is written as a method on that type.
+- A fallible lookup returns a `Maybe<T>` rather than a sentinel value.
+- A file-scope global is named in SCREAMING_SNAKE_CASE, the same as the logger verbosity.
 - An existing helper is reused rather than a second copy written, and a new abstraction waits for approval.
 
 ## Architecture
