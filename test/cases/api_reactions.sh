@@ -19,6 +19,8 @@ echo "react-fire: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/jso
 echo "react-star: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"rx","emoji":"star"}' "http://127.0.0.1:$PORT/api/v1/sites/react")"
 echo "react-bad: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"rx","emoji":"taco"}' "http://127.0.0.1:$PORT/api/v1/sites/react")"
 echo "react-missing: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"ghost","emoji":"fire"}' "http://127.0.0.1:$PORT/api/v1/sites/react")"
+echo "react-case: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"rx","emoji":"FIRE"}' "http://127.0.0.1:$PORT/api/v1/sites/react")"
+echo "react-malformed: $(curl -s -b "$UJAR" -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d 'garbage' "http://127.0.0.1:$PORT/api/v1/sites/react")"
 echo "react-unauth: $(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"slug":"rx","emoji":"fire"}' "http://127.0.0.1:$PORT/api/v1/sites/react")"
 echo "sites-anon: $(curl -s "http://127.0.0.1:$PORT/sites")"
 echo "sites-user: $(curl -s -b "$UJAR" "http://127.0.0.1:$PORT/sites")"

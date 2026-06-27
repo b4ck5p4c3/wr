@@ -22,7 +22,11 @@ const fontFiles = [
 
 const lines = readFileSync(specPath, "utf8").split("\n");
 
-const indentOf = (line) => line.match(/^ */)[0].length;
+const indentOf = (line) => {
+  let position = 0;
+  while (position < line.length && line[position] === " ") position++;
+  return position;
+};
 const isBlank = (line) => line.trim() === "";
 
 function escapeHtml(text) {
@@ -37,6 +41,15 @@ function refName(value) {
   return match ? match[1] : null;
 }
 
+// The name of the first $ref in a span, or null when the span carries none.
+function firstRefIn(from, to) {
+  for (let i = from; i < to; i++) {
+    const refMatch = lines[i].match(/\$ref:\s*"([^"]+)"/);
+    if (refMatch) return refName(refMatch[1]);
+  }
+  return null;
+}
+
 // The child range of a key line is the half-open span of the lines indented
 // deeper than it, up to the next sibling or shallower line.
 function childRange(startIndex) {
@@ -45,21 +58,26 @@ function childRange(startIndex) {
   while (
     end < lines.length &&
     (isBlank(lines[end]) || indentOf(lines[end]) > base)
-  )
+  ) {
     end++;
+  }
   return [startIndex + 1, end];
 }
 
 function topLevelIndex(key) {
-  return lines.findIndex((line) => line.startsWith(key));
+  return lines.findIndex((line) => line === key);
 }
 
-// A mapping key at a fixed indent inside a span, matched by its leading name.
+// A mapping key is found at a fixed indent inside a span by its leading name.
 function keyIndexAt(from, to, indent, name) {
   for (let i = from; i < to; i++) {
     if (isBlank(lines[i])) continue;
-    if (indentOf(lines[i]) === indent && lines[i].trim().startsWith(name + ":"))
+    if (
+      indentOf(lines[i]) === indent &&
+      lines[i].trim().startsWith(name + ":")
+    ) {
       return i;
+    }
   }
   return -1;
 }
@@ -84,7 +102,9 @@ function parseSchemas() {
   if (schemasIndex < 0) return schemas;
   const [from, to] = childRange(schemasIndex);
   for (let i = from; i < to; i++) {
-    if (isBlank(lines[i]) || indentOf(lines[i]) !== 4) continue;
+    if (isBlank(lines[i]) || indentOf(lines[i]) !== 4) {
+      continue;
+    }
     const name = lines[i].trim().replace(/:$/, "");
     const [sFrom, sTo] = childRange(i);
     const fields = [];
@@ -92,19 +112,16 @@ function parseSchemas() {
     if (propsIndex >= 0) {
       const [pFrom, pTo] = childRange(propsIndex);
       for (let p = pFrom; p < pTo; p++) {
-        if (isBlank(lines[p]) || indentOf(lines[p]) !== 8) continue;
+        if (isBlank(lines[p]) || indentOf(lines[p]) !== 8) {
+          continue;
+        }
         const fieldName = lines[p].trim().replace(/:$/, "");
         const [fFrom, fTo] = childRange(p);
         const typeIndex = keyIndexAt(fFrom, fTo, 10, "type");
         let type = typeIndex >= 0 ? scalarAfter(lines[typeIndex]) : "";
         if (!type) {
-          for (let q = fFrom; q < fTo; q++) {
-            const refMatch = lines[q].match(/\$ref:\s*"([^"]+)"/);
-            if (refMatch) {
-              type = refName(refMatch[1]);
-              break;
-            }
-          }
+          const ref = firstRefIn(fFrom, fTo);
+          if (ref) type = ref;
         }
         fields.push({ name: fieldName, type });
       }
@@ -117,15 +134,17 @@ function parseSchemas() {
 }
 
 // A shared response carries its description and the schema its body resolves
-// to, so a status that references it renders the same body shape as an inline
-// schema does.
+// to. A status that references it renders the same body shape as an inline
+// schema.
 function parseResponseComponents() {
   const out = {};
   const responsesIndex = lines.findIndex((line) => line === "  responses:");
   if (responsesIndex < 0) return out;
   const [from, to] = childRange(responsesIndex);
   for (let i = from; i < to; i++) {
-    if (isBlank(lines[i]) || indentOf(lines[i]) !== 4) continue;
+    if (isBlank(lines[i]) || indentOf(lines[i]) !== 4) {
+      continue;
+    }
     const name = lines[i].trim().replace(/:$/, "");
     const [rFrom, rTo] = childRange(i);
     const descIndex = keyIndexAt(rFrom, rTo, 6, "description");
@@ -147,22 +166,30 @@ function parseResponseComponents() {
 // referenced schema name, or the inline description.
 function resolveStatus(from, to, responseComponents) {
   let isArray = false;
+  let responseRef = null;
+  let schemaRef = null;
   for (let i = from; i < to; i++) {
     if (lines[i].includes("type: array")) isArray = true;
     const refMatch = lines[i].match(/\$ref:\s*"([^"]+)"/);
-    if (refMatch) {
-      const name = refName(refMatch[1]);
-      if (refMatch[1].includes("/responses/")) {
-        const component = responseComponents[name];
-        return {
-          label: component ? component.description : name,
-          schema: component ? component.schema : null,
-        };
-      }
-      if (refMatch[1].includes("/schemas/"))
-        return { label: (isArray ? "array of " : "") + name, schema: name };
-    }
+    if (refMatch == null) continue;
+    if (refMatch[1].includes("/responses/")) responseRef = refName(refMatch[1]);
+    else if (refMatch[1].includes("/schemas/")) schemaRef = refName(refMatch[1]);
   }
+
+  if (responseRef != null) {
+    const component = responseComponents[responseRef];
+    return {
+      label: component ? component.description : responseRef,
+      schema: component ? component.schema : null,
+    };
+  }
+  if (schemaRef != null) {
+    return {
+      label: (isArray ? "array of " : "") + schemaRef,
+      schema: schemaRef,
+    };
+  }
+
   const descIndex = keyIndexAt(from, to, 10, "description");
   if (descIndex >= 0)
     return { label: scalarAfter(lines[descIndex]), schema: null };
@@ -188,10 +215,7 @@ function parseOperation(from, to, responseComponents) {
   const requestIndex = keyIndexAt(from, to, 6, "requestBody");
   if (requestIndex >= 0) {
     const [reqFrom, reqTo] = childRange(requestIndex);
-    for (let i = reqFrom; i < reqTo; i++) {
-      const refMatch = lines[i].match(/\$ref:\s*"([^"]+)"/);
-      if (refMatch) op.request = refName(refMatch[1]);
-    }
+    op.request = firstRefIn(reqFrom, reqTo);
   }
 
   const paramsIndex = keyIndexAt(from, to, 6, "parameters");
@@ -199,7 +223,10 @@ function parseOperation(from, to, responseComponents) {
     const [pFrom, pTo] = childRange(paramsIndex);
     for (let i = pFrom; i < pTo; i++) {
       const refMatch = lines[i].match(/parameters\/(\w+)/);
-      if (refMatch) op.params.push(refMatch[1].toLowerCase());
+      if (refMatch) {
+        op.params.push(refMatch[1].toLowerCase());
+        continue;
+      }
       const nameMatch = lines[i].match(/^\s*- name:\s*(\w+)/);
       if (nameMatch) op.params.push(nameMatch[1]);
     }
@@ -209,7 +236,9 @@ function parseOperation(from, to, responseComponents) {
   if (responsesIndex >= 0) {
     const [rFrom, rTo] = childRange(responsesIndex);
     for (let i = rFrom; i < rTo; i++) {
-      if (isBlank(lines[i]) || indentOf(lines[i]) !== 8) continue;
+      if (isBlank(lines[i]) || indentOf(lines[i]) !== 8) {
+        continue;
+      }
       const status = lines[i].trim().replace(/:$/, "").replace(/["']/g, "");
       const [sFrom, sTo] = childRange(i);
       op.responses.push({
@@ -291,7 +320,9 @@ function renderFields(schema, showRequired) {
 function renderRequest(op, schemas) {
   if (op.request == null) return "";
   const schema = schemas[op.request];
-  if (schema == null || schema.fields.length === 0) return "";
+  if (schema == null || schema.fields.length === 0) {
+    return "";
+  }
   return (
     '<div class="block"><span class="label">' +
     escapeHtml(op.method.toUpperCase()) +

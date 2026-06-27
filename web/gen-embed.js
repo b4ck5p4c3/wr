@@ -1,8 +1,8 @@
 // Walks the built web directory and writes a C++ source that embeds every file
 // as a byte array, with a table from the url path to the bytes. The server
-// serves the frontend from this table, so the binary carries the bundle and no
-// web root is read from disk. Byte arrays are used rather than the #embed
-// directive, since the cosmopolitan toolchain does not accept it.
+// serves the frontend from this table, the binary carries the bundle and no web
+// root is read from disk. A plain byte array is emitted per file. The
+// cosmopolitan toolchain does not accept the #embed directive.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -53,11 +53,7 @@ for (let i = 0; i < files.length; i++) {
   const bytes = fs.readFileSync(files[i]);
   const urlPath = "/" + path.relative(distDir, files[i]).split(path.sep).join("/");
 
-  const chunks = [];
-  for (let b = 0; b < bytes.length; b++) {
-    chunks.push(bytes[b]);
-  }
-  const body = chunks.length === 0 ? "0" : chunks.join(",");
+  const body = bytes.length === 0 ? "0" : bytes.join(",");
 
   parts.push("const u8 asset_" + i + "[] = {" + body + "};");
   entries.push({ urlPath, index: i, size: bytes.length });

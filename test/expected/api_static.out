@@ -1,6 +1,10 @@
 root: 200 text/html; charset=utf-8
 route: 200 text/html; charset=utf-8
 docs: 200 text/html; charset=utf-8
+docs-body: 1
 openapi: 200 application/octet-stream
+openapi-body: 1
+emoji: 200 image/png
+favicon: 200 image/x-icon
 unknown: 404 application/json
 traversal: 400

@@ -2,6 +2,8 @@ react-fire: {"message":"Reaction added"}
 react-star: {"message":"Reaction added"}
 react-bad: {"message":"That reaction is not allowed"}
 react-missing: {"message":"No such site"}
+react-case: {"message":"That reaction is not allowed"}
+react-malformed: 400
 react-unauth: 401
 sites-anon: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"","owner_tag":"","owner_name":"","reactions":{"fire":1,"star":1}}]
 sites-user: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"","owner_tag":"","owner_name":"","reactions":{"fire":1,"star":1},"reacted":["fire","star"]}]

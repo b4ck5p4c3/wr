@@ -7,6 +7,7 @@ import {
   Header,
   Landing,
   LoginModal,
+  Modal,
   NotFound,
   useButtonParticles,
   useEscape,
@@ -21,8 +22,6 @@ export function App() {
   const [me, setMe] = useState(undefined);
   const [config, setConfig] = useState({});
 
-  // Fetch the current account on mount and after a change so the header and the
-  // home panel stay in sync.
   const reloadMe = () =>
     api
       .me()
@@ -39,8 +38,6 @@ export function App() {
   useEscape(() => setShowLogin(false), showLogin);
   useEscape(() => setShowLogoutConfirm(false), showLogoutConfirm);
 
-  // A signed-in visitor cannot sign in again, so the login affordance opens the
-  // logout modal instead.
   const onLogin = () => (me ? setShowLogoutConfirm(true) : setShowLogin(true));
   const onLogout = () => setShowLogoutConfirm(true);
   const doLogout = async () => {
@@ -48,7 +45,7 @@ export function App() {
     try {
       await api.logout();
     } catch (_) {
-      // best-effort; redirect regardless
+      // The logout redirect runs even when the server call fails.
     }
     setMe(null);
     navigate("/");
@@ -86,18 +83,16 @@ export function App() {
         <LoginModal config={config} onClose={() => setShowLogin(false)} />
       ) : null}
       {showLogoutConfirm ? (
-        <div class="modal-backdrop" onClick={() => setShowLogoutConfirm(false)}>
-          <div class="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>log out</h2>
-            <p>End this session and return to the ring?</p>
-            <button class="danger" onClick={doLogout}>
-              log out..
-            </button>
-            <button class="close" onClick={() => setShowLogoutConfirm(false)}>
-              cancel..
-            </button>
-          </div>
-        </div>
+        <Modal label="log out" onClose={() => setShowLogoutConfirm(false)}>
+          <h2>log out</h2>
+          <p>End this session and return to the ring?</p>
+          <button class="danger" onClick={doLogout}>
+            log out..
+          </button>
+          <button class="close" onClick={() => setShowLogoutConfirm(false)}>
+            cancel..
+          </button>
+        </Modal>
       ) : null}
       <footer>
         <CommentsSection me={me} />

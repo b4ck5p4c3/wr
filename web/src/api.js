@@ -1,8 +1,8 @@
-// The JSON API client. Every call is same-origin, so the session cookie rides
-// along on its own.
+// The JSON API client. Every call is same-origin, the session cookie is sent
+// automatically.
 
-// A failed fetch is a transport problem, so it is tagged for the caller to
-// distinguish it from a server that answered with an error status.
+// A failed fetch is tagged as a transport problem. The caller distinguishes it
+// from a server that answered with an error status.
 function networkError() {
   const error = new Error("Unable to reach the server");
   error.isNetworkError = true;
@@ -35,7 +35,8 @@ async function sendJson(method, path, body) {
     throw networkError();
   }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || "request failed");
+  if (!response.ok)
+    throw new Error(data.message || "request failed with " + response.status);
   return data;
 }
 
@@ -53,10 +54,7 @@ export const api = {
   recordClick: (slug) => postJson("/api/v1/sites/click", { slug }),
   listComments: (offset = 0, limit = 5) =>
     getJson(
-      "/api/v1/comments?offset=" +
-        encodeURIComponent(offset) +
-        "&limit=" +
-        encodeURIComponent(limit),
+      `/api/v1/comments?offset=${encodeURIComponent(offset)}&limit=${encodeURIComponent(limit)}`,
     ),
   postComment: (body) => postJson("/api/v1/comments/add", { body }),
   adminEditSite: (site) => postJson("/api/v1/admin/site", site),
