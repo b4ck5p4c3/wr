@@ -1136,6 +1136,7 @@ export function PendingRow({ action, onResolved }) {
       <code>{action.payload}</code>
       <Submitter
         owner={action.owner}
+        oauth={action.owner_oauth}
         name={action.owner_display_name}
         tag={action.owner_tag}
       />
@@ -1147,13 +1148,6 @@ export function PendingRow({ action, onResolved }) {
       </div>
     </li>
   );
-}
-
-function ownerProvider(owner) {
-  if (!owner) return null;
-  if (owner.startsWith("github:")) return "github";
-  if (owner.startsWith("telegram:")) return "telegram";
-  return null;
 }
 
 function ProfileLink({ url, className, linkClassName, children }) {
@@ -1172,9 +1166,9 @@ function ProfileLink({ url, className, linkClassName, children }) {
   return <span class={className}>{children}</span>;
 }
 
-export function Submitter({ owner, name, tag }) {
+export function Submitter({ owner, oauth, name, tag }) {
   const label = name || tag || owner;
-  const url = ownerProfileUrl(ownerProvider(owner), tag);
+  const url = ownerProfileUrl(oauth, tag);
   return (
     <ProfileLink url={url} className="submitter">
       {label}

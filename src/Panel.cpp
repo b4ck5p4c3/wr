@@ -709,6 +709,7 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
     writer.number(actions[i].id);
     writer.field("kind", actions[i].kind.view());
     writer.field("owner", actions[i].owner.view());
+    writer.field("owner_oauth", owner_oauth_for(actions[i].owner.view()));
 
     let const submitter = m_store.find_account(actions[i].owner.view());
     let const has_name = !submitter.is_error() && submitter.value().has_value();

@@ -941,6 +941,11 @@ components:
           enum: [add, rename]
         owner:
           type: string
+        owner_oauth:
+          type: string
+          description: >-
+            The submitter provider, github or telegram, empty when no account is
+            found. The dev bypass accounts read as github.
         owner_display_name:
           type: string
           description: The submitter display name for the admin to contact them.
@@ -957,7 +962,8 @@ components:
             The requested data, a JSON object for an add and the new name for a
             rename.
       required:
-        [id, kind, owner, owner_display_name, owner_tag, target_slug, payload]
+        [id, kind, owner, owner_oauth, owner_display_name, owner_tag,
+         target_slug, payload]
     SiteInput:
       type: object
       description: The fields for an add or an edit.
