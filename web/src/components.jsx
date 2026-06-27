@@ -1579,6 +1579,7 @@ export function LogStream() {
   const [lines, setLines] = useState(null);
   const [error, setError] = useState(null);
   const viewRef = useRef(null);
+  const didInitialScrollRef = useRef(false);
 
   usePolling(
     api.adminLogs,
@@ -1590,9 +1591,18 @@ export function LogStream() {
     2000,
   );
 
+  // The newest line is shown when the panel first fills, and a later poll
+  // leaves the scroll position alone so a reader is not pulled off the line
+  // they are reading.
   useEffect(() => {
-    if (viewRef.current != null)
+    if (
+      viewRef.current != null &&
+      lines != null &&
+      !didInitialScrollRef.current
+    ) {
       viewRef.current.scrollTop = viewRef.current.scrollHeight;
+      didInitialScrollRef.current = true;
+    }
   }, [lines]);
 
   if (error) return <p class="error">{error}</p>;
