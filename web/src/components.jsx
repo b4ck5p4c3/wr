@@ -154,7 +154,7 @@ export function Header({ navigate, me, onLogin, onLogout }) {
           docs
         </a>
         {me ? (
-          <button class="secondary logout" onClick={onLogout}>
+          <button class="logout" onClick={onLogout}>
             logout..
           </button>
         ) : (
@@ -1298,7 +1298,7 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
       <main>
         <h1>admin</h1>
         <p>Signed in as {account.display_name}, who is not an admin.</p>
-        <button class="secondary logout" onClick={onLogout}>
+        <button class="logout" onClick={onLogout}>
           logout..
         </button>
       </main>
@@ -1757,7 +1757,7 @@ export function CommentsSection({ me }) {
                   </span>
                   {me && me.is_admin ? (
                     <button
-                      class="comment-remove"
+                      class="danger comment-remove"
                       disabled={removingId === comment.id}
                       onClick={() => removeComment(comment.id)}
                     >
@@ -1774,7 +1774,7 @@ export function CommentsSection({ me }) {
         </ul>
       )}
       {hasMore ? (
-        <button class="secondary comment-more" onClick={loadMore}>
+        <button class="primary comment-more" onClick={loadMore}>
           load more..
         </button>
       ) : null}

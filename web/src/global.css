@@ -687,21 +687,18 @@ button {
   color: var(--accent);
   padding: 0.2ch 1.4ch;
   cursor: pointer;
+  font-weight: 700;
   text-shadow: 0 0 8px var(--crt-glow);
   transition:
     border-color 0.2s ease,
     color 0.2s ease,
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background 0.2s ease;
 }
 
 button:hover:not(:disabled) {
   border-color: var(--a-strong);
   color: var(--a-strong);
-  transform: translateY(-1px);
-}
-
-button:active:not(:disabled) {
-  transform: translateY(1px);
+  background: rgba(255, 170, 102, 0.12);
 }
 
 /* A non-clickable button drops the orange for a plain white, so a disabled
@@ -714,45 +711,23 @@ button:disabled {
 }
 
 button:disabled:hover,
-button.primary:disabled:hover,
-button.secondary:disabled:hover,
-button.danger:disabled:hover {
+button.danger:disabled:hover,
+button.logout:disabled:hover {
   border-color: var(--border);
   color: var(--text-primary);
   background: transparent;
 }
 
-button.primary {
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 700;
-}
-
-button.primary:hover {
-  background: rgba(255, 170, 102, 0.12);
-}
-
-button.secondary {
-  background: transparent;
-  color: var(--accent);
-}
-
-button.danger {
-  background: transparent;
-  color: var(--down);
-  border-color: var(--down);
-}
-
-button.danger:hover {
-  background: var(--down);
-  color: var(--background-start);
-}
-
+/* The red buttons read as destructive, and the whole button fills red on hover
+   with the label inverted to the dark background. */
+button.danger,
 button.logout {
+  background: transparent;
   color: var(--down);
   border-color: var(--down);
 }
 
+button.danger:hover,
 button.logout:hover {
   background: var(--down);
   color: var(--background-start);
@@ -1319,15 +1294,6 @@ footer {
 
 .comment-remove {
   padding: 0.2ch 0.8ch;
-  color: var(--down);
-  border-color: var(--down);
-  background: transparent;
-}
-
-.comment-remove:hover {
-  background: var(--down);
-  color: var(--background-start);
-  border-color: var(--down);
 }
 
 .comment-empty {
