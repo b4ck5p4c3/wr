@@ -116,13 +116,9 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  char id_text[24];
-  std::snprintf(id_text, sizeof(id_text), "%lld",
-                static_cast<long long>(id.value()));
-  String identity{m_allocator};
-  identity.append("github:");
-  identity.append(id_text);
-  finish_login(event, identity.view(), login.value(), login.value());
+  String name{m_allocator};
+  name.append(login.value());
+  finish_login(event, identity{identity_source::github, move(name)});
 }
 
 fn App::handle_telegram_callback(HttpServerEvent &event) -> void
@@ -192,14 +188,11 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  let const display = find_query_param(query, "first_name", m_allocator);
   let const username = find_query_param(query, "username", m_allocator);
-  String identity{m_allocator};
-  identity.append("telegram:");
-  identity.append(id.value().view());
-  finish_login(event, identity.view(),
-               display.has_value() ? display.value().view() : id.value().view(),
-               username.has_value() ? username.value().view() : StringView{});
+  String name{m_allocator};
+  name.append(username.has_value() ? username.value().view()
+                                   : id.value().view());
+  finish_login(event, identity{identity_source::telegram, move(name)});
 }
 
 fn App::handle_logout(HttpServerEvent &event) -> void
@@ -218,8 +211,7 @@ fn App::handle_logout(HttpServerEvent &event) -> void
   unused(event.reply(302, headers, "").is_error());
 }
 
-fn App::finish_login(HttpServerEvent &event, StringView identity,
-                     StringView display_name, StringView username,
+fn App::finish_login(HttpServerEvent &event, const identity &who,
                      Maybe<bool> force_admin) -> void
 {
   /* A real provider preserves the admin flag already on the row, while the dev
@@ -228,15 +220,13 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
   if (force_admin.has_value()) {
     is_admin = force_admin.value();
   } else {
-    let const existing = m_store.find_account(identity);
+    let const existing = m_store.find_account(who);
     if (!existing.is_error() && existing.value().has_value()) {
       is_admin = existing.value().value().is_admin;
     }
   }
 
-  if (m_store.upsert_account(identity, display_name, username, is_admin)
-          .is_error())
-  {
+  if (m_store.upsert_account(who, is_admin).is_error()) {
     reply_message(event, 500, "Unable to store the account");
     return;
   }
@@ -249,7 +239,7 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
   let const &token = token_or.value();
 
   let const expires_at = now_seconds() + (i64{30} * 24 * 60 * 60);
-  if (m_store.create_session(token.view(), identity, expires_at).is_error()) {
+  if (m_store.create_session(token.view(), who, expires_at).is_error()) {
     reply_message(event, 500, "Unable to open the session");
     return;
   }
@@ -262,8 +252,7 @@ fn App::finish_login(HttpServerEvent &event, StringView identity,
   HttpHeaders headers{m_allocator};
   headers.set("Location", is_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
-  LOG(Info, "login for %.*s", static_cast<int>(identity.count()),
-      identity.data);
+  LOG(Info, "login for %s", who.name.c_str());
   unused(event.reply(302, headers, "").is_error());
 }
 
@@ -280,10 +269,10 @@ fn App::handle_dev_login(HttpServerEvent &event) -> void
 
   /* The bypass account is fixed per role, so a dev login reuses the same row
      and the same sites across runs. */
-  String identity{m_allocator};
-  identity.append(is_admin ? "dev:admin" : "dev:user");
-  finish_login(event, identity.view(), is_admin ? "dev admin" : "dev user",
-               is_admin ? "toiletbril" : "radi0dev", Maybe<bool>{is_admin});
+  String name{m_allocator};
+  name.append(is_admin ? "toiletbril" : "radi0dev");
+  finish_login(event, identity{identity_source::dev, move(name)},
+               Maybe<bool>{is_admin});
 }
 
 fn App::current_account(HttpServerEvent &event) -> Maybe<account>
@@ -300,7 +289,7 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
   let const &session = session_row.value().value();
   if (session.expires_at < now_seconds()) return None;
 
-  let const found = m_store.find_account(session.identity.view());
+  let const found = m_store.find_account(session.who);
   if (found.is_error()) return None;
   return found.value();
 }

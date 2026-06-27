@@ -1,3 +1,3 @@
 admin-post: {"message":"Comment posted"}
-list: [{"id":1,"author_name":"dev admin","author_oauth":"github","author_tag":"toiletbril","body":"admin note","created_at":0}]
+list: [{"id":1,"author_name":"toiletbril","author_oauth":"github","author_tag":"toiletbril","body":"admin note","created_at":0}]
 admin-pending: []

@@ -178,19 +178,9 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
 
 /* The account identity carries the provider, so the public profile link is
    built from it. The dev bypass accounts point at GitHub. */
-fn owner_oauth_for(StringView owner) -> StringView
-{
-  if (owner.starts_with("github:") || owner.starts_with("dev:")) {
-    return "github";
-  }
-  if (owner.starts_with("telegram:")) return "telegram";
-  return StringView{};
-}
-
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions,
-                   const ArrayList<String> *reacted, StringView owner_name,
-                   StringView owner_tag) -> void
+                   const ArrayList<String> *reacted) -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -199,9 +189,9 @@ fn write_site_json(JsonWriter &writer, const site &row,
   writer.field("description", row.description.view());
   writer.key("created_at");
   writer.number(row.created_at);
-  writer.field("owner_oauth", owner_oauth_for(row.owner.view()));
-  writer.field("owner_tag", owner_tag);
-  writer.field("owner_name", owner_name);
+  writer.field("owner_oauth", source_oauth(row.owner.source));
+  writer.field("owner_tag", row.owner.name.view());
+  writer.field("owner_name", row.owner.name.view());
 
   if (reactions != nullptr) {
     writer.key("reactions");
@@ -463,20 +453,12 @@ fn App::write_listing_site(JsonWriter &writer, const site &row,
 
   ArrayList<String> reacted{m_allocator};
   if (who.has_value()) {
-    let const reacted_or = m_store.get_user_reactions(
-        row.slug.view(), who.value().identity.view());
+    let const reacted_or =
+        m_store.get_user_reactions(row.slug.view(), who.value().who);
     if (!reacted_or.is_error()) reacted = reacted_or.value().clone();
   }
 
-  let const account = m_store.find_account(row.owner.view());
-  let const has_account = !account.is_error() && account.value().has_value();
-  let const owner_name =
-      has_account ? account.value().value().display_name.view() : StringView{};
-  let const owner_handle =
-      has_account ? account.value().value().username.view() : StringView{};
-
-  write_site_json(writer, row, &counts, who.has_value() ? &reacted : nullptr,
-                  owner_name, owner_handle);
+  write_site_json(writer, row, &counts, who.has_value() ? &reacted : nullptr);
 }
 
 fn App::handle_sites(HttpServerEvent &event) -> void

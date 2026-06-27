@@ -1,4 +1,4 @@
 admin-login: 302
-admin-me: {"identity":"dev:admin","display_name":"dev admin","is_admin":true,"sites":[],"pending":[]}
+admin-me: {"oauth":"github","tag":"toiletbril","display_name":"toiletbril","is_admin":true,"sites":[],"pending":[]}
 logout: 302
 after-logout-me: 401

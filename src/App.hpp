@@ -29,10 +29,6 @@ struct config
   bool is_forwarded_trusted = false;
 };
 
-/* The provider behind an account identity, github or telegram, read from the
-   identity prefix. The dev bypass accounts point at github. */
-fn owner_oauth_for(StringView owner) -> StringView;
-
 /* The application context threaded through every request. It owns no
    per-request state, so the same instance serves the whole loop. The store and
    the client are borrowed and outlive the App. */
@@ -94,8 +90,7 @@ private:
       -> void;
   fn reply_comments_json(HttpServerEvent &event,
                          const ArrayList<comment> &comments) -> void;
-  fn finish_login(HttpServerEvent &event, StringView identity,
-                  StringView display_name, StringView username,
+  fn finish_login(HttpServerEvent &event, const identity &who,
                   Maybe<bool> force_admin = {}) -> void;
   mustuse fn current_account(HttpServerEvent &event) -> Maybe<account>;
   mustuse fn require_admin(HttpServerEvent &event) -> Maybe<account>;
@@ -118,8 +113,6 @@ mustuse fn find_cookie(StringView cookie_header, StringView name)
 
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions = nullptr,
-                   const ArrayList<String> *reacted = nullptr,
-                   StringView owner_name = StringView{},
-                   StringView owner_tag = StringView{}) -> void;
+                   const ArrayList<String> *reacted = nullptr) -> void;
 
 } // namespace wr

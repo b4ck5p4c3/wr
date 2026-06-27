@@ -4,7 +4,27 @@
 
 namespace wr {
 
+fn source_oauth(identity_source source) -> StringView
+{
+  if (source == identity_source::telegram) return "telegram";
+  return "github";
+}
+
 namespace {
+
+fn bind_identity(SqlStatement &statement, const identity &who) -> void
+{
+  statement.bind(static_cast<i64>(who.source));
+  statement.bind(who.name.view());
+}
+
+fn read_identity(SqlStatement &statement) -> identity
+{
+  identity who{};
+  who.source = static_cast<identity_source>(statement.get<i64>());
+  who.name = statement.get<String>();
+  return who;
+}
 
 fn read_site(SqlStatement &statement) -> site
 {
@@ -15,7 +35,7 @@ fn read_site(SqlStatement &statement) -> site
   row.description = statement.get<String>();
   row.is_reachable = statement.get<i64>() != 0;
   row.last_seen_at = statement.get<i64>();
-  row.owner = statement.get<String>();
+  row.owner = read_identity(statement);
   row.created_at = statement.get<i64>();
   return row;
 }
@@ -25,7 +45,7 @@ fn read_pending_action(SqlStatement &statement) -> pending_action
   pending_action row{};
   row.id = statement.get<i64>();
   row.kind = statement.get<String>();
-  row.owner = statement.get<String>();
+  row.owner = read_identity(statement);
   row.target_slug = statement.get<String>();
   row.payload = statement.get<String>();
   row.created_at = statement.get<i64>();
@@ -37,8 +57,7 @@ fn read_audit_entry(SqlStatement &statement) -> audit_entry
 {
   audit_entry row{};
   row.id = statement.get<i64>();
-  row.actor = statement.get<String>();
-  row.actor_identity = statement.get<String>();
+  row.actor = read_identity(statement);
   row.actor_ip = statement.get<String>();
   row.action = statement.get<String>();
   row.target = statement.get<String>();
@@ -51,8 +70,7 @@ fn read_comment(SqlStatement &statement) -> comment
 {
   comment row{};
   row.id = statement.get<i64>();
-  row.author_identity = statement.get<String>();
-  row.author_name = statement.get<String>();
+  row.author = read_identity(statement);
   row.body = statement.get<String>();
   row.created_at = statement.get<i64>();
   row.is_approved = statement.get<i64>() != 0;
@@ -60,7 +78,8 @@ fn read_comment(SqlStatement &statement) -> comment
 }
 
 const StringView SITE_COLUMNS = "slug, name, url, description, is_reachable, "
-                                "last_seen_at, owner, created_at";
+                                "last_seen_at, owner_source, owner_name, "
+                                "created_at";
 
 } // namespace
 
@@ -73,23 +92,26 @@ static const char *const SCHEMA =
     "  url TEXT NOT NULL,"
     "  is_reachable INTEGER NOT NULL DEFAULT 1,"
     "  last_seen_at INTEGER NOT NULL DEFAULT 0,"
-    "  owner TEXT NOT NULL DEFAULT '',"
+    "  owner_source INTEGER NOT NULL DEFAULT 0,"
+    "  owner_name TEXT NOT NULL DEFAULT '',"
     "  created_at INTEGER NOT NULL DEFAULT 0,"
     "  is_deleted INTEGER NOT NULL DEFAULT 0,"
     "  description TEXT NOT NULL DEFAULT '');"
     "CREATE TABLE IF NOT EXISTS accounts ("
-    "  identity TEXT PRIMARY KEY,"
-    "  display_name TEXT NOT NULL DEFAULT '',"
+    "  source INTEGER NOT NULL,"
+    "  name TEXT NOT NULL,"
     "  is_admin INTEGER NOT NULL DEFAULT 0,"
-    "  username TEXT NOT NULL DEFAULT '');"
+    "  PRIMARY KEY (source, name));"
     "CREATE TABLE IF NOT EXISTS sessions ("
     "  token TEXT PRIMARY KEY,"
-    "  identity TEXT NOT NULL,"
+    "  source INTEGER NOT NULL,"
+    "  name TEXT NOT NULL,"
     "  expires_at INTEGER NOT NULL);"
     "CREATE TABLE IF NOT EXISTS pending_actions ("
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "  kind TEXT NOT NULL,"
-    "  owner TEXT NOT NULL,"
+    "  owner_source INTEGER NOT NULL DEFAULT 0,"
+    "  owner_name TEXT NOT NULL DEFAULT '',"
     "  target_slug TEXT NOT NULL DEFAULT '',"
     "  payload TEXT NOT NULL DEFAULT '',"
     "  created_at INTEGER NOT NULL,"
@@ -103,20 +125,21 @@ static const char *const SCHEMA =
     "CREATE TABLE IF NOT EXISTS reactions ("
     "  slug TEXT NOT NULL,"
     "  emoji TEXT NOT NULL,"
-    "  identity TEXT NOT NULL,"
-    "  PRIMARY KEY (slug, emoji, identity));"
+    "  source INTEGER NOT NULL,"
+    "  name TEXT NOT NULL,"
+    "  PRIMARY KEY (slug, emoji, source, name));"
     "CREATE TABLE IF NOT EXISTS audit_log ("
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "  actor TEXT NOT NULL,"
+    "  actor_source INTEGER NOT NULL DEFAULT 0,"
+    "  actor_name TEXT NOT NULL DEFAULT '',"
     "  action TEXT NOT NULL,"
     "  target TEXT NOT NULL DEFAULT '',"
     "  detail TEXT NOT NULL DEFAULT '',"
     "  created_at INTEGER NOT NULL,"
-    "  actor_ip TEXT NOT NULL DEFAULT '',"
-    "  actor_identity TEXT NOT NULL DEFAULT '');"
+    "  actor_ip TEXT NOT NULL DEFAULT '');"
     "CREATE TABLE IF NOT EXISTS comments ("
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "  author_identity TEXT NOT NULL,"
+    "  author_source INTEGER NOT NULL DEFAULT 0,"
     "  author_name TEXT NOT NULL DEFAULT '',"
     "  body TEXT NOT NULL,"
     "  created_at INTEGER NOT NULL,"
@@ -125,9 +148,11 @@ static const char *const SCHEMA =
     "  slug TEXT PRIMARY KEY,"
     "  click_count INTEGER NOT NULL DEFAULT 0,"
     "  hop_count INTEGER NOT NULL DEFAULT 0);"
-    "CREATE INDEX IF NOT EXISTS index_sites_owner ON sites(owner);"
+    "CREATE INDEX IF NOT EXISTS index_sites_owner ON "
+    "sites(owner_source, owner_name);"
     "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
-    "CREATE INDEX IF NOT EXISTS index_pending_owner ON pending_actions(owner);"
+    "CREATE INDEX IF NOT EXISTS index_pending_owner ON "
+    "pending_actions(owner_source, owner_name);"
     "CREATE INDEX IF NOT EXISTS index_pending_status ON "
     "pending_actions(status);"
     "CREATE INDEX IF NOT EXISTS index_sessions_expires ON sessions(expires_at);"
@@ -148,7 +173,7 @@ fn Store::migrate() -> ErrorOr<Ok>
   return Success;
 }
 
-fn Store::query_sites(const char *filter_sql, Maybe<StringView> owner) const
+fn Store::query_sites(const char *filter_sql, const identity *owner) const
     -> ErrorOr<ArrayList<site>>
 {
   ArrayList<site> sites{m_allocator};
@@ -159,7 +184,7 @@ fn Store::query_sites(const char *filter_sql, Maybe<StringView> owner) const
   sql.append(filter_sql);
 
   let statement = TRY(m_database.prepare(sql.view()));
-  if (owner.has_value()) statement.bind(owner.value());
+  if (owner != nullptr) bind_identity(statement, *owner);
 
   while (TRY(statement.step()))
     sites.push(read_site(statement));
@@ -171,19 +196,21 @@ fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
 {
   return query_sites(
       "WHERE is_reachable = 1 AND is_deleted = 0 ORDER BY created_at, slug;",
-      None);
+      nullptr);
 }
 
 fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
 {
-  return query_sites("WHERE is_deleted = 0 ORDER BY created_at, slug;", None);
+  return query_sites("WHERE is_deleted = 0 ORDER BY created_at, slug;",
+                     nullptr);
 }
 
-fn Store::list_sites_for_owner(StringView owner) const
+fn Store::list_sites_for_owner(const identity &owner) const
     -> ErrorOr<ArrayList<site>>
 {
-  return query_sites(
-      "WHERE owner = ? AND is_deleted = 0 ORDER BY created_at, slug;", owner);
+  return query_sites("WHERE owner_source = ? AND owner_name = ? AND "
+                     "is_deleted = 0 ORDER BY created_at, slug;",
+                     &owner);
 }
 
 fn Store::find_site(StringView slug) const -> ErrorOr<Maybe<site>>
@@ -203,11 +230,13 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
 {
   let const sql =
       "INSERT INTO sites "
-      "(slug, name, url, description, is_reachable, last_seen_at, owner, "
-      "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+      "(slug, name, url, description, is_reachable, last_seen_at, "
+      "owner_source, owner_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
+      "?) "
       "ON CONFLICT(slug) DO UPDATE SET name = excluded.name, "
       "url = excluded.url, description = excluded.description, "
-      "owner = excluded.owner, is_deleted = 0;";
+      "owner_source = excluded.owner_source, owner_name = excluded.owner_name, "
+      "is_deleted = 0;";
 
   let statement = TRY(m_database.prepare(sql));
   statement.bind(row.slug.view());
@@ -216,12 +245,12 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
   statement.bind(row.description.view());
   statement.bind(row.is_reachable);
   statement.bind(row.last_seen_at);
-  statement.bind(row.owner.view());
+  bind_identity(statement, row.owner);
   statement.bind(row.created_at);
   unused(TRY(statement.step()));
 
   LOG(Info, "site upserted, slug=%s owner=%s", row.slug.c_str(),
-      row.owner.c_str());
+      row.owner.name.c_str());
   return Success;
 }
 
@@ -348,7 +377,7 @@ fn Store::get_liveness_history(StringView slug, i64 now) const
 }
 
 fn Store::toggle_reaction(StringView slug, StringView emoji,
-                          StringView identity) -> ErrorOr<bool>
+                          const identity &who) -> ErrorOr<bool>
 {
   /* The probe statement is leased from the per-connection cache, so it is
      scoped and returned before the write statement is prepared. */
@@ -356,20 +385,20 @@ fn Store::toggle_reaction(StringView slug, StringView emoji,
   {
     let probe = TRY(m_database.prepare(
         "SELECT 1 FROM reactions WHERE slug = ? AND emoji = ? AND "
-        "identity = ?;"));
+        "source = ? AND name = ?;"));
     probe.bind(slug);
     probe.bind(emoji);
-    probe.bind(identity);
+    bind_identity(probe, who);
     is_set = TRY(probe.step());
   }
 
   if (is_set) {
     let statement = TRY(m_database.prepare(
         "DELETE FROM reactions WHERE slug = ? AND emoji = ? AND "
-        "identity = ?;"));
+        "source = ? AND name = ?;"));
     statement.bind(slug);
     statement.bind(emoji);
-    statement.bind(identity);
+    bind_identity(statement, who);
     unused(TRY(statement.step()));
 
     LOG(Info, "reaction removed, slug=%.*s emoji=%.*s",
@@ -378,11 +407,11 @@ fn Store::toggle_reaction(StringView slug, StringView emoji,
     return false;
   }
 
-  let statement = TRY(m_database.prepare(
-      "INSERT INTO reactions (slug, emoji, identity) VALUES (?, ?, ?);"));
+  let statement = TRY(m_database.prepare("INSERT INTO reactions (slug, emoji, "
+                                         "source, name) VALUES (?, ?, ?, ?);"));
   statement.bind(slug);
   statement.bind(emoji);
-  statement.bind(identity);
+  bind_identity(statement, who);
   unused(TRY(statement.step()));
 
   LOG(Info, "reaction added, slug=%.*s emoji=%.*s",
@@ -410,16 +439,16 @@ fn Store::get_reactions(StringView slug) const
   return counts;
 }
 
-fn Store::get_user_reactions(StringView slug, StringView identity) const
+fn Store::get_user_reactions(StringView slug, const identity &who) const
     -> ErrorOr<ArrayList<String>>
 {
   ArrayList<String> emojis{m_allocator};
 
   let statement = TRY(m_database.prepare(
-      "SELECT emoji FROM reactions WHERE slug = ? AND identity = ? "
+      "SELECT emoji FROM reactions WHERE slug = ? AND source = ? AND name = ? "
       "ORDER BY emoji;"));
   statement.bind(slug);
-  statement.bind(identity);
+  bind_identity(statement, who);
   while (TRY(statement.step()))
     emojis.push(statement.get<String>());
 
@@ -472,67 +501,62 @@ fn Store::get_site_metrics() const -> ErrorOr<ArrayList<site_metric>>
   return metrics;
 }
 
-fn Store::find_account(StringView identity) const -> ErrorOr<Maybe<account>>
+fn Store::find_account(const identity &who) const -> ErrorOr<Maybe<account>>
 {
-  let statement = TRY(m_database.prepare(
-      "SELECT identity, display_name, username, is_admin FROM accounts "
-      "WHERE identity = ?;"));
-  statement.bind(identity);
+  let statement =
+      TRY(m_database.prepare("SELECT source, name, is_admin FROM accounts "
+                             "WHERE source = ? AND name = ?;"));
+  bind_identity(statement, who);
   if (TRY(statement.step())) {
     account row{};
-    row.identity = statement.get<String>();
-    row.display_name = statement.get<String>();
-    row.username = statement.get<String>();
+    row.who = read_identity(statement);
     row.is_admin = statement.get<i64>() != 0;
     return Maybe<account>{steal(row)};
   }
   return Maybe<account>{None};
 }
 
-fn Store::upsert_account(StringView identity, StringView display_name,
-                         StringView username, bool is_admin) -> ErrorOr<Ok>
+fn Store::upsert_account(const identity &who, bool is_admin) -> ErrorOr<Ok>
 {
   let statement =
-      TRY(m_database.prepare("INSERT INTO accounts (identity, display_name, "
-                             "username, is_admin) VALUES (?, ?, ?, ?) "
-                             "ON CONFLICT(identity) DO UPDATE SET "
-                             "display_name = excluded.display_name, "
-                             "username = excluded.username;"));
-  statement.bind(identity);
-  statement.bind(display_name);
-  statement.bind(username);
+      TRY(m_database.prepare("INSERT INTO accounts (source, name, is_admin) "
+                             "VALUES (?, ?, ?) "
+                             "ON CONFLICT(source, name) DO UPDATE SET "
+                             "is_admin = excluded.is_admin;"));
+  bind_identity(statement, who);
   statement.bind(is_admin);
   unused(TRY(statement.step()));
 
-  LOG(Info, "account upserted, identity=%.*s is_admin=%d",
-      static_cast<int>(identity.count()), identity.data, is_admin ? 1 : 0);
+  LOG(Info, "account upserted, source=%d name=%s is_admin=%d",
+      static_cast<int>(who.source), who.name.c_str(), is_admin ? 1 : 0);
   return Success;
 }
 
-fn Store::create_session(StringView token, StringView identity, i64 expires_at)
+fn Store::create_session(StringView token, const identity &who, i64 expires_at)
     -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
-      "INSERT INTO sessions (token, identity, expires_at) VALUES (?, ?, ?);"));
+      "INSERT INTO sessions (token, source, name, expires_at) "
+      "VALUES (?, ?, ?, ?);"));
   statement.bind(token);
-  statement.bind(identity);
+  bind_identity(statement, who);
   statement.bind(expires_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "session opened for identity=%.*s",
-      static_cast<int>(identity.count()), identity.data);
+  LOG(Info, "session opened for source=%d name=%s",
+      static_cast<int>(who.source), who.name.c_str());
   return Success;
 }
 
 fn Store::find_session(StringView token) const -> ErrorOr<Maybe<session>>
 {
   let statement = TRY(m_database.prepare(
-      "SELECT token, identity, expires_at FROM sessions WHERE token = ?;"));
+      "SELECT token, source, name, expires_at FROM sessions WHERE token = ?;"));
   statement.bind(token);
   if (TRY(statement.step())) {
     session row{};
     row.token = statement.get<String>();
-    row.identity = statement.get<String>();
+    row.who = read_identity(statement);
     row.expires_at = statement.get<i64>();
     return Maybe<session>{steal(row)};
   }
@@ -554,7 +578,8 @@ fn Store::list_pending() const -> ErrorOr<ArrayList<pending_action>>
 {
   ArrayList<pending_action> actions{m_allocator};
   let statement = TRY(m_database.prepare(
-      "SELECT id, kind, owner, target_slug, payload, created_at, status "
+      "SELECT id, kind, owner_source, owner_name, target_slug, payload, "
+      "created_at, status "
       "FROM pending_actions WHERE status = 'pending' ORDER BY created_at;"));
 
   while (TRY(statement.step()))
@@ -562,37 +587,39 @@ fn Store::list_pending() const -> ErrorOr<ArrayList<pending_action>>
   return actions;
 }
 
-fn Store::list_pending_for_owner(StringView owner) const
+fn Store::list_pending_for_owner(const identity &owner) const
     -> ErrorOr<ArrayList<pending_action>>
 {
   ArrayList<pending_action> actions{m_allocator};
   let statement = TRY(m_database.prepare(
-      "SELECT id, kind, owner, target_slug, payload, created_at, status "
-      "FROM pending_actions WHERE owner = ? AND status = 'pending' "
-      "ORDER BY created_at;"));
-  statement.bind(owner);
+      "SELECT id, kind, owner_source, owner_name, target_slug, payload, "
+      "created_at, status "
+      "FROM pending_actions WHERE owner_source = ? AND owner_name = ? AND "
+      "status = 'pending' ORDER BY created_at;"));
+  bind_identity(statement, owner);
 
   while (TRY(statement.step()))
     actions.push(read_pending_action(statement));
   return actions;
 }
 
-fn Store::add_pending(StringView kind, StringView owner, StringView target_slug,
-                      StringView payload, i64 created_at) -> ErrorOr<Ok>
+fn Store::add_pending(StringView kind, const identity &owner,
+                      StringView target_slug, StringView payload,
+                      i64 created_at) -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
-      "INSERT INTO pending_actions (kind, owner, target_slug, payload, "
-      "created_at, status) VALUES (?, ?, ?, ?, ?, 'pending');"));
+      "INSERT INTO pending_actions (kind, owner_source, owner_name, "
+      "target_slug, payload, created_at, status) "
+      "VALUES (?, ?, ?, ?, ?, ?, 'pending');"));
   statement.bind(kind);
-  statement.bind(owner);
+  bind_identity(statement, owner);
   statement.bind(target_slug);
   statement.bind(payload);
   statement.bind(created_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "pending action recorded, kind=%.*s owner=%.*s target=%.*s",
-      static_cast<int>(kind.count()), kind.data,
-      static_cast<int>(owner.count()), owner.data,
+  LOG(Info, "pending action recorded, kind=%.*s owner=%s target=%.*s",
+      static_cast<int>(kind.count()), kind.data, owner.name.c_str(),
       static_cast<int>(target_slug.count()), target_slug.data);
   return Success;
 }
@@ -600,7 +627,8 @@ fn Store::add_pending(StringView kind, StringView owner, StringView target_slug,
 fn Store::find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>
 {
   let statement = TRY(m_database.prepare(
-      "SELECT id, kind, owner, target_slug, payload, created_at, status "
+      "SELECT id, kind, owner_source, owner_name, target_slug, payload, "
+      "created_at, status "
       "FROM pending_actions WHERE id = ?;"));
   statement.bind(id);
   if (TRY(statement.step()))
@@ -621,16 +649,14 @@ fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>
   return Success;
 }
 
-fn Store::record_audit(StringView actor, StringView actor_identity,
-                       StringView actor_ip, StringView action,
-                       StringView target, StringView detail, i64 created_at)
-    -> ErrorOr<Ok>
+fn Store::record_audit(const identity &actor, StringView actor_ip,
+                       StringView action, StringView target, StringView detail,
+                       i64 created_at) -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
-      "INSERT INTO audit_log (actor, actor_identity, actor_ip, action, target, "
-      "detail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);"));
-  statement.bind(actor);
-  statement.bind(actor_identity);
+      "INSERT INTO audit_log (actor_source, actor_name, actor_ip, action, "
+      "target, detail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);"));
+  bind_identity(statement, actor);
   statement.bind(actor_ip);
   statement.bind(action);
   statement.bind(target);
@@ -638,9 +664,8 @@ fn Store::record_audit(StringView actor, StringView actor_identity,
   statement.bind(created_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "audit recorded, actor=%.*s ip=%.*s action=%.*s target=%.*s",
-      static_cast<int>(actor.count()), actor.data,
-      static_cast<int>(actor_ip.count()), actor_ip.data,
+  LOG(Info, "audit recorded, actor=%s ip=%.*s action=%.*s target=%.*s",
+      actor.name.c_str(), static_cast<int>(actor_ip.count()), actor_ip.data,
       static_cast<int>(action.count()), action.data,
       static_cast<int>(target.count()), target.data);
   return Success;
@@ -650,7 +675,7 @@ fn Store::list_audit(i64 limit_count) const -> ErrorOr<ArrayList<audit_entry>>
 {
   ArrayList<audit_entry> entries{m_allocator};
   let statement = TRY(m_database.prepare(
-      "SELECT id, actor, actor_identity, actor_ip, action, target, detail, "
+      "SELECT id, actor_source, actor_name, actor_ip, action, target, detail, "
       "created_at FROM audit_log ORDER BY id DESC LIMIT ?;"));
   statement.bind(limit_count);
 
@@ -660,28 +685,25 @@ fn Store::list_audit(i64 limit_count) const -> ErrorOr<ArrayList<audit_entry>>
   return entries;
 }
 
-fn Store::add_comment(StringView author_identity, StringView author_name,
-                      StringView body, bool is_approved, i64 created_at)
-    -> ErrorOr<Ok>
+fn Store::add_comment(const identity &author, StringView body, bool is_approved,
+                      i64 created_at) -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(
       "INSERT INTO comments "
-      "(author_identity, author_name, body, is_approved, created_at) "
+      "(author_source, author_name, body, is_approved, created_at) "
       "VALUES (?, ?, ?, ?, ?);"));
-  statement.bind(author_identity);
-  statement.bind(author_name);
+  bind_identity(statement, author);
   statement.bind(body);
   statement.bind(is_approved);
   statement.bind(created_at);
   unused(TRY(statement.step()));
 
-  LOG(Info, "comment added, author=%.*s",
-      static_cast<int>(author_identity.count()), author_identity.data);
+  LOG(Info, "comment added, author=%s", author.name.c_str());
   return Success;
 }
 
 static constexpr const char *COMMENT_COLUMNS =
-    "id, author_identity, author_name, body, created_at, is_approved";
+    "id, author_source, author_name, body, created_at, is_approved";
 
 fn Store::list_comments(i64 limit_count, i64 offset_count) const
     -> ErrorOr<ArrayList<comment>>

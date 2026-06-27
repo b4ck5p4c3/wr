@@ -68,14 +68,14 @@ bot id before the colon in the token is read by the widget.
 
 You sign in first through GitHub or Telegram. The first admin is seeded by hand,
 so mark your own account once it has signed in at least once. The accounts table
-is keyed by a provider identity such as `github:1234`, and the handle is kept in
-the `username` column. Set `is_admin` on your row and filter by the provider
-prefix, so a GitHub handle is not confused with a Telegram handle that shares the
-same name.
+is keyed by two columns, the provider source as an integer enum and the handle,
+where the source is 0 for github and 1 for telegram. Set `is_admin` on your row
+and filter by the source, so a GitHub handle is not confused with a Telegram
+handle that shares the same name.
 
 ```
 sqlite3 wr.db "UPDATE accounts SET is_admin = 1 \
-  WHERE username = 'your-handle' AND identity LIKE 'github:%';"
+  WHERE name = 'your-handle' AND source = 0;"
 ```
 
 Other people then sign in and submit their site, which is held for review. An

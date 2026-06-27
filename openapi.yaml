@@ -787,17 +787,14 @@ components:
           description: The unix time the site joined the ring.
         owner_oauth:
           type: string
-          description: >-
-            The owner provider, github or telegram, empty when no account is
-            found. The dev bypass accounts read as github.
+          description: The owner provider, github or telegram.
         owner_tag:
           type: string
           description: >-
-            The owner handle, the slug after github.com or t.me, empty when none
-            is set.
+            The owner handle, the slug after github.com or t.me.
         owner_name:
           type: string
-          description: The owner display name set at login, empty when no account is found.
+          description: The owner handle, kept under the owner-name field.
         reactions:
           type: object
           description: >-
@@ -864,19 +861,16 @@ components:
           items:
             type: integer
             format: int64
-        owner:
+        owner_oauth:
           type: string
-          description: The identity that owns the site.
+          description: The owner provider, github or telegram.
         owner_display_name:
           type: string
-          description: >-
-            The display name behind the owner identity, the identity itself when
-            no account is found.
+          description: The owner handle, kept under the display-name field.
         owner_tag:
           type: string
           description: >-
-            The owner handle, the slug after github.com or t.me, empty when no
-            account is found.
+            The owner handle, the slug after github.com or t.me.
       required:
         [
           slug,
@@ -886,7 +880,7 @@ components:
           is_reachable,
           last_seen_at,
           uptime,
-          owner,
+          owner_oauth,
           owner_display_name,
           owner_tag,
         ]
@@ -894,11 +888,15 @@ components:
       type: object
       description: The signed-in account with its sites.
       properties:
-        identity:
+        oauth:
           type: string
-          description: The provider identity, like github or telegram and the id.
+          description: The caller provider, github or telegram.
+        tag:
+          type: string
+          description: The caller handle, the slug after github.com or t.me.
         display_name:
           type: string
+          description: The caller handle, kept for the panel label.
         is_admin:
           type: boolean
         sites:
@@ -910,7 +908,7 @@ components:
           description: The caller's own submissions awaiting review.
           items:
             $ref: "#/components/schemas/Submission"
-      required: [identity, display_name, is_admin, sites, pending]
+      required: [oauth, tag, display_name, is_admin, sites, pending]
     Submission:
       type: object
       description: A caller's own add or rename awaiting review.
@@ -941,19 +939,17 @@ components:
           enum: [add, rename]
         owner:
           type: string
+          description: The submitter handle, kept for the label fallback.
         owner_oauth:
           type: string
-          description: >-
-            The submitter provider, github or telegram, empty when no account is
-            found. The dev bypass accounts read as github.
+          description: The submitter provider, github or telegram.
         owner_display_name:
           type: string
-          description: The submitter display name for the admin to contact them.
+          description: The submitter handle, kept under the display-name field.
         owner_tag:
           type: string
           description: >-
-            The submitter handle, the slug after github.com or t.me, empty when
-            no account is found.
+            The submitter handle, the slug after github.com or t.me.
         target_slug:
           type: string
         payload:
@@ -1018,16 +1014,14 @@ components:
           format: int64
         author_name:
           type: string
+          description: The author handle.
         author_oauth:
           type: string
-          description: >-
-            The author provider, github or telegram, empty when no account is
-            found.
+          description: The author provider, github or telegram.
         author_tag:
           type: string
           description: >-
-            The author handle, the slug after github.com or t.me, empty when no
-            account is found.
+            The author handle, the slug after github.com or t.me.
         body:
           type: string
           description: The text, which may mention a site by its slug.
@@ -1058,17 +1052,14 @@ components:
           format: int64
         actor:
           type: string
-          description: The acting label, the display name or the identity.
+          description: The acting handle.
         actor_oauth:
           type: string
-          description: >-
-            The actor provider, github or telegram, empty when no account is
-            found.
+          description: The actor provider, github or telegram.
         actor_tag:
           type: string
           description: >-
-            The actor handle, the slug after github.com or t.me, empty when no
-            account is found.
+            The actor handle, the slug after github.com or t.me.
         actor_ip:
           type: string
           description: The acting client address, from a forwarded header or the peer.

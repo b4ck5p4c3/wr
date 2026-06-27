@@ -12,7 +12,7 @@ server=$!
 disown
 curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.0.0.1:$PORT/api/v1/config"
 
-sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('rx','RX','https://rx.example','',1,9999999999,'x',7);"
+sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner_source,owner_name,created_at) VALUES ('rx','RX','https://rx.example','',1,9999999999,0,'x',7);"
 curl -s -c "$UJAR" -o /dev/null "http://127.0.0.1:$PORT/auth/dev?role=user"
 
 echo "react-fire: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"rx","emoji":"fire"}' "http://127.0.0.1:$PORT/api/v1/sites/react")"

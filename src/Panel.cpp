@@ -42,17 +42,8 @@ fn is_valid_site_url(StringView url) -> bool
   return url.starts_with("http://") || url.starts_with("https://");
 }
 
-/* The audit trail prefers the readable display name, and the opaque identity is
-   the fallback when the account carries no name. */
-fn actor_label(const account &who) -> StringView
-{
-  return who.display_name.view().is_empty() ? who.identity.view()
-                                            : who.display_name.view();
-}
-
 fn write_panel_site(JsonWriter &writer, const site &row,
-                    const ArrayList<i64> &uptime, StringView owner_display_name,
-                    StringView owner_tag) -> void
+                    const ArrayList<i64> &uptime) -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -68,21 +59,20 @@ fn write_panel_site(JsonWriter &writer, const site &row,
   for (usize i = 0; i < uptime.count(); i++)
     writer.number(uptime[i]);
   writer.array_end();
-  writer.field("owner", row.owner.view());
-  writer.field("owner_display_name", owner_display_name);
-  writer.field("owner_tag", owner_tag);
+  writer.field("owner_oauth", source_oauth(row.owner.source));
+  writer.field("owner_display_name", row.owner.name.view());
+  writer.field("owner_tag", row.owner.name.view());
   writer.object_end();
 }
 
-fn write_comment_json(JsonWriter &writer, const comment &row,
-                      StringView author_tag) -> void
+fn write_comment_json(JsonWriter &writer, const comment &row) -> void
 {
   writer.object_begin();
   writer.key("id");
   writer.number(row.id);
-  writer.field("author_name", row.author_name.view());
-  writer.field("author_oauth", owner_oauth_for(row.author_identity.view()));
-  writer.field("author_tag", author_tag);
+  writer.field("author_name", row.author.name.view());
+  writer.field("author_oauth", source_oauth(row.author.source));
+  writer.field("author_tag", row.author.name.view());
   writer.field("body", row.body.view());
   writer.key("created_at");
   writer.number(row.created_at);
@@ -140,15 +130,14 @@ fn App::handle_me(HttpServerEvent &event) -> void
   /* The public landing page uses list_active_sites regardless of role, so an
      admin-owned site appears there once the liveness sweep marks it
      reachable. */
-  let const sites_or = me.is_admin
-                           ? m_store.list_all_sites()
-                           : m_store.list_sites_for_owner(me.identity.view());
+  let const sites_or = me.is_admin ? m_store.list_all_sites()
+                                   : m_store.list_sites_for_owner(me.who);
   if (sites_or.is_error()) {
     reply_message(event, 500, sites_or.error().message().view());
     return;
   }
 
-  let const pending_or = m_store.list_pending_for_owner(me.identity.view());
+  let const pending_or = m_store.list_pending_for_owner(me.who);
   if (pending_or.is_error()) {
     reply_message(event, 500, pending_or.error().message().view());
     return;
@@ -156,8 +145,9 @@ fn App::handle_me(HttpServerEvent &event) -> void
 
   JsonWriter writer{m_allocator};
   writer.object_begin();
-  writer.field("identity", me.identity.view());
-  writer.field("display_name", me.display_name.view());
+  writer.field("oauth", source_oauth(me.who.source));
+  writer.field("tag", me.who.name.view());
+  writer.field("display_name", me.who.name.view());
   writer.key("is_admin");
   writer.boolean(me.is_admin);
   writer.key("sites");
@@ -170,14 +160,7 @@ fn App::handle_me(HttpServerEvent &event) -> void
     ArrayList<i64> uptime{m_allocator};
     if (!history_or.is_error()) uptime = history_or.value().clone();
 
-    let const account = m_store.find_account(sites[i].owner.view());
-    let const has_name = !account.is_error() && account.value().has_value();
-    let const owner_name = has_name
-                               ? account.value().value().display_name.view()
-                               : sites[i].owner.view();
-    let const owner_tag =
-        has_name ? account.value().value().username.view() : StringView{};
-    write_panel_site(writer, sites[i], uptime, owner_name, owner_tag);
+    write_panel_site(writer, sites[i], uptime);
   }
 
   writer.array_end();
@@ -230,15 +213,15 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
   payload.field("description", input.description);
   payload.object_end();
 
-  let const recorded = m_store.add_pending(
-      "add", who.identity.view(), input.slug, payload.view(), now_seconds());
+  let const recorded = m_store.add_pending("add", who.who, input.slug,
+                                           payload.view(), now_seconds());
   if (recorded.is_error()) {
     reply_message(event, 500, recorded.error().message().view());
     return;
   }
 
   if (m_store
-          .record_audit(actor_label(who), who.identity.view(),
+          .record_audit(who.who,
                         client_address(event, m_config.is_forwarded_trusted),
                         "submit add", input.slug, input.name, now_seconds())
           .is_error())
@@ -260,7 +243,7 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
 
   let const owned = m_store.find_site(slug.value());
   if (owned.is_error() || !owned.value().has_value() ||
-      owned.value().value().owner != who.identity)
+      owned.value().value().owner != who.who)
   {
     LOG(Info, "site rename rejected, not owned, slug=%.*s",
         static_cast<int>(slug.value().count()), slug.value().data);
@@ -268,18 +251,17 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  let const recorded = m_store.add_pending(
-      "rename", who.identity.view(), slug.value(), name.value(), now_seconds());
+  let const recorded = m_store.add_pending("rename", who.who, slug.value(),
+                                           name.value(), now_seconds());
   if (recorded.is_error()) {
     reply_message(event, 500, recorded.error().message().view());
     return;
   }
 
   if (m_store
-          .record_audit(actor_label(who), who.identity.view(),
-                        client_address(event, m_config.is_forwarded_trusted),
-                        "submit rename", slug.value(), name.value(),
-                        now_seconds())
+          .record_audit(
+              who.who, client_address(event, m_config.is_forwarded_trusted),
+              "submit rename", slug.value(), name.value(), now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for submit rename %.*s",
         static_cast<int>(slug.value().count()), slug.value().data);
@@ -325,14 +307,14 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
   }
 
   let const toggled =
-      m_store.toggle_reaction(slug.value(), emoji.value(), who.identity.view());
+      m_store.toggle_reaction(slug.value(), emoji.value(), who.who);
   if (toggled.is_error()) {
     reply_message(event, 500, toggled.error().message().view());
     return;
   }
 
   if (m_store
-          .record_audit(actor_label(who), who.identity.view(),
+          .record_audit(who.who,
                         client_address(event, m_config.is_forwarded_trusted),
                         toggled.value() ? "react add" : "react remove",
                         slug.value(), emoji.value(), now_seconds())
@@ -381,13 +363,8 @@ fn App::reply_comments_json(HttpServerEvent &event,
 {
   JsonWriter writer{m_allocator};
   writer.array_begin();
-  for (usize i = 0; i < comments.count(); i++) {
-    let const author = m_store.find_account(comments[i].author_identity.view());
-    let const has_author = !author.is_error() && author.value().has_value();
-    let const author_tag =
-        has_author ? author.value().value().username.view() : StringView{};
-    write_comment_json(writer, comments[i], author_tag);
-  }
+  for (usize i = 0; i < comments.count(); i++)
+    write_comment_json(writer, comments[i]);
 
   writer.array_end();
   reply_json(event, 200, writer.view());
@@ -427,7 +404,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
 {
   /* Only a writer who owns a live site may comment. The footer is open to the
      ring members alone. */
-  let const owned = m_store.list_sites_for_owner(who.identity.view());
+  let const owned = m_store.list_sites_for_owner(who.who);
   if (owned.is_error()) {
     reply_message(event, 500, owned.error().message().view());
     return;
@@ -455,8 +432,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
   }
 
   let const stored =
-      m_store.add_comment(who.identity.view(), who.display_name.view(),
-                          body.value(), who.is_admin, now_seconds());
+      m_store.add_comment(who.who, body.value(), who.is_admin, now_seconds());
   if (stored.is_error()) {
     reply_message(event, 500, stored.error().message().view());
     return;
@@ -464,11 +440,11 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
 
   let const audit_detail = to_single_line(m_allocator, body.value());
   if (m_store
-          .record_audit(actor_label(who), who.identity.view(),
+          .record_audit(who.who,
                         client_address(event, m_config.is_forwarded_trusted),
                         "comment", "", audit_detail.view(), now_seconds())
           .is_error())
-    LOG(Info, "audit record dropped for comment by %s", who.identity.c_str());
+    LOG(Info, "audit record dropped for comment by %s", who.who.name.c_str());
 
   reply_message(event, 200, "Comment posted");
 }
@@ -516,10 +492,10 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
   }
 
   let const audit_target =
-      to_single_line(m_allocator, target.author_name.view());
+      to_single_line(m_allocator, target.author.name.view());
   let const audit_detail = to_single_line(m_allocator, target.body.view());
   if (m_store
-          .record_audit(actor_label(who.value()), who.value().identity.view(),
+          .record_audit(who.value().who,
                         client_address(event, m_config.is_forwarded_trusted),
                         should_approve ? "comment approve" : "comment delete",
                         audit_target.view(), audit_detail.view(), now_seconds())
@@ -540,7 +516,7 @@ fn App::handle_admin_cache_clear(HttpServerEvent &event) -> void
   LOG(Info, "statement cache cleared");
 
   if (m_store
-          .record_audit(actor_label(who.value()), who.value().identity.view(),
+          .record_audit(who.value().who,
                         client_address(event, m_config.is_forwarded_trusted),
                         "cache clear", "", "", now_seconds())
           .is_error())
@@ -577,7 +553,8 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   row.name = String{m_allocator, input.name};
   row.url = String{m_allocator, input.url};
   row.description = String{m_allocator, input.description};
-  row.owner = String{m_allocator, who.value().identity.view()};
+  row.owner.source = who.value().who.source;
+  row.owner.name = String{m_allocator, who.value().who.name.view()};
   row.created_at = now_seconds();
 
   let const stored = m_store.upsert_site(row);
@@ -587,7 +564,7 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()), who.value().identity.view(),
+          .record_audit(who.value().who,
                         client_address(event, m_config.is_forwarded_trusted),
                         "add site", input.slug, input.name, now_seconds())
           .is_error())
@@ -622,7 +599,7 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()), who.value().identity.view(),
+          .record_audit(who.value().who,
                         client_address(event, m_config.is_forwarded_trusted),
                         "remove site", slug.value(),
                         found.value().value().name.view(), now_seconds())
@@ -664,7 +641,8 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
   row.name = String{m_allocator, input.name};
   row.url = String{m_allocator, input.url};
   row.description = String{m_allocator, input.description};
-  row.owner = String{m_allocator, current.owner.view()};
+  row.owner.source = current.owner.source;
+  row.owner.name = String{m_allocator, current.owner.name.view()};
   row.created_at = current.created_at;
 
   let const stored = m_store.upsert_site(row);
@@ -680,7 +658,7 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
         static_cast<int>(input.slug.count()), input.slug.data);
 
   if (m_store
-          .record_audit(actor_label(who.value()), who.value().identity.view(),
+          .record_audit(who.value().who,
                         client_address(event, m_config.is_forwarded_trusted),
                         "edit site", input.slug, input.name, now_seconds())
           .is_error())
@@ -708,15 +686,10 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
     writer.key("id");
     writer.number(actions[i].id);
     writer.field("kind", actions[i].kind.view());
-    writer.field("owner", actions[i].owner.view());
-    writer.field("owner_oauth", owner_oauth_for(actions[i].owner.view()));
-
-    let const submitter = m_store.find_account(actions[i].owner.view());
-    let const has_name = !submitter.is_error() && submitter.value().has_value();
-    writer.field("owner_display_name",
-                 has_name ? submitter.value().value().display_name.view() : "");
-    writer.field("owner_tag",
-                 has_name ? submitter.value().value().username.view() : "");
+    writer.field("owner", actions[i].owner.name.view());
+    writer.field("owner_oauth", source_oauth(actions[i].owner.source));
+    writer.field("owner_display_name", actions[i].owner.name.view());
+    writer.field("owner_tag", actions[i].owner.name.view());
 
     writer.field("target_slug", actions[i].target_slug.view());
     writer.field("payload", actions[i].payload.view());
@@ -761,18 +734,12 @@ fn App::handle_admin_audit(HttpServerEvent &event) -> void
   writer.array_begin();
   let const &entries = entries_or.value();
   for (usize i = 0; i < entries.count(); i++) {
-    let const actor_identity = entries[i].actor_identity.view();
-    let const actor = m_store.find_account(actor_identity);
-    let const has_actor = !actor.is_error() && actor.value().has_value();
-    let const actor_tag =
-        has_actor ? actor.value().value().username.view() : StringView{};
-
     writer.object_begin();
     writer.key("id");
     writer.number(entries[i].id);
-    writer.field("actor", entries[i].actor.view());
-    writer.field("actor_oauth", owner_oauth_for(actor_identity));
-    writer.field("actor_tag", actor_tag);
+    writer.field("actor", entries[i].actor.name.view());
+    writer.field("actor_oauth", source_oauth(entries[i].actor.source));
+    writer.field("actor_tag", entries[i].actor.name.view());
     writer.field("actor_ip", entries[i].actor_ip.view());
     writer.field("action", entries[i].action.view());
     writer.field("target", entries[i].target.view());
@@ -886,7 +853,8 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
             String{m_allocator, payload["url"].to<StringView>().value_or({})};
         row.description = String{
             m_allocator, payload["description"].to<StringView>().value_or({})};
-        row.owner = String{m_allocator, action.owner.view()};
+        row.owner.source = action.owner.source;
+        row.owner.name = String{m_allocator, action.owner.name.view()};
         row.created_at = now_seconds();
         let const stored = m_store.upsert_site(row);
         if (stored.is_error()) {
@@ -919,10 +887,10 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
   action_label.append(should_approve ? "approve " : "reject ");
   action_label.append(action.kind.view());
   if (m_store
-          .record_audit(actor_label(who.value()), who.value().identity.view(),
+          .record_audit(who.value().who,
                         client_address(event, m_config.is_forwarded_trusted),
                         action_label.view(), action.target_slug.view(),
-                        action.owner.view(), now_seconds())
+                        action.owner.name.view(), now_seconds())
           .is_error())
     LOG(Info, "audit record dropped for pending %lld",
         static_cast<long long>(id));

@@ -11,7 +11,7 @@ UJAR=$(mktemp -u /tmp/wr_comment_ujar_XXXXXX)
 AJAR=$(mktemp -u /tmp/wr_comment_ajar_XXXXXX)
 
 timeout 2 "$BIN" --enable-dangerous-developer-environment --listen-address "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1
-sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner,created_at) VALUES ('mine','Mine','https://mine.example','',1,9999999999,'dev:user',7);"
+sqlite3 "$DB" "INSERT INTO sites (slug,name,url,description,is_reachable,last_seen_at,owner_source,owner_name,created_at) VALUES ('mine','Mine','https://mine.example','',1,9999999999,2,'radi0dev',7);"
 
 timeout 15 "$BIN" --enable-dangerous-developer-environment --listen-address "http://127.0.0.1:$PORT" -d "$DB" -u http://x >/dev/null 2>&1 &
 server=$!
