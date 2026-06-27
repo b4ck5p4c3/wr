@@ -2,25 +2,15 @@ FROM alpine:3.24 AS builder
 
 SHELL ["sh", "-eux", "-c"]
 
-RUN apk update
-RUN apk add \
-    build-base \
-    clang \
-    compiler-rt \
-    musl-dev \
-    linux-headers \
-    curl \
-    bash \
-    git
+RUN apk add --no-cache \
+    build-base clang compiler-rt musl-dev linux-headers curl bash git
 RUN curl -fsSL https://bun.com/install | bash && \
     ln -sf /root/.bun/bin/bun /usr/bin/bun
 
 COPY . /src
 WORKDIR /src
 
-RUN cd ./web && \
-    bun install && \
-RUN MODE=rel make web wr
+RUN cd web && bun install && cd .. && MODE=rel make web wr
 
 FROM scratch
 

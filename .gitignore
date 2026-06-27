@@ -26,6 +26,8 @@ web/node_modules
 core.*
 *.db
 
+.env
+
 wr
 wr-*
 
