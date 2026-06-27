@@ -1554,20 +1554,34 @@ export function AuditLog() {
 
   return (
     <ul class="audit-log">
-      {entries.map((entry) => (
-        <li class="audit-entry" key={entry.id}>
-          <span class="audit-time">{formatTimestamp(entry.created_at)}</span>
-          <span class="audit-action">{entry.action}</span>
-          <span class="audit-target">{entry.target}</span>
-          <span class="audit-actor">{entry.actor}</span>
-          {entry.actor_ip ? (
-            <span class="audit-ip">{entry.actor_ip}</span>
-          ) : null}
-          {entry.detail ? (
-            <span class="audit-detail">{entry.detail}</span>
-          ) : null}
-        </li>
-      ))}
+      {entries.map((entry) => {
+        const actorUrl = ownerProfileUrl(entry.actor_oauth, entry.actor_tag);
+        return (
+          <li class="audit-entry" key={entry.id}>
+            <span class="audit-time">{formatTimestamp(entry.created_at)}</span>
+            <span class="audit-action">{entry.action}</span>
+            <span class="audit-target">{entry.target}</span>
+            {actorUrl ? (
+              <a
+                class={"audit-actor owner-" + entry.actor_oauth}
+                href={actorUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {entry.actor}
+              </a>
+            ) : (
+              <span class="audit-actor">{entry.actor}</span>
+            )}
+            {entry.actor_ip ? (
+              <span class="audit-ip">{entry.actor_ip}</span>
+            ) : null}
+            {entry.detail ? (
+              <span class="audit-detail">{entry.detail}</span>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }

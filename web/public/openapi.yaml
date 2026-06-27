@@ -1053,6 +1053,16 @@ components:
         actor:
           type: string
           description: The acting label, the display name or the identity.
+        actor_oauth:
+          type: string
+          description: >-
+            The actor provider, github or telegram, empty when no account is
+            found.
+        actor_tag:
+          type: string
+          description: >-
+            The actor handle, the slug after github.com or t.me, empty when no
+            account is found.
         actor_ip:
           type: string
           description: The acting client address, from a forwarded header or the peer.
@@ -1069,7 +1079,8 @@ components:
           type: integer
           format: int64
           description: The unix time the action was recorded.
-      required: [id, actor, actor_ip, action, target, detail, created_at]
+      required:
+        [id, actor, actor_oauth, actor_tag, actor_ip, action, target, detail, created_at]
     SiteStats:
       type: object
       description: The per-site click and hop tallies with the ring totals.

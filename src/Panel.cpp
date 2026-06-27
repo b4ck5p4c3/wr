@@ -238,7 +238,7 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who),
+          .record_audit(actor_label(who), who.identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         "submit add", input.slug, input.name, now_seconds())
           .is_error())
@@ -276,7 +276,7 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who),
+          .record_audit(actor_label(who), who.identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         "submit rename", slug.value(), name.value(),
                         now_seconds())
@@ -332,7 +332,7 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who),
+          .record_audit(actor_label(who), who.identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         toggled.value() ? "react add" : "react remove",
                         slug.value(), emoji.value(), now_seconds())
@@ -464,7 +464,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
 
   let const audit_detail = to_single_line(m_allocator, body.value());
   if (m_store
-          .record_audit(actor_label(who),
+          .record_audit(actor_label(who), who.identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         "comment", "", audit_detail.view(), now_seconds())
           .is_error())
@@ -519,7 +519,7 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
       to_single_line(m_allocator, target.author_name.view());
   let const audit_detail = to_single_line(m_allocator, target.body.view());
   if (m_store
-          .record_audit(actor_label(who.value()),
+          .record_audit(actor_label(who.value()), who.value().identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         should_approve ? "comment approve" : "comment delete",
                         audit_target.view(), audit_detail.view(), now_seconds())
@@ -540,7 +540,7 @@ fn App::handle_admin_cache_clear(HttpServerEvent &event) -> void
   LOG(Info, "statement cache cleared");
 
   if (m_store
-          .record_audit(actor_label(who.value()),
+          .record_audit(actor_label(who.value()), who.value().identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         "cache clear", "", "", now_seconds())
           .is_error())
@@ -587,7 +587,7 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()),
+          .record_audit(actor_label(who.value()), who.value().identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         "add site", input.slug, input.name, now_seconds())
           .is_error())
@@ -622,7 +622,7 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
   }
 
   if (m_store
-          .record_audit(actor_label(who.value()),
+          .record_audit(actor_label(who.value()), who.value().identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         "remove site", slug.value(),
                         found.value().value().name.view(), now_seconds())
@@ -680,7 +680,7 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
         static_cast<int>(input.slug.count()), input.slug.data);
 
   if (m_store
-          .record_audit(actor_label(who.value()),
+          .record_audit(actor_label(who.value()), who.value().identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         "edit site", input.slug, input.name, now_seconds())
           .is_error())
@@ -760,10 +760,18 @@ fn App::handle_admin_audit(HttpServerEvent &event) -> void
   writer.array_begin();
   let const &entries = entries_or.value();
   for (usize i = 0; i < entries.count(); i++) {
+    let const actor_identity = entries[i].actor_identity.view();
+    let const actor = m_store.find_account(actor_identity);
+    let const has_actor = !actor.is_error() && actor.value().has_value();
+    let const actor_tag =
+        has_actor ? actor.value().value().username.view() : StringView{};
+
     writer.object_begin();
     writer.key("id");
     writer.number(entries[i].id);
     writer.field("actor", entries[i].actor.view());
+    writer.field("actor_oauth", owner_oauth_for(actor_identity));
+    writer.field("actor_tag", actor_tag);
     writer.field("actor_ip", entries[i].actor_ip.view());
     writer.field("action", entries[i].action.view());
     writer.field("target", entries[i].target.view());
@@ -910,7 +918,7 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
   action_label.append(should_approve ? "approve " : "reject ");
   action_label.append(action.kind.view());
   if (m_store
-          .record_audit(actor_label(who.value()),
+          .record_audit(actor_label(who.value()), who.value().identity.view(),
                         client_address(event, m_config.is_forwarded_trusted),
                         action_label.view(), action.target_slug.view(),
                         action.owner.view(), now_seconds())
