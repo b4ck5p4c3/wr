@@ -398,6 +398,20 @@ function render(spec) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="${heading}, the public webring API." />
+    <meta property="og:title" content="${heading}" />
+    <meta property="og:description" content="${heading}, the public webring API." />
+    <meta property="og:image" content="/favicon-512x512.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="${heading}" />
+    <meta name="twitter:description" content="${heading}, the public webring API." />
+    <meta name="twitter:image" content="/favicon-512x512.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512x512.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>${heading}</title>
     <link rel="stylesheet" href="/assets/app.css" />
     <style>
