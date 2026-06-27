@@ -197,7 +197,7 @@ a[href^="http"]::after {
    bare. */
 a:not([href^="http"]):not(.logo):not(.provider):not(.mention):not(
     .nav-link
-  )::after {
+  ):not(.skip-link)::after {
   content: "..";
 }
 
@@ -213,6 +213,25 @@ a:not([href^="http"]):not(.logo):not(.provider):not(.mention):not(
 .nav-link:hover {
   color: #ffae66;
   text-shadow: 0 0 28px rgba(255, 174, 102, 0.75);
+}
+
+/* The skip link is pulled off the top of the page until a keyboard focus brings
+   it down, so a tab from the document start jumps straight to the main content.
+   A pointer user never sees it. */
+.skip-link {
+  position: fixed;
+  left: 1ch;
+  top: -120%;
+  z-index: 10004;
+  padding: 0.6ch 1.4ch;
+  border: 1px solid var(--accent);
+  background: var(--bg-primary);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  top: 1ch;
 }
 
 h1,
@@ -507,8 +526,11 @@ img {
 .reaction {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3ch;
   padding: 0.2ch 0.6ch;
+  min-height: 24px;
+  min-width: 24px;
   border: 1px solid transparent;
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
@@ -743,6 +765,19 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+/* A keyboard focus draws a clear amber ring on every interactive control, so a
+   tab traversal is visible. A pointer focus keeps the hover styling alone, so
+   the look is unchanged for a mouse. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.reaction:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .description-field {
   position: relative;
   width: 100%;
@@ -879,7 +914,7 @@ li.site .row-actions {
 }
 
 .uptime-bars .gap {
-  color: var(--border);
+  color: #a89bc9;
 }
 
 .uptime-axis {
@@ -1037,7 +1072,7 @@ code {
 }
 
 .hint {
-  color: var(--footer-text);
+  color: #e6dff4;
 }
 
 .error {

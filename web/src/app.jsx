@@ -72,6 +72,9 @@ export function App() {
 
   return (
     <div class="app">
+      <a class="skip-link" href="#main">
+        skip to content
+      </a>
       <Header
         navigate={navigate}
         me={me}

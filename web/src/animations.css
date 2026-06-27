@@ -41,3 +41,23 @@
     opacity: 1;
   }
 }
+
+/* A visitor who asks the system for reduced motion gets the keyframes and the
+   transitions cut to a near-zero duration, so the ghost pulse, the coin pulse,
+   the reaction reveal, the comment enter and leave, and the click sparks settle
+   at once. The CRT look is untouched. The carousel spin, the card bob, and the
+   page crossfade are driven from JS and are gated in components.jsx. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}

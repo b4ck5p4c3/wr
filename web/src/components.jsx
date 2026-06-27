@@ -1,12 +1,27 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "./api.js";
 
+// A visitor who asks the system for reduced motion gets the continuous and the
+// decorative motion dropped. The CSS gates the keyframes and the transitions,
+// and this reading gates the JS-driven carousel spin, the bob, the page
+// crossfade, and the click sparks, which a stylesheet cannot reach.
+function prefersReducedMotion() {
+  return (
+    typeof matchMedia !== "undefined" &&
+    matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 // A route change is wrapped in the View Transitions API, borrowed from the
 // fennec.support navigation, so the old page crossfades into the new one. A
 // browser without the API swaps the path with no animation. The returned promise
 // yields a tick, so the Preact render commits before the new frame is captured.
 function withViewTransition(applyChange) {
-  if (typeof document === "undefined" || document.startViewTransition == null) {
+  if (
+    prefersReducedMotion() ||
+    typeof document === "undefined" ||
+    document.startViewTransition == null
+  ) {
     applyChange();
     return;
   }
@@ -75,7 +90,7 @@ export function useButtonParticles() {
     const onClick = (event) => {
       const button =
         event.target.closest != null ? event.target.closest("button") : null;
-      if (button == null || button.disabled) return;
+      if (button == null || button.disabled || prefersReducedMotion()) return;
       spawnClickParticles(event.clientX, event.clientY);
     };
     addEventListener("click", onClick);
@@ -163,7 +178,13 @@ export function LoginModal({ onClose, config }) {
   const telegramBot = config.telegram_bot;
   return (
     <div class="modal-backdrop" onClick={onClose}>
-      <div class="modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="sign in"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2>sign in</h2>
         <p>Pick a provider to manage your sites.</p>
         {config.github ? (
@@ -190,6 +211,7 @@ export function LoginModal({ onClose, config }) {
         {config.is_dev ? (
           <select
             class="provider"
+            aria-label="bypass login"
             onChange={(e) => {
               if (e.target.value) location.href = e.target.value;
             }}
@@ -354,7 +376,12 @@ export function UptimeGraph({ history }) {
   }
 
   return (
-    <div class="uptime-graph" title="uptime over the last 7 days">
+    <div
+      class="uptime-graph"
+      role="img"
+      aria-label="uptime over the last 7 days"
+      title="uptime over the last 7 days"
+    >
       <div class="uptime-bars">
         {columns.map((ratio, i) => (
           <span key={i} class={ratio < 0 ? "gap" : ratio >= 50 ? "up" : "down"}>
@@ -579,12 +606,14 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
 
   useEffect(() => {
     if (isNarrow) return;
+    const reduced = prefersReducedMotion();
     let frame;
     const tick = () => {
       const motion = motionRef.current;
       if (!motion.isDragging) {
         const spinScale = motion.isHovering ? HOVER_SPIN_SCALE : 1;
-        motion.rotation += (motion.velocity || idleSpeed) * spinScale;
+        motion.rotation +=
+          (motion.velocity || (reduced ? 0 : idleSpeed)) * spinScale;
         motion.velocity *= 0.94;
         if (Math.abs(motion.velocity) < 0.05) motion.velocity = 0;
       }
@@ -618,9 +647,10 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
         const card = cards[i];
         if (card == null) continue;
 
-        const bob =
-          Math.sin(motion.time * CARD_BOB_SPEED + i * CARD_BOB_PHASE) *
-          CARD_BOB_PIXELS;
+        const bob = reduced
+          ? 0
+          : Math.sin(motion.time * CARD_BOB_SPEED + i * CARD_BOB_PHASE) *
+            CARD_BOB_PIXELS;
         const pop = i === motion.grabbedIndex ? motion.cardPop : 0;
         card.style.transform =
           "rotateY(" +
@@ -760,7 +790,7 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
   }, []);
 
   return (
-    <main>
+    <main id="main">
       <h1>b4cksp4ce webring</h1>
       <div class="ring-area">
         {error ? (
@@ -822,7 +852,13 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
           </button>
           {showAddSite ? (
             <div class="modal-backdrop" onClick={() => setShowAddSite(false)}>
-              <div class="modal" onClick={(e) => e.stopPropagation()}>
+              <div
+                class="modal"
+                role="dialog"
+                aria-modal="true"
+                aria-label="add a site"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <AddSiteForm
                   onAdded={() => {
                     reload();
@@ -843,7 +879,7 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
 
 export function About() {
   return (
-    <main>
+    <main id="main">
       <h1>about</h1>
       <p>wr is a webring by b4cksp4ce.</p>
       <p>
@@ -896,6 +932,7 @@ export function DescriptionField({ value, onInput, placeholder }) {
         <span class="over">{over}</span>
       </div>
       <textarea
+        aria-label={placeholder}
         placeholder={placeholder}
         value={value}
         onInput={onInput}
@@ -942,9 +979,20 @@ export function AddSiteForm({
   return (
     <form class="card" onSubmit={submit}>
       <h3>add a site</h3>
-      <input placeholder="slug" value={form.slug} onInput={field("slug")} />
-      <input placeholder="name" value={form.name} onInput={field("name")} />
       <input
+        aria-label="site slug"
+        placeholder="slug"
+        value={form.slug}
+        onInput={field("slug")}
+      />
+      <input
+        aria-label="site name"
+        placeholder="name"
+        value={form.name}
+        onInput={field("name")}
+      />
+      <input
+        aria-label="site url"
         placeholder="https://your.site"
         value={form.url}
         onInput={field("url")}
@@ -977,7 +1025,11 @@ export function OwnedSite({ site, onRenamed }) {
   return (
     <li class="site">
       <span class="slug">/{site.slug}</span>
-      <input value={name} onInput={(e) => setName(e.target.value)} />
+      <input
+        aria-label="site name"
+        value={name}
+        onInput={(e) => setName(e.target.value)}
+      />
       <div class="row-actions">
         <button onClick={rename}>rename..</button>
       </div>
@@ -1099,8 +1151,8 @@ export function AdminSite({ site, onSaved, onDeleted }) {
           tag={site.owner_tag}
         />
       </span>
-      <input value={form.name} onInput={field("name")} />
-      <input value={form.url} onInput={field("url")} />
+      <input aria-label="site name" value={form.name} onInput={field("name")} />
+      <input aria-label="site url" value={form.url} onInput={field("url")} />
       <DescriptionField
         placeholder="description"
         value={form.description || ""}
@@ -1253,7 +1305,7 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
     );
 
   return (
-    <main>
+    <main id="main">
       <h1>admin</h1>
       <p>Signed in as {account.display_name}.</p>
       <button class="primary" onClick={() => setShowActions(true)}>
@@ -1261,10 +1313,17 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
       </button>
       {showActions ? (
         <div class="modal-backdrop" onClick={() => setShowActions(false)}>
-          <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+          <div
+            class="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-label="pending actions"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>pending actions</h2>
             <input
               class="site-search"
+              aria-label="search pending actions"
               placeholder="search by user or content"
               value={actionQuery}
               onInput={(e) => setActionQuery(e.target.value)}
@@ -1293,10 +1352,17 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
       </button>
       {showComments ? (
         <div class="modal-backdrop" onClick={() => setShowComments(false)}>
-          <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+          <div
+            class="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-label="pending comments"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>pending comments</h2>
             <input
               class="site-search"
+              aria-label="search pending comments"
               placeholder="search by user or content"
               value={commentQuery}
               onInput={(e) => setCommentQuery(e.target.value)}
@@ -1345,10 +1411,17 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
       </button>
       {showAllSites ? (
         <div class="modal-backdrop" onClick={() => setShowAllSites(false)}>
-          <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+          <div
+            class="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-label="all sites"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>all sites</h2>
             <input
               class="site-search"
+              aria-label="search all sites"
               placeholder="search by name or slug"
               value={siteQuery}
               onInput={(e) => setSiteQuery(e.target.value)}
@@ -1643,6 +1716,7 @@ export function CommentsSection({ me }) {
       {canComment ? (
         <div class="comment-form">
           <textarea
+            aria-label="leave a comment"
             value={draft}
             maxLength={500}
             placeholder="leave a note, @tag a site or a person in the ring"
@@ -1710,7 +1784,7 @@ export function CommentsSection({ me }) {
 
 export function NotFound({ navigate }) {
   return (
-    <main class="notfound">
+    <main class="notfound" id="main">
       <p class="status">404</p>
       <h1>lost in the ring</h1>
       <p>This page hopped off the webring, or it never joined.</p>
