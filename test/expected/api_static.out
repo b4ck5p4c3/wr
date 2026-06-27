@@ -1,0 +1,6 @@
+root: 200 text/html; charset=utf-8
+route: 200 text/html; charset=utf-8
+docs: 200 text/html; charset=utf-8
+openapi: 200 application/octet-stream
+unknown: 404 application/json
+traversal: 400

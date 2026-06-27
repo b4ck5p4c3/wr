@@ -4,7 +4,7 @@
 # is created by a short pre-run, then the rows are seeded while the server is
 # down, so the listing is deterministic.
 set -u
-PORT=18772
+PORT=18779
 DB=$(mktemp -u /tmp/wr_uptime_XXXXXX.db)
 AJAR=$(mktemp -u /tmp/wr_uptime_jar_XXXXXX)
 
