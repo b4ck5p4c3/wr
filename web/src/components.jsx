@@ -83,6 +83,29 @@ export function useButtonParticles() {
   }, []);
 }
 
+// A poll runs once on mount and then repeats on the interval. A response that
+// lands after unmount is dropped, so a late reply never sets state on a gone
+// view.
+function usePolling(fetcher, onData, onError, intervalMs) {
+  useEffect(() => {
+    let stopped = false;
+    const poll = () =>
+      fetcher()
+        .then((next) => {
+          if (!stopped) onData(next);
+        })
+        .catch((error) => {
+          if (!stopped) onError(error);
+        });
+    poll();
+    const timer = setInterval(poll, intervalMs);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, []);
+}
+
 // A pulsing placeholder bar shown where a value has not loaded yet, borrowed
 // from the fennec.support ghost line.
 export function GhostLine({ width = "100%" }) {
@@ -1100,43 +1123,38 @@ export function AdminSite({ site, onSaved, onDeleted }) {
   );
 }
 
-// The all-sites modal filters its rows by a case-insensitive match on the slug
-// or the name.
-function matchSites(sites, query) {
+// A case-insensitive search keeps a row when any of its searchable fields holds
+// the query. An empty query keeps the whole list.
+function matchByFields(items, query, getFields) {
   const needle = query.trim().toLowerCase();
-  if (needle === "") return sites;
-  return sites.filter(
-    (site) =>
-      site.slug.toLowerCase().includes(needle) ||
-      site.name.toLowerCase().includes(needle),
-  );
-}
-
-// A pending action matches on the submitting user or on the requested content.
-function matchPending(actions, query) {
-  const needle = query.trim().toLowerCase();
-  if (needle === "") return actions;
-  return actions.filter((action) =>
-    [
-      action.owner,
-      action.owner_display_name,
-      action.kind,
-      action.target_slug,
-      action.payload,
-    ].some((field) => (field || "").toLowerCase().includes(needle)),
-  );
-}
-
-// A pending comment matches on the author or on the body.
-function matchComments(comments, query) {
-  const needle = query.trim().toLowerCase();
-  if (needle === "") return comments;
-  return comments.filter((comment) =>
-    [comment.author_name, comment.body].some((field) =>
+  if (needle === "") return items;
+  return items.filter((item) =>
+    getFields(item).some((field) =>
       (field || "").toLowerCase().includes(needle),
     ),
   );
 }
+
+// The all-sites modal matches on the slug or the name.
+const matchSites = (sites, query) =>
+  matchByFields(sites, query, (site) => [site.slug, site.name]);
+
+// A pending action matches on the submitting user or on the requested content.
+const matchPending = (actions, query) =>
+  matchByFields(actions, query, (action) => [
+    action.owner,
+    action.owner_display_name,
+    action.kind,
+    action.target_slug,
+    action.payload,
+  ]);
+
+// A pending comment matches on the author or on the body.
+const matchComments = (comments, query) =>
+  matchByFields(comments, query, (comment) => [
+    comment.author_name,
+    comment.body,
+  ]);
 
 export function Admin({ me: appMe, onLogin, onLogout }) {
   const [me, setMe] = useState(undefined);
@@ -1433,26 +1451,15 @@ export function AuditLog() {
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let stopped = false;
-    const poll = () =>
-      api
-        .adminAudit()
-        .then((next) => {
-          if (stopped) return;
-          setEntries(next);
-          setError(null);
-        })
-        .catch((e) => {
-          if (!stopped) setError(e.message);
-        });
-    poll();
-    const timer = setInterval(poll, 5000);
-    return () => {
-      stopped = true;
-      clearInterval(timer);
-    };
-  }, []);
+  usePolling(
+    api.adminAudit,
+    (next) => {
+      setEntries(next);
+      setError(null);
+    },
+    (e) => setError(e.message),
+    5000,
+  );
 
   if (error) return <p class="error">{error}</p>;
   if (entries === null) return <Loading />;
@@ -1485,26 +1492,15 @@ export function LogStream() {
   const [error, setError] = useState(null);
   const viewRef = useRef(null);
 
-  useEffect(() => {
-    let stopped = false;
-    const poll = () =>
-      api
-        .adminLogs()
-        .then((next) => {
-          if (stopped) return;
-          setLines(next);
-          setError(null);
-        })
-        .catch((e) => {
-          if (!stopped) setError(e.message);
-        });
-    poll();
-    const timer = setInterval(poll, 2000);
-    return () => {
-      stopped = true;
-      clearInterval(timer);
-    };
-  }, []);
+  usePolling(
+    api.adminLogs,
+    (next) => {
+      setLines(next);
+      setError(null);
+    },
+    (e) => setError(e.message),
+    2000,
+  );
 
   useEffect(() => {
     if (viewRef.current)
