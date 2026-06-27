@@ -306,7 +306,8 @@ img {
   max-width: 360px;
 }
 
-.tui-card {
+.tui-card,
+.tui-face {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -377,14 +378,6 @@ img {
 .tui-face {
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.94));
-  box-shadow:
-    0 0 0 1px var(--panel-outline),
-    inset 0 0 24px var(--panel-glow-inset),
-    0 12px 32px var(--tui-shadow);
   backface-visibility: hidden;
 }
 
@@ -617,12 +610,14 @@ img {
   }
 }
 
-/* A big panel is the shared block, a bordered slab with the warm inset glow. */
+/* The bordered slab with the warm inset glow is shared by the big panels and a
+   footer comment. */
 .bar,
 main,
 .card,
 .panel,
-.modal {
+.modal,
+.comment {
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.32));
   box-shadow:
@@ -1009,7 +1004,9 @@ li.site .description-field {
   background: rgba(0, 0, 0, 0.18);
 }
 
-.audit-time {
+.audit-time,
+.audit-ip,
+.comment-time {
   color: var(--text-secondary);
   opacity: 0.7;
 }
@@ -1026,11 +1023,6 @@ li.site .description-field {
 .audit-actor {
   margin-left: auto;
   color: var(--footer-text);
-}
-
-.audit-ip {
-  color: var(--text-secondary);
-  opacity: 0.7;
 }
 
 .audit-detail {
@@ -1222,12 +1214,6 @@ footer {
   flex-direction: column;
   gap: 0.4ch;
   padding: 1.2ch;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.32));
-  box-shadow:
-    0 0 0 1px var(--panel-outline),
-    inset 0 0 24px var(--panel-glow-inset),
-    0 8px 24px var(--tui-shadow);
   animation: comment-enter 0.3s ease;
 }
 
@@ -1275,11 +1261,6 @@ footer {
 
 .comment-author {
   color: var(--text-secondary);
-}
-
-.comment-time {
-  color: var(--text-secondary);
-  opacity: 0.7;
 }
 
 .comment-body {
