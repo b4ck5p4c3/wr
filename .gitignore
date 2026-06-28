@@ -25,6 +25,8 @@ web/node_modules
 
 core.*
 *.db
+*.db-shm
+*.db-wal
 
 .env
 
