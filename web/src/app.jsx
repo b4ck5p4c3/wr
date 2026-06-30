@@ -67,65 +67,76 @@ export function App() {
     );
   else page = <NotFound navigate={navigate} />;
 
+  const TEST_WARNING =
+    " LIVE TESTING. THIS IS A DRILL. STAGING ENVIRONMENT. THE PRODUCT MAY CHANGE. RESOURCES SHOWN ARE IN NO WAY ENDORSED BY OR ASSOCIATED WITH B4CKSP4CE. ";
+
   return (
-    <div class="app">
-      <a class="skip-link" href="#main">
-        skip to content
-      </a>
-      <Header
-        navigate={navigate}
-        me={me}
-        onLogin={onLogin}
-        onLogout={onLogout}
-      />
-      {page}
-      {showLogin ? (
-        <LoginModal config={config} onClose={() => setShowLogin(false)} />
-      ) : null}
-      {showLogoutConfirm ? (
-        <Modal label="log out" onClose={() => setShowLogoutConfirm(false)}>
-          <h2>log out</h2>
-          <p>End this session and return to the ring?</p>
-          <button class="danger" onClick={doLogout}>
-            log out..
-          </button>
-          <button class="close" onClick={() => setShowLogoutConfirm(false)}>
-            cancel..
-          </button>
-        </Modal>
-      ) : null}
-      <footer>
-        <CommentsSection me={me} />
-        <p>
-          running on{" "}
-          <a
-            href="https://github.com/b4ck5p4c3/wr"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Shit and sticks
-          </a>
-        </p>
-        <p>
-          Copyright{" "}
-          <a
-            href="https://github.com/toiletbril"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            toiletbril
-          </a>
-          {" and "}
-          <a
-            href="https://github.com/b4ck5p4c3/wr/graphs/contributors"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            project contributors
-          </a>
-          , 2026
-        </p>
-      </footer>
-    </div>
+    <>
+      <div class="warning-bar">
+        <div class="warning-track">
+          <span>${TEST_WARNING.repeat(3)}</span>
+          <span aria-hidden="true">${TEST_WARNING.repeat(3)}</span>
+        </div>
+      </div>
+      <div class="app">
+        <a class="skip-link" href="#main">
+          skip to content
+        </a>
+        <Header
+          navigate={navigate}
+          me={me}
+          onLogin={onLogin}
+          onLogout={onLogout}
+        />
+        {page}
+        {showLogin ? (
+          <LoginModal config={config} onClose={() => setShowLogin(false)} />
+        ) : null}
+        {showLogoutConfirm ? (
+          <Modal label="log out" onClose={() => setShowLogoutConfirm(false)}>
+            <h2>log out</h2>
+            <p>End this session and return to the ring?</p>
+            <button class="danger" onClick={doLogout}>
+              log out..
+            </button>
+            <button class="close" onClick={() => setShowLogoutConfirm(false)}>
+              cancel..
+            </button>
+          </Modal>
+        ) : null}
+        <footer>
+          <CommentsSection me={me} />
+          <p>
+            running on{" "}
+            <a
+              href="https://github.com/b4ck5p4c3/wr"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Shit and sticks
+            </a>
+          </p>
+          <p>
+            Copyright{" "}
+            <a
+              href="https://github.com/toiletbril"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              toiletbril
+            </a>
+            {" and "}
+            <a
+              href="https://github.com/b4ck5p4c3/wr/graphs/contributors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              project contributors
+            </a>
+            , 2026
+          </p>
+        </footer>
+      </div>
+    </>
   );
 }

@@ -95,3 +95,12 @@
     animation: none !important;
   }
 }
+
+@keyframes horizontal-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

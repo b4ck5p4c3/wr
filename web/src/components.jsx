@@ -1490,12 +1490,7 @@ export function Stats() {
 
   if (error) return <p class="error">{error}</p>;
   if (stats === null) return <Loading />;
-  if (!stats.enabled)
-    return (
-      <p class="hint">
-        Metrics are disabled.
-      </p>
-    );
+  if (!stats.enabled) return <p class="hint">Metrics are disabled.</p>;
 
   return (
     <div class="stats">

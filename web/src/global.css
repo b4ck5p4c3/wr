@@ -1364,3 +1364,26 @@ footer {
     opacity: 0;
   }
 }
+
+.warning-bar {
+  overflow: hidden;
+  color: #111;
+  border: 2px solid #111;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #d1ae00;
+}
+
+.warning-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: horizontal-scroll 36s linear infinite;
+}
+
+.warning-track span {
+  flex: 0 0 auto;
+  padding: 10px 24px;
+  display: inline-block;
+  background: rgba(255, 212, 0, 0.85);
+}
