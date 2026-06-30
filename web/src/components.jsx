@@ -881,8 +881,8 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
 
       {me && me.is_admin ? (
         <section class="panel">
-          <h2>admin panel</h2>
-          <p>Signed in as {me.display_name}.</p>
+          <h2>admin login</h2>
+          <p>Looking handsome today, {me.display_name}.</p>
           <p>
             <a href="/admin" onClick={link(navigate, "/admin")}>
               open admin panel
@@ -1493,7 +1493,7 @@ export function Stats() {
   if (!stats.enabled)
     return (
       <p class="hint">
-        Metrics are disabled. Launch with --enable-metrics to record them.
+        Metrics are disabled.
       </p>
     );
 
@@ -1544,7 +1544,7 @@ export function AuditLog() {
 
   if (error) return <p class="error">{error}</p>;
   if (entries === null) return <Loading />;
-  if (entries.length === 0) return <p>No admin actions yet.</p>;
+  if (entries.length === 0) return <p>No recorded actions yet.</p>;
 
   return (
     <ul class="audit-log">

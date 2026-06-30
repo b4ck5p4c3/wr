@@ -1,7 +1,3 @@
-/* The look is borrowed from the fennec.support site, a CRT terminal theme set in
-   Terminus over a scanline and a noise overlay. The fonts are bundled from the
-   static dir so the build fingerprints them. */
-
 @font-face {
   font-display: swap;
   font-family: "Terminus";
@@ -61,6 +57,7 @@
   font-size: 16px;
   font-variant-numeric: tabular-nums lining-nums;
   text-shadow: 0 0 8px var(--crt-glow);
+  letter-spacing: inherit !important;
 }
 
 html {
@@ -126,9 +123,8 @@ html::after {
       transparent 50%,
       rgba(0, 0, 0, 0.28) 100%
     ),
-    url(/noise.webp),
     radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.62) 100%);
-  opacity: 0.32;
+  opacity: 0.24;
   background-blend-mode: normal, overlay, overlay;
   filter: sepia(1) hue-rotate(230deg) saturate(2);
   z-index: 10001;
@@ -799,7 +795,6 @@ select:focus-visible,
   margin: 0;
   border: 1px solid transparent;
   padding: 0.6ch 1ch;
-  font: inherit;
   line-height: 1.4;
   white-space: pre-wrap;
   overflow-wrap: break-word;
