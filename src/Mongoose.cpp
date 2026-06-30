@@ -1,5 +1,6 @@
 #include "Mongoose.hpp"
 
+#include "Common.hpp"
 #include "String.hpp"
 #include "Trace.hpp"
 
@@ -42,7 +43,8 @@ pure fn mongoose_level_for(verbosity level) noexcept -> int
   return level == verbosity::All ? MG_LL_VERBOSE : MG_LL_NONE;
 }
 
-fn contains_substring(StringView haystack, StringView needle) noexcept -> bool
+donteliminate fn contains_substring(StringView haystack,
+                                    StringView needle) noexcept -> bool
 {
   if (needle.count() == 0 || needle.count() > haystack.count()) {
     return false;
