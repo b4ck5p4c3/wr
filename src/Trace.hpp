@@ -118,7 +118,7 @@ inline fn log_emit(verbosity level, const char *file_line, const char *func,
   char timestamp_buffer[16];
   char header[256];
   let const header_length = std::snprintf(
-      header, sizeof(header), "[%s] [%s] [t%u] %16s %s(): ",
+      header, sizeof(header), "[%s] [%s] [t%u] %s %s(): ",
       log_timestamp(timestamp_buffer, sizeof(timestamp_buffer)),
       verbosity_to_string(level), current_thread_id(), file_line, func);
   let const header_view = header_length > 0 ? StringView{header} : StringView{};
