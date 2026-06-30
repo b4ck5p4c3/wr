@@ -152,8 +152,8 @@ fn main(int argc, char **argv) -> int
     return 0;
   }
 
-  if (FLAG_VERBOSE.count() >= 2)
-    LOGGER_VERBOSITY = verbosity::All;
+  if (FLAG_VERBOSE.count() >= 3)
+    LOGGER_VERBOSITY = verbosity::Everything;
   else if (FLAG_VERBOSE.count() == 1)
     LOGGER_VERBOSITY = verbosity::Debug;
 

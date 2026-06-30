@@ -283,29 +283,29 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
 {
   let const cookie_header = event.request_headers().get("cookie");
   if (!cookie_header.has_value()) {
-    LOG(Debug, "current account none, request carries no cookie header");
+    LOG(All, "current account none, request carries no cookie header");
     return None;
   }
   let const token = find_cookie(cookie_header.value(), "wr_session");
   if (!token.has_value()) {
-    LOG(Debug, "current account none, cookie header has no wr_session");
+    LOG(All, "current account none, cookie header has no wr_session");
     return None;
   }
 
   let const session_row = m_store.find_session(token.value());
   if (session_row.is_error()) {
-    LOG(Debug, "current account none, session lookup failed, %.*s",
+    LOG(All, "current account none, session lookup failed, %.*s",
         static_cast<int>(session_row.error().message().view().count()),
         session_row.error().message().view().data);
     return None;
   }
   if (!session_row.value().has_value()) {
-    LOG(Debug, "current account none, no session row for the cookie token");
+    LOG(All, "current account none, no session row for the cookie token");
     return None;
   }
   let const &session = session_row.value().value();
   if (session.expires_at < now_seconds()) {
-    LOG(Debug, "current account none, session expired at %lld, now %lld",
+    LOG(All, "current account none, session expired at %lld, now %lld",
         static_cast<long long>(session.expires_at),
         static_cast<long long>(now_seconds()));
     return None;
@@ -313,17 +313,17 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
 
   let const found = m_store.find_account(session.who);
   if (found.is_error()) {
-    LOG(Debug, "current account none, account lookup failed");
+    LOG(All, "current account none, account lookup failed");
     return None;
   }
   if (!found.value().has_value()) {
-    LOG(Debug, "current account none, session source=%d name=%s has no account",
+    LOG(All, "current account none, session source=%d name=%s has no account",
         static_cast<int>(session.who.source), session.who.name.c_str());
     return None;
   }
 
   let const &resolved = found.value().value();
-  LOG(Debug, "current account resolved, source=%d name=%s is_admin=%d",
+  LOG(All, "current account resolved, source=%d name=%s is_admin=%d",
       static_cast<int>(resolved.who.source), resolved.who.name.c_str(),
       resolved.is_admin ? 1 : 0);
   return found.value();

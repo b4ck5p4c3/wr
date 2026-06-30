@@ -706,7 +706,7 @@ components:
       description: The navigation step.
       schema:
         type: string
-        enum: [next, prev, random]
+        enum: [next, previous, random]
   responses:
     Message:
       description: 'A JSON body, {"message": string}.'

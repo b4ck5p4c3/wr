@@ -16,6 +16,7 @@ enum class verbosity : u8
   Info,
   Debug,
   All,
+  Everything,
 };
 
 inline verbosity LOGGER_VERBOSITY = verbosity::Info;
@@ -63,6 +64,7 @@ constexpr const char *verbosity_to_string(verbosity verbosity)
   case verbosity::Info: return "INF";
   case verbosity::Debug: return "DBG";
   case verbosity::All: return "ALL";
+  case verbosity::Everything: return "EVE";
   }
   return "???";
 }

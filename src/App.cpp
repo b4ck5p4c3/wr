@@ -550,12 +550,12 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
   enum class nav_step
   {
     next,
-    prev,
+    previous,
     random,
   };
   static constexpr StaticStringMap<nav_step, 3> NAV_STEPS{
       {{"next", nav_step::next},
-       {"prev", nav_step::prev},
+       {"previous", nav_step::previous},
        {"random", nav_step::random}}
   };
 
@@ -566,7 +566,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
     did_hop = true;
     switch (*stepped) {
     case nav_step::next: target = (current + 1) % count; break;
-    case nav_step::prev: target = (current + count - 1) % count; break;
+    case nav_step::previous: target = (current + count - 1) % count; break;
     case nav_step::random: {
       usize roll = 0;
       if (random_bytes(&roll, sizeof(roll)).is_error()) roll = 0;

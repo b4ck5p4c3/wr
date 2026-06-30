@@ -82,8 +82,8 @@ fn MongooseServer::log_sink(char character, opaque *user) -> void
     if (server->m_log_line_length > 0) {
       let const line =
           StringView{server->m_log_line, server->m_log_line_length};
-      if (!contains_substring(line, "mg_mgr_poll"))
-        LOG(All, "mongoose: %.*s", static_cast<int>(line.count()), line.data);
+      LOG(Everything, "mongoose: %.*s", static_cast<int>(line.count()),
+          line.data);
       server->m_log_line_length = 0;
     }
     return;
