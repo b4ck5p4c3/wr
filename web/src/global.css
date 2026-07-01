@@ -321,6 +321,7 @@ img {
 }
 
 .tui-card .reactions {
+  align-self: stretch;
   justify-content: flex-end;
 }
 
