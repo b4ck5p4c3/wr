@@ -1214,6 +1214,7 @@ export function AdminSite({ site, onSaved, onDeleted }) {
         owned by{" "}
         <Submitter
           owner={site.owner}
+          oauth={site.owner_oauth}
           name={site.owner_display_name}
           tag={site.owner_tag}
         />
