@@ -1063,12 +1063,12 @@ code {
   color: #e6dff4;
 }
 
-.slug-field {
+.overlay-field {
   position: relative;
   width: 100%;
 }
 
-.slug-field input {
+.overlay-field input {
   position: relative;
   z-index: 1;
   width: 100%;
@@ -1077,7 +1077,7 @@ code {
   caret-color: var(--text-primary);
 }
 
-.slug-backdrop {
+.overlay-backdrop {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -1090,7 +1090,7 @@ code {
   color: var(--text-primary);
 }
 
-.slug-backdrop .over {
+.overlay-backdrop .over {
   color: var(--down);
 }
 

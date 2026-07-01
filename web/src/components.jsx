@@ -205,6 +205,21 @@ export function ErrorModal({ message, onClose }) {
   );
 }
 
+export function ConfirmModal({ message, confirmLabel, onConfirm, onCancel }) {
+  return (
+    <Modal label="confirm" onClose={onCancel}>
+      <h2>confirm</h2>
+      <p>{message}</p>
+      <button class="danger" onClick={onConfirm}>
+        {confirmLabel}..
+      </button>
+      <button class="close" onClick={onCancel}>
+        cancel..
+      </button>
+    </Modal>
+  );
+}
+
 function SearchModal({
   title,
   query,
@@ -1043,8 +1058,26 @@ function UptimeRow({ site }) {
 }
 
 const SLUG_CHAR = /[a-z0-9-]/;
+const SLUG_LIMIT = 16;
+const NAME_LIMIT = 16;
 
-export function SlugField({ value, onInput }) {
+function isValidUrlForm(value) {
+  if (!/^https?:\/\//.test(value)) return false;
+  try {
+    new URL(value);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+export function OverlayField({
+  value,
+  onInput,
+  placeholder,
+  ariaLabel,
+  isInvalidChar,
+}) {
   const backdropRef = useRef(null);
 
   const syncScroll = (event) => {
@@ -1053,20 +1086,20 @@ export function SlugField({ value, onInput }) {
   };
 
   return (
-    <div class="slug-field">
-      <div class="slug-backdrop" ref={backdropRef} aria-hidden="true">
+    <div class="overlay-field">
+      <div class="overlay-backdrop" ref={backdropRef} aria-hidden="true">
         {Array.from(value).map((character, index) => (
           <span
             key={index}
-            class={SLUG_CHAR.test(character) ? undefined : "over"}
+            class={isInvalidChar(character, index) ? "over" : undefined}
           >
             {character}
           </span>
         ))}
       </div>
       <input
-        aria-label="site slug"
-        placeholder="slug"
+        aria-label={ariaLabel}
+        placeholder={placeholder}
         value={value}
         onInput={onInput}
         onScroll={syncScroll}
@@ -1116,19 +1149,30 @@ export function AddSiteForm({
   return (
     <form class="card" onSubmit={submit}>
       <h3>add a site</h3>
-      <SlugField value={form.slug} onInput={field("slug")} />
-      <p class="hint">slug allows a-z, 0-9, and a dash</p>
-      <input
-        aria-label="site name"
+      <OverlayField
+        ariaLabel="site slug"
+        placeholder="slug"
+        value={form.slug}
+        onInput={field("slug")}
+        isInvalidChar={(character, index) =>
+          !SLUG_CHAR.test(character) || index >= SLUG_LIMIT
+        }
+      />
+      <p class="hint">slug allows a-z, 0-9, and a dash, up to 16 characters</p>
+      <OverlayField
+        ariaLabel="site name"
         placeholder="name"
         value={form.name}
         onInput={field("name")}
+        isInvalidChar={(_character, index) => index >= NAME_LIMIT}
       />
-      <input
-        aria-label="site url"
+      <p class="hint">name up to 16 characters</p>
+      <OverlayField
+        ariaLabel="site url"
         placeholder="https://your.site"
         value={form.url}
         onInput={field("url")}
+        isInvalidChar={() => !isValidUrlForm(form.url)}
       />
       <DescriptionField
         placeholder="description (optional)"
@@ -1249,7 +1293,9 @@ function CommentAuthor({ comment }) {
 export function AdminSite({ site, onSaved, onDeleted }) {
   const [form, setForm] = useState({ ...site });
   const [message, setMessage] = useState(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const field = fieldSetter(setForm);
+  useEscape(() => setShowRemoveConfirm(false), showRemoveConfirm);
   const save = async () => {
     try {
       await api.adminEditSite(form);
@@ -1260,7 +1306,7 @@ export function AdminSite({ site, onSaved, onDeleted }) {
     }
   };
   const remove = async () => {
-    if (!confirm("Remove /" + site.slug + " from the ring?")) return;
+    setShowRemoveConfirm(false);
     try {
       await api.adminDeleteSite(site.slug);
       onDeleted();
@@ -1289,13 +1335,21 @@ export function AdminSite({ site, onSaved, onDeleted }) {
       />
       <div class="row-actions">
         <button onClick={save}>save..</button>
-        <button class="danger" onClick={remove}>
+        <button class="danger" onClick={() => setShowRemoveConfirm(true)}>
           delete..
         </button>
       </div>
       <UptimeRow site={site} />
       {message ? (
         <ErrorModal message={message} onClose={() => setMessage(null)} />
+      ) : null}
+      {showRemoveConfirm ? (
+        <ConfirmModal
+          message={"Remove /" + site.slug + " from the ring?"}
+          confirmLabel="remove"
+          onConfirm={remove}
+          onCancel={() => setShowRemoveConfirm(false)}
+        />
       ) : null}
     </li>
   );

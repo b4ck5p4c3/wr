@@ -336,13 +336,13 @@ fn App::require_admin(HttpServerEvent &event) -> Maybe<account>
 
   let who = current_account(event);
   if (!who.has_value()) {
-    LOG(Info, "admin access denied, no signed-in account, ip=%.*s", ip_count,
+    LOG(All, "admin access denied, no signed-in account, ip=%.*s", ip_count,
         ip.data);
     reply_message(event, 403, "Admins only");
     return None;
   }
   if (!who.value().is_admin) {
-    LOG(Info,
+    LOG(All,
         "admin access denied, source=%d name=%s is signed in but not admin, "
         "ip=%.*s",
         static_cast<int>(who.value().who.source), who.value().who.name.c_str(),

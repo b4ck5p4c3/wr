@@ -971,8 +971,13 @@ components:
       properties:
         slug:
           type: string
+          pattern: "^[a-z0-9-]{1,16}$"
+          description: Lowercase a-z, 0-9, and a dash, 16 characters or fewer.
         name:
           type: string
+          minLength: 1
+          maxLength: 16
+          description: 1 to 16 characters.
         url:
           type: string
           description: An http or https url.

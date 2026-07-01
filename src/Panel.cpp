@@ -12,7 +12,7 @@ namespace {
    colliding with a reserved route or escaping a path. */
 fn is_valid_slug(StringView slug) -> bool
 {
-  if (slug.is_empty() || slug.count() > 64) {
+  if (slug.is_empty() || slug.count() > 16) {
     return false;
   }
   for (usize i = 0; i < slug.count(); i++) {
@@ -39,7 +39,9 @@ fn is_valid_slug(StringView slug) -> bool
    an http or https scheme is accepted. A javascript or data url is refused. */
 fn is_valid_site_url(StringView url) -> bool
 {
-  return url.starts_with("http://") || url.starts_with("https://");
+  if (url.starts_with("https://")) return url.count() > 8;
+  if (url.starts_with("http://")) return url.count() > 7;
+  return false;
 }
 
 fn write_panel_site(JsonWriter &writer, const site &row,
@@ -101,7 +103,9 @@ fn validate_site_input(const Json &document, site_input &out) -> const char *
     return "A slug, a name, and a url are required";
   }
   if (!is_valid_slug(slug.value()))
-    return "The slug may use only a-z, 0-9, and a dash";
+    return "The slug may use only a-z, 0-9, and a dash, 16 characters or fewer";
+  if (name.value().is_empty() || name.value().count() > 16)
+    return "The name must be 1 to 16 characters";
   if (!is_valid_site_url(url.value()))
     return "The url must start with http:// or https://";
 
