@@ -1085,17 +1085,26 @@ export function OverlayField({
       backdropRef.current.scrollLeft = event.target.scrollLeft;
   };
 
+  const segments = [];
+  Array.from(value).forEach((character, index) => {
+    const isInvalid = isInvalidChar(character, index);
+    const last = segments[segments.length - 1];
+    if (last != null && last.isInvalid === isInvalid) last.text += character;
+    else segments.push({ isInvalid, text: character });
+  });
+
   return (
     <div class="overlay-field">
       <div class="overlay-backdrop" ref={backdropRef} aria-hidden="true">
-        {Array.from(value).map((character, index) => (
-          <span
-            key={index}
-            class={isInvalidChar(character, index) ? "over" : undefined}
-          >
-            {character}
-          </span>
-        ))}
+        {segments.map((segment, index) =>
+          segment.isInvalid ? (
+            <span key={index} class="over">
+              {segment.text}
+            </span>
+          ) : (
+            segment.text
+          ),
+        )}
       </div>
       <input
         aria-label={ariaLabel}

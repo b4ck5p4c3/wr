@@ -673,6 +673,10 @@ main {
   gap: 1ch;
 }
 
+.card > button {
+  padding: 0.6ch 1.4ch;
+}
+
 /* The management entry is a slab set apart at the foot of the home page. */
 .panel {
   padding: 2.5ch;
@@ -784,9 +788,15 @@ select:focus-visible,
   width: 100%;
   background: transparent;
   color: transparent;
+  text-shadow: none;
   caret-color: var(--text-primary);
   overflow-wrap: break-word;
   scrollbar-width: none;
+}
+
+.description-field textarea::placeholder {
+  color: #948fa0;
+  text-shadow: none;
 }
 
 .description-field textarea::-webkit-scrollbar {
@@ -1060,7 +1070,8 @@ code {
 }
 
 .hint {
-  color: #e6dff4;
+  color: #948fa0;
+  text-shadow: none;
 }
 
 .overlay-field {
@@ -1074,7 +1085,13 @@ code {
   width: 100%;
   background: transparent;
   color: transparent;
+  text-shadow: none;
   caret-color: var(--text-primary);
+}
+
+.overlay-field input::placeholder {
+  color: #948fa0;
+  text-shadow: none;
 }
 
 .overlay-backdrop {
