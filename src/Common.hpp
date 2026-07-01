@@ -141,7 +141,8 @@ public:
 };
 
 #define defer                                                                  \
-  const auto &concat_literal(defer__, __LINE__) = t__exit_scope_help() + [&]()
+  const auto &concat_literal(defer__, __LINE__) =                              \
+      t__exit_scope_help() + [&]() -> void
 
 #define ENUM(e) static_cast<int>(e)
 

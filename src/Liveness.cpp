@@ -2,7 +2,6 @@
 
 #include "Client.hpp"
 #include "Http.hpp"
-#include "Net.hpp"
 #include "Trace.hpp"
 #include "Utils.hpp"
 
@@ -73,26 +72,6 @@ fn Liveness::sweep() -> void
     let const interval =
         row.is_reachable ? UP_INTERVAL_SECONDS : DOWN_INTERVAL_SECONDS;
     if (row.last_seen_at != 0 && now - row.last_seen_at < interval) {
-      continue;
-    }
-
-    /* A site whose url does not resolve or resolves to a private address is
-       taken out of the ring before any probe, so the sweep is never an ssrf
-       vector. */
-    let const reachability = classify_host(row.url.view());
-    if (reachability != host_reachability::public_address) {
-      if (row.is_reachable) {
-        if (reachability == host_reachability::unresolved)
-          LOG(Info, "site %s could not be resolved, taken down",
-              row.slug.c_str());
-        else
-          LOG(Info, "site %s resolves to a private address, taken down",
-              row.slug.c_str());
-      }
-      if (m_store.set_site_reachability(row.slug.view(), false, now).is_error())
-        LOG(Info, "reachability write dropped for %s", row.slug.c_str());
-      if (m_store.record_liveness(row.slug.view(), false, now).is_error())
-        LOG(Info, "liveness record dropped for %s", row.slug.c_str());
       continue;
     }
 

@@ -3,7 +3,6 @@
 #include "Common.hpp"
 
 #include <arpa/inet.h>
-#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -31,59 +30,6 @@ fn ipv4_is_private(u32 host_order) -> bool
     return true;
   }
   return false;
-}
-
-/* The host of an http or https url, written NUL terminated into the buffer. The
-   scheme is required and the userinfo and the port are stripped. */
-fn extract_http_host(StringView url, char *out, usize capacity) -> bool
-{
-  usize scheme_end = url.count();
-
-  for (usize i = 0; i + 2 < url.count(); i++) {
-    if (url[i] == ':' && url[i + 1] == '/' && url[i + 2] == '/') {
-      scheme_end = i;
-      break;
-    }
-  }
-  if (scheme_end == url.count()) return false;
-  let const scheme = url.substring_of_length(0, scheme_end);
-  if (scheme != "http" && scheme != "https") {
-    return false;
-  }
-
-  usize authority_end = scheme_end + 3;
-  while (authority_end < url.count() && url[authority_end] != '/' &&
-         url[authority_end] != '?' && url[authority_end] != '#')
-    authority_end++;
-  let authority =
-      url.substring_of_length(scheme_end + 3, authority_end - scheme_end - 3);
-
-  usize host_begin = 0;
-
-  for (usize i = 0; i < authority.count(); i++)
-    if (authority[i] == '@') host_begin = i + 1;
-  let const host_port = authority.substring(host_begin);
-
-  StringView host;
-  if (host_port.count() > 0 && host_port[0] == '[') {
-    usize close = 1;
-    while (close < host_port.count() && host_port[close] != ']')
-      close++;
-    host = host_port.substring_of_length(1, close - 1);
-  } else {
-    usize colon = 0;
-    while (colon < host_port.count() && host_port[colon] != ':')
-      colon++;
-    host = host_port.substring_of_length(0, colon);
-  }
-
-  if (host.is_empty() || host.count() >= capacity) {
-    return false;
-  }
-  for (usize i = 0; i < host.count(); i++)
-    out[i] = host[i];
-  out[host.count()] = '\0';
-  return true;
 }
 
 } // namespace
@@ -119,29 +65,6 @@ fn address_is_private(const sockaddr *address) -> bool
     return false;
   }
   return true;
-}
-
-fn classify_host(StringView url) -> host_reachability
-{
-  char host[256];
-  if (!extract_http_host(url, host, sizeof(host)))
-    return host_reachability::unresolved;
-
-  addrinfo hints{};
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  addrinfo *results = nullptr;
-  if (getaddrinfo(host, nullptr, &hints, &results) != 0)
-    return host_reachability::unresolved;
-  defer { freeaddrinfo(results); };
-
-  if (results == nullptr) return host_reachability::unresolved;
-
-  for (const addrinfo *it = results; it != nullptr; it = it->ai_next) {
-    if (address_is_private(it->ai_addr))
-      return host_reachability::private_address;
-  }
-  return host_reachability::public_address;
 }
 
 } // namespace wr

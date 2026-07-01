@@ -37,3 +37,4 @@ deploy/ansible/playbooks/group_vars/all/vault.yml
 
 # Generated frontend embed source
 src/EmbeddedAssets.gen.cpp
+/flamegraph.svg
