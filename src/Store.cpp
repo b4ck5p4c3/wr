@@ -768,20 +768,14 @@ fn Store::add_comment(const identity &author, StringView body, bool is_approved,
   return Success;
 }
 
-static constexpr const char *COMMENT_COLUMNS =
-    "id, author_source, author_name, body, created_at, is_approved";
-
 fn Store::list_comments(i64 limit_count, i64 offset_count) const
     -> ErrorOr<ArrayList<comment>>
 {
   ArrayList<comment> comments{m_allocator};
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(COMMENT_COLUMNS);
-  sql.append(" FROM comments WHERE is_approved = 1 "
-             "ORDER BY id DESC LIMIT ? OFFSET ?;");
-
-  let statement = TRY(m_database.prepare(sql.view()));
+  let statement = TRY(m_database.prepare(
+      "SELECT id, author_source, author_name, body, created_at, is_approved "
+      "FROM comments WHERE is_approved = 1 ORDER BY id DESC LIMIT ? OFFSET "
+      "?;"));
   statement.bind(limit_count);
   statement.bind(offset_count);
 
@@ -795,12 +789,9 @@ fn Store::list_pending_comments(i64 limit_count) const
     -> ErrorOr<ArrayList<comment>>
 {
   ArrayList<comment> comments{m_allocator};
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(COMMENT_COLUMNS);
-  sql.append(" FROM comments WHERE is_approved = 0 ORDER BY id DESC LIMIT ?;");
-
-  let statement = TRY(m_database.prepare(sql.view()));
+  let statement = TRY(m_database.prepare(
+      "SELECT id, author_source, author_name, body, created_at, is_approved "
+      "FROM comments WHERE is_approved = 0 ORDER BY id DESC LIMIT ?;"));
   statement.bind(limit_count);
 
   while (TRY(statement.step()))
@@ -811,12 +802,9 @@ fn Store::list_pending_comments(i64 limit_count) const
 
 fn Store::find_comment(i64 id) const -> ErrorOr<Maybe<comment>>
 {
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(COMMENT_COLUMNS);
-  sql.append(" FROM comments WHERE id = ?;");
-
-  let statement = TRY(m_database.prepare(sql.view()));
+  let statement = TRY(m_database.prepare(
+      "SELECT id, author_source, author_name, body, created_at, is_approved "
+      "FROM comments WHERE id = ?;"));
   statement.bind(id);
   if (TRY(statement.step())) return Maybe<comment>{read_comment(statement)};
   return Maybe<comment>{None};
