@@ -659,7 +659,7 @@
 /* #undef USE_SSLS_EXPORT */
 
 /* if mbedTLS is enabled */
-#define USE_MBEDTLS 1
+/* #undef USE_MBEDTLS */
 
 /* if mbedTLS <4 has the mbedtls_des_crypt_ecb function. */
 #define HAVE_MBEDTLS_DES_CRYPT_ECB 1
@@ -698,7 +698,7 @@
 /* #undef USE_OPENLDAP */
 
 /* if OpenSSL is in use */
-/* #undef USE_OPENSSL */
+#define USE_OPENSSL 1
 
 /* if AmiSSL is in use */
 /* #undef USE_AMISSL */

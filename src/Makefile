@@ -28,6 +28,9 @@ VENDOR_OBJECTS := \
 	$(OBJ_DIR)/vendor/sqlite3.o
 VENDOR_DEPS := $(VENDOR_OBJECTS:.o=.d)
 
+OPENSSL_DIR := $(VENDOR_DIR)/openssl
+LIBPQ_DIR := $(VENDOR_DIR)/libpq
+
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 CURL_SOURCES := \
 	$(wildcard $(VENDOR_DIR)/curl/lib/*.c) \
@@ -35,13 +38,26 @@ CURL_SOURCES := \
 	$(wildcard $(VENDOR_DIR)/curl/lib/vauth/*.c) \
 	$(wildcard $(VENDOR_DIR)/curl/lib/vtls/*.c) \
 	$(wildcard $(VENDOR_DIR)/curl/lib/vquic/*.c)
-MBEDTLS_SOURCES := $(wildcard $(VENDOR_DIR)/mbedtls/library/*.c)
+OPENSSL_LIBS := $(OPENSSL_DIR)/libssl.a $(OPENSSL_DIR)/libcrypto.a
+LIBPQ_SOURCES := \
+	$(addprefix $(LIBPQ_DIR)/src/interfaces/libpq/, \
+		fe-auth.c fe-auth-scram.c fe-cancel.c fe-connect.c fe-exec.c \
+		fe-lobj.c fe-misc.c fe-print.c fe-protocol3.c fe-secure.c \
+		fe-secure-common.c fe-secure-openssl.c fe-trace.c legacy-pqsignal.c \
+		libpq-events.c pqexpbuffer.c) \
+	$(addprefix $(LIBPQ_DIR)/src/port/, \
+		chklocale.c inet_net_ntop.c noblock.c pgstrcasecmp.c pg_strong_random.c \
+		snprintf.c strerror.c user.c getpeereid.c timingsafe_bcmp.c) \
+	$(addprefix $(LIBPQ_DIR)/src/common/, \
+		base64.c scram-common.c saslprep.c unicode_norm.c md5_common.c \
+		string.c link-canary.c encnames.c wchar.c ip.c pg_prng.c \
+		cryptohash_openssl.c hmac_openssl.c protocol_openssl.c)
 endif
 
 CURL_OBJECTS := $(patsubst $(VENDOR_DIR)/%.c,$(OBJ_DIR)/vendor/%.o,$(CURL_SOURCES))
-MBEDTLS_OBJECTS := $(patsubst $(VENDOR_DIR)/%.c,$(OBJ_DIR)/vendor/%.o,$(MBEDTLS_SOURCES))
 CURL_DEPS := $(CURL_OBJECTS:.o=.d)
-MBEDTLS_DEPS := $(MBEDTLS_OBJECTS:.o=.d)
+LIBPQ_OBJECTS := $(patsubst $(VENDOR_DIR)/%.c,$(OBJ_DIR)/vendor/%.o,$(LIBPQ_SOURCES))
+LIBPQ_DEPS := $(LIBPQ_OBJECTS:.o=.d)
 
 MODE_SUFFIX := $(if $(filter rel,$(MODE)),,-$(MODE))
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
@@ -91,7 +107,7 @@ INCLUDES := \
 	-I$(VENDOR_DIR)/sqlite \
 	-I$(VENDOR_DIR)/rapidjson/include \
 	-I$(VENDOR_DIR)/curl/include \
-	-I$(VENDOR_DIR)/mbedtls/include
+	-I$(VENDOR_DIR)/openssl/include
 
 CXXFLAGS := \
 	-Wall \
@@ -242,23 +258,27 @@ CXXFLAGS += -pthread
 LINK_LIBS += -lpthread -ldl -lm
 endif
 
-MBEDTLS_CONFIG := -DMBEDTLS_CONFIG_FILE='<mbedtls_config.h>'
-MBEDTLS_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -I$(VENDOR_DIR) -I$(VENDOR_DIR)/mbedtls/include $(MBEDTLS_CONFIG)
 CURL_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -DHAVE_CONFIG_H -DBUILDING_LIBCURL -DCURL_STATICLIB \
 	-I$(VENDOR_DIR) -I$(VENDOR_DIR)/curl/lib -I$(VENDOR_DIR)/curl/include \
-	-I$(VENDOR_DIR)/mbedtls/include $(MBEDTLS_CONFIG)
+	-I$(VENDOR_DIR)/openssl/include
+LIBPQ_CFLAGS := $(CFLAGS) -D_GNU_SOURCE -DFRONTEND -DUSE_OPENSSL -DSO_MAJOR_VERSION=5 \
+	-I$(VENDOR_DIR) -I$(LIBPQ_DIR)/src/include -I$(LIBPQ_DIR)/src/interfaces/libpq \
+	-I$(LIBPQ_DIR)/src/port -I$(LIBPQ_DIR)/src/common -I$(VENDOR_DIR)/openssl/include
 
-$(OBJECTS): | dirs
+$(OBJECTS): | dirs $(OPENSSL_LIBS)
 $(GEN_EMBED_OBJ): | dirs
 $(VENDOR_OBJECTS): | dirs
-$(CURL_OBJECTS): | dirs
-$(MBEDTLS_OBJECTS): | dirs
+$(CURL_OBJECTS): | dirs $(OPENSSL_LIBS)
+$(LIBPQ_OBJECTS): | dirs $(OPENSSL_LIBS)
 
 $(GEN_EMBED_SRC): ../web/gen-embed.js $(EMBED_INPUTS)
 	printf "\tEmbedding %-42s $@... %-12s\r" $(WEB_DIST) ' '
 	bun ../web/gen-embed.js $(WEB_DIST) $@
 
 $(OBJ_DIR)/Json.o: CXXFLAGS += -fno-sanitize=undefined
+
+$(OBJ_DIR)/Postgres.o: CXXFLAGS += -I$(LIBPQ_DIR)/src/interfaces/libpq \
+	-I$(LIBPQ_DIR)/src/include -I$(VENDOR_DIR)
 
 $(OBJ_DIR)/%.o: %.cpp Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
@@ -278,17 +298,26 @@ $(OBJ_DIR)/vendor/curl/%.o: $(VENDOR_DIR)/curl/%.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CURL_CFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/vendor/mbedtls/%.o: $(VENDOR_DIR)/mbedtls/%.c Makefile
+$(OBJ_DIR)/vendor/libpq/%.o: $(VENDOR_DIR)/libpq/%.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
-	$(CC) $(MBEDTLS_CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(LIBPQ_CFLAGS) -MMD -MP -c $< -o $@
+
+OPENSSL_CONFIGURE := no-shared no-tests no-docs no-apps no-legacy \
+	no-engine no-comp no-dtls no-ssl3 no-ssl3-method --api=1.1.0 -fPIC --release
+
+$(OPENSSL_DIR)/libssl.a $(OPENSSL_DIR)/libcrypto.a &: $(OPENSSL_DIR)/Configure
+	printf "\tBuilding OpenSSL static archives... %-24s\n" ' '
+	cd $(OPENSSL_DIR) && perl ./Configure linux-x86_64 $(OPENSSL_CONFIGURE)
+	cd $(OPENSSL_DIR) && $(MAKE) build_generated
+	cd $(OPENSSL_DIR) && $(MAKE) libssl.a libcrypto.a
 
 # Linking.
-$(OUT): $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)
+$(OUT): $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(LIBPQ_OBJECTS) $(OPENSSL_LIBS)
 	printf "\tLinking $(OUT)... %-64s\r" ' '
-	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(MBEDTLS_OBJECTS) $(LINK_LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(USE_LD) $(OBJECTS) $(GEN_EMBED_OBJ) $(VENDOR_OBJECTS) $(CURL_OBJECTS) $(LIBPQ_OBJECTS) $(OPENSSL_LIBS) $(LINK_LIBS) -o $@
 
 dirs: $(DIRS)
-	mkdir -p $(OBJ_DIR)/ $(OBJ_DIR)/vendor/ $(sort $(dir $(CURL_OBJECTS) $(MBEDTLS_OBJECTS)))
+	mkdir -p $(OBJ_DIR)/ $(OBJ_DIR)/vendor/ $(sort $(dir $(CURL_OBJECTS) $(LIBPQ_OBJECTS)))
 	for source_dir in $(DIRS); do mkdir -p $(OBJ_DIR)/$$source_dir; done
 
 wr: dirs
@@ -343,4 +372,4 @@ clean:
 -include $(GEN_EMBED_DEP)
 -include $(VENDOR_DEPS)
 -include $(CURL_DEPS)
--include $(MBEDTLS_DEPS)
+-include $(LIBPQ_DEPS)

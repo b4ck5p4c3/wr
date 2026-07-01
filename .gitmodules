@@ -4,9 +4,12 @@
 [submodule "vendor/curl"]
 	path = vendor/curl
 	url = https://github.com/curl/curl
-[submodule "vendor/mbedtls"]
-	path = vendor/mbedtls
-	url = https://github.com/Mbed-TLS/mbedtls
 [submodule "vendor/rapidjson"]
 	path = vendor/rapidjson
 	url = https://github.com/Tencent/rapidjson
+[submodule "vendor/openssl"]
+	path = vendor/openssl
+	url = https://github.com/openssl/openssl
+[submodule "vendor/libpq"]
+	path = vendor/libpq
+	url = https://github.com/postgres/postgres
