@@ -575,7 +575,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
   };
   static constexpr StaticStringMap<nav_step, 3> NAV_STEPS{
       {{"next", nav_step::next},
-       {"previous", nav_step::previous},
+       {"prev", nav_step::previous},
        {"random", nav_step::random}}
   };
 
