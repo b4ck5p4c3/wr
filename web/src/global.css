@@ -326,6 +326,10 @@ img {
   line-clamp: unset;
 }
 
+.tui-card .reactions {
+  justify-content: flex-end;
+}
+
 .tui-card,
 .tui-face {
   display: flex;
