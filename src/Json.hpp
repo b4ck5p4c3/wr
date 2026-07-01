@@ -23,31 +23,31 @@ public:
   fn object_begin() -> void
   {
     prefix();
-    m_out.append("{");
+    m_out.append('{');
     push();
   }
   fn object_end() -> void
   {
     pop();
-    m_out.append("}");
+    m_out.append('}');
   }
   fn array_begin() -> void
   {
     prefix();
-    m_out.append("[");
+    m_out.append('[');
     push();
   }
   fn array_end() -> void
   {
     pop();
-    m_out.append("]");
+    m_out.append(']');
   }
 
   fn key(StringView name) -> void
   {
     prefix();
     write_quoted(name);
-    m_out.append(":");
+    m_out.append(':');
     m_after_key = true;
   }
 
@@ -105,7 +105,7 @@ private:
       return;
     }
     if (m_depth > 0 && m_depth <= MAX_DEPTH) {
-      if (m_has_member[m_depth - 1]) m_out.append(",");
+      if (m_has_member[m_depth - 1]) m_out.append(',');
       m_has_member[m_depth - 1] = true;
     }
   }
@@ -113,7 +113,7 @@ private:
   fn write_quoted(StringView text) -> void
   {
     m_out.reserve(m_out.count() + text.count() + 2);
-    m_out.append("\"");
+    m_out.append('"');
     for (usize i = 0; i < text.count(); i++) {
       let const c = text[i];
       switch (c) {
@@ -136,7 +136,7 @@ private:
       }
     }
 
-    m_out.append("\"");
+    m_out.append('"');
   }
 
   String m_out;
