@@ -764,7 +764,7 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
         const card = cards[i];
         if (card == null) continue;
 
-        const bob = reduced
+        const bob = isReducedMotion
           ? 0
           : Math.sin(motion.time * CARD_BOB_SPEED + i * CARD_BOB_PHASE) *
             CARD_BOB_PIXELS;
