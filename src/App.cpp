@@ -501,6 +501,7 @@ fn App::handle_config(HttpServerEvent &event) -> void
                telegram_token.is_empty() ? StringView{} : telegram_bot);
   writer.key("metrics_enabled");
   writer.boolean(m_config.is_metrics_enabled);
+  writer.field("version", StringView{WR_VERSION_STRING});
   writer.object_end();
   reply_json(event, 200, writer.view());
 }

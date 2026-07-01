@@ -132,6 +132,18 @@ html::after {
   transform: translateZ(0);
 }
 
+/* Low detail mode drops the scanline, the vignette, and the glow. */
+html.low-detail::before,
+html.low-detail::after {
+  display: none;
+}
+html.low-detail *,
+html.low-detail a,
+html.low-detail button,
+html.low-detail .nav-link {
+  text-shadow: none !important;
+}
+
 body {
   min-height: 100vh;
   font:

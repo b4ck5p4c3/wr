@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The config endpoint reports the dev state and the available providers. Dev mode
-# is on and no provider is configured, so the output is deterministic.
+# The config endpoint reports the dev state, the available providers, and the
+# build version. Dev mode is on and no provider is configured, so the output is
+# deterministic.
 set -u
 PORT=18766
 DB=$(mktemp -u /tmp/wr_cfg_XXXXXX.db)

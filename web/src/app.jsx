@@ -21,6 +21,17 @@ export function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [me, setMe] = useState(undefined);
   const [config, setConfig] = useState({});
+  const [isLowDetail, setIsLowDetail] = useState(() =>
+    document.documentElement.classList.contains("low-detail"),
+  );
+
+  const toggleLowDetail = () => {
+    const next = !isLowDetail;
+    document.documentElement.classList.toggle("low-detail", next);
+    if (next) localStorage.setItem("low-detail", "1");
+    else localStorage.removeItem("low-detail");
+    setIsLowDetail(next);
+  };
 
   const reloadMe = () =>
     api
@@ -70,14 +81,20 @@ export function App() {
   const TEST_WARNING =
     " LIVE TESTING. THIS IS A DRILL. STAGING ENVIRONMENT. THE PRODUCT MAY CHANGE. RESOURCES SHOWN ARE IN NO WAY ENDORSED BY OR ASSOCIATED WITH B4CKSP4CE. ";
 
+  const versionExtra = (config.version || "").split("-").pop();
+  const isStaging = versionExtra === "dev";
+  const isUnstable = versionExtra === "beta" || versionExtra === "alpha";
+
   return (
     <>
-      <div class="warning-bar">
-        <div class="warning-track">
-          <span>${TEST_WARNING.repeat(3)}</span>
-          <span aria-hidden="true">${TEST_WARNING.repeat(3)}</span>
+      {isStaging ? (
+        <div class="warning-bar">
+          <div class="warning-track">
+            <span>{TEST_WARNING.repeat(3)}</span>
+            <span aria-hidden="true">{TEST_WARNING.repeat(3)}</span>
+          </div>
         </div>
-      </div>
+      ) : null}
       <div class="app">
         <a class="skip-link" href="#main">
           skip to content
@@ -115,7 +132,21 @@ export function App() {
             >
               Shit and sticks
             </a>
+            {". "}
+            <a
+              class="nav-link"
+              href="#"
+              onClick={(event) => {
+                event.preventDefault();
+                toggleLowDetail();
+              }}
+            >
+              toggle low detail mode
+            </a>
           </p>
+          {isUnstable ? (
+            <p class="hint">This is an unstable {versionExtra} build.</p>
+          ) : null}
           <p>
             Copyright{" "}
             <a

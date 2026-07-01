@@ -767,7 +767,12 @@ components:
         metrics_enabled:
           type: boolean
           description: True when the server records the click and hop metrics.
-      required: [is_dev, github, telegram_bot, metrics_enabled]
+        version:
+          type: string
+          description: >-
+            The build version. The suffix marks the channel, rc and release are
+            production, dev is staging, and beta and alpha are unstable.
+      required: [is_dev, github, telegram_bot, metrics_enabled, version]
     WebringWebsite:
       type: object
       description: A public site in the ring.
