@@ -1,6 +1,6 @@
 add-direct: {"message":"Site added"}
-sites: [{"slug":"d","name":"D","url":"https://d.example","description":"first desc","created_at":0,"owner_oauth":"github","owner_tag":"toiletbril","owner_name":"toiletbril","reactions":{}}]
+sites: [{"slug":"d","name":"D","url":"https://d.example","description":"first desc","created_at":0,"owner_oauth":"github","owner_tag":"toiletbril","owner_name":"toiletbril","owner_is_verified":false,"reactions":{}}]
 edit: {"message":"Saved"}
-sites-after-edit: [{"slug":"d","name":"D2","url":"https://d2.example","description":"second desc","created_at":0,"owner_oauth":"github","owner_tag":"toiletbril","owner_name":"toiletbril","reactions":{}}]
+sites-after-edit: [{"slug":"d","name":"D2","url":"https://d2.example","description":"second desc","created_at":0,"owner_oauth":"github","owner_tag":"toiletbril","owner_name":"toiletbril","owner_is_verified":false,"reactions":{}}]
 delete: {"message":"Site removed"}
 sites-after-delete: []

@@ -1,4 +1,4 @@
 edit-submit: {"message":"Your edit was submitted for review"}
 edit-not-owner: {"message":"That site is not yours"}
 edit-approve: {"message":"Approved"}
-sites-after-edit: [{"slug":"mine","name":"Edited","url":"https://edited.example","description":"an edited description","created_at":0,"owner_oauth":"github","owner_tag":"radi0dev","owner_name":"radi0dev","reactions":{}}]
+sites-after-edit: [{"slug":"mine","name":"Edited","url":"https://edited.example","description":"an edited description","created_at":0,"owner_oauth":"github","owner_tag":"radi0dev","owner_name":"radi0dev","owner_is_verified":false,"reactions":{}}]

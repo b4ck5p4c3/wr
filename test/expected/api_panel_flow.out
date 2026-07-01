@@ -2,4 +2,4 @@ add: {"message":"Your site was submitted for review"}
 sites-before: []
 me-pending: {"oauth":"github","tag":"radi0dev","display_name":"radi0dev","is_admin":false,"sites":[],"pending":[{"id":1,"kind":"add","target_slug":"mine","payload":"{\"name\":\"My Site\",\"url\":\"https://mine.example\",\"description\":\"a personal site\"}"}]}
 approve: {"message":"Approved"}
-sites-after: [{"slug":"mine","name":"My Site","url":"https://mine.example","description":"a personal site","created_at":0,"owner_oauth":"github","owner_tag":"radi0dev","owner_name":"radi0dev","reactions":{}}]
+sites-after: [{"slug":"mine","name":"My Site","url":"https://mine.example","description":"a personal site","created_at":0,"owner_oauth":"github","owner_tag":"radi0dev","owner_name":"radi0dev","owner_is_verified":false,"reactions":{}}]

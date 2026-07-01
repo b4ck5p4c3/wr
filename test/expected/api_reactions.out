@@ -5,7 +5,7 @@ react-missing: {"message":"No such site"}
 react-case: {"message":"That reaction is not allowed"}
 react-malformed: 400
 react-unauth: 401
-sites-anon: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"github","owner_tag":"x","owner_name":"x","reactions":{"fire":1,"star":1}}]
-sites-user: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"github","owner_tag":"x","owner_name":"x","reactions":{"fire":1,"star":1},"reacted":["fire","star"]}]
+sites-anon: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"github","owner_tag":"x","owner_name":"x","owner_is_verified":false,"reactions":{"fire":1,"star":1}}]
+sites-user: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"github","owner_tag":"x","owner_name":"x","owner_is_verified":false,"reactions":{"fire":1,"star":1},"reacted":["fire","star"]}]
 toggle-off: {"message":"Reaction removed"}
-sites-after: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"github","owner_tag":"x","owner_name":"x","reactions":{"star":1},"reacted":["star"]}]
+sites-after: [{"slug":"rx","name":"RX","url":"https://rx.example","description":"","created_at":7,"owner_oauth":"github","owner_tag":"x","owner_name":"x","owner_is_verified":false,"reactions":{"star":1},"reacted":["star"]}]

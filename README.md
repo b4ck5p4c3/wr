@@ -41,6 +41,13 @@ Only `--listen-address` and `--database-url` are required. The `--web-root-url`
 defaults to the listen URL when it is not given. Each of these flags can also
 read from the environment. See `--help` output for more information.
 
+The `--database-backend` accepts `sqlite` or `postgresql` and defaults to
+`sqlite`. Under `postgresql` the `--database-url` is a libpq connection string,
+like `postgresql://user:pass@host:5432/wr`. A github site owner who belongs to
+the organisation named by `WR_GITHUB_ORG`, which defaults to `b4ck5p4c3`, is
+marked with a verified badge on the ring. Set `WR_GITHUB_ORG_TOKEN` to read the
+private members of the organisation as well.
+
 ## Secrets
 
 The secrets are read from the environment. Outside dev mode at least one login
