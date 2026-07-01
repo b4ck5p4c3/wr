@@ -511,6 +511,44 @@ fn Store::get_user_reactions(StringView slug, const identity &who) const
   return emojis;
 }
 
+fn Store::get_all_reactions() const
+    -> ErrorOr<StringMap<ArrayList<reaction_count>>>
+{
+  StringMap<ArrayList<reaction_count>> by_slug{m_allocator};
+
+  let statement = TRY(m_database.prepare(
+      "SELECT slug, emoji, COUNT(*) FROM reactions GROUP BY slug, emoji "
+      "ORDER BY slug, emoji;"));
+  while (TRY(statement.step())) {
+    let const slug = statement.get<String>();
+    reaction_count entry{};
+    entry.emoji = statement.get<String>();
+    entry.count = statement.get<i64>();
+    by_slug.get_or_create(slug.view(), ArrayList<reaction_count>{m_allocator})
+        .push(steal(entry));
+  }
+
+  return by_slug;
+}
+
+fn Store::get_all_user_reactions(const identity &who) const
+    -> ErrorOr<StringMap<ArrayList<String>>>
+{
+  StringMap<ArrayList<String>> by_slug{m_allocator};
+
+  let statement = TRY(m_database.prepare(
+      "SELECT slug, emoji FROM reactions WHERE source = ? AND name = ? "
+      "ORDER BY slug, emoji;"));
+  bind_identity(statement, who);
+  while (TRY(statement.step())) {
+    let const slug = statement.get<String>();
+    by_slug.get_or_create(slug.view(), ArrayList<String>{m_allocator})
+        .push(statement.get<String>());
+  }
+
+  return by_slug;
+}
+
 fn Store::record_click(StringView slug) -> ErrorOr<Ok>
 {
   let statement = TRY(m_database.prepare(

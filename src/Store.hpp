@@ -150,6 +150,10 @@ public:
       -> ErrorOr<ArrayList<reaction_count>>;
   mustuse fn get_user_reactions(StringView slug, const identity &who) const
       -> ErrorOr<ArrayList<String>>;
+  mustuse fn get_all_reactions() const
+      -> ErrorOr<StringMap<ArrayList<reaction_count>>>;
+  mustuse fn get_all_user_reactions(const identity &who) const
+      -> ErrorOr<StringMap<ArrayList<String>>>;
 
   fn record_click(StringView slug) -> ErrorOr<Ok>;
   fn record_hop(StringView slug) -> ErrorOr<Ok>;

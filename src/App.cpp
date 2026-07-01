@@ -491,10 +491,59 @@ fn App::handle_sites(HttpServerEvent &event) -> void
 
   let const who = current_account(event);
   let const &sites = sites_or.value();
+
+  let reactions_or = m_store.get_all_reactions();
+  StringMap<ArrayList<reaction_count>> reactions{m_allocator};
+  if (!reactions_or.is_error())
+    reactions = steal(reactions_or.value());
+  else
+    LOG(Info, "site listing reactions unavailable");
+
+  StringMap<ArrayList<String>> user_reactions{m_allocator};
+  if (who.has_value()) {
+    let user_or = m_store.get_all_user_reactions(who.value().who);
+    if (!user_or.is_error())
+      user_reactions = steal(user_or.value());
+    else
+      LOG(Info, "site listing user reactions unavailable");
+  }
+
+  StringMap<i64> click_counts{m_allocator};
+  if (m_config.is_metrics_enabled) {
+    let metrics_or = m_store.get_site_metrics();
+    if (!metrics_or.is_error()) {
+      let const &metrics = metrics_or.value();
+      for (usize i = 0; i < metrics.count(); i++)
+        click_counts.set(metrics[i].slug.view(), metrics[i].click_count);
+    } else {
+      LOG(Info, "site listing click counts unavailable");
+    }
+  }
+
+  const ArrayList<reaction_count> empty_counts{m_allocator};
+  const ArrayList<String> empty_reacted{m_allocator};
+
   JsonWriter writer{m_allocator};
   writer.array_begin();
-  for (usize i = 0; i < sites.count(); i++)
-    write_listing_site(writer, sites[i], who);
+  for (usize i = 0; i < sites.count(); i++) {
+    let const slug = sites[i].slug.view();
+
+    let const *counts = reactions.find(slug);
+    let const *counts_or_empty = counts != nullptr ? counts : &empty_counts;
+
+    const ArrayList<String> *reacted_or_null = nullptr;
+    if (who.has_value()) {
+      let const *reacted = user_reactions.find(slug);
+      reacted_or_null = reacted != nullptr ? reacted : &empty_reacted;
+    }
+
+    i64 click_count = 0;
+    if (let const *found = click_counts.find(slug); found != nullptr)
+      click_count = *found;
+
+    write_site_json(writer, sites[i], counts_or_empty, reacted_or_null,
+                    m_config.is_metrics_enabled ? &click_count : nullptr);
+  }
 
   writer.array_end();
   reply_json(event, 200, writer.view());
