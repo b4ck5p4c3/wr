@@ -94,7 +94,7 @@ fn MongooseServer::reply(opaque *connection, u16 status,
 
   let const reason = status_text(static_cast<HttpStatus>(status));
 
-  usize head_length = static_headers.count() + reason.count() + 64;
+  let head_length = static_headers.count() + reason.count() + 64;
   headers.for_each([&](StringView name, StringView value) {
     head_length += name.count() + value.count() + 4;
   });
@@ -196,10 +196,10 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
                               request_headers);
 
     char client_ip[52];
-    usize ip_length = mg_snprintf(client_ip, sizeof(client_ip), "%M",
-                                  mg_print_ip, &connection->rem);
-    // mg_snprintf reports the count it would have written. A truncation is
-    // clamped to the buffer before the view is taken.
+    let ip_length = mg_snprintf(client_ip, sizeof(client_ip), "%M", mg_print_ip,
+                                &connection->rem);
+    /* mg_snprintf reports the count it would have written, so a truncation is
+       clamped to the buffer before the view is taken. */
     if (ip_length >= sizeof(client_ip)) ip_length = sizeof(client_ip) - 1;
     request_event.set_client_ip(StringView{client_ip, ip_length});
 

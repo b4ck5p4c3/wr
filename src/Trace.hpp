@@ -194,11 +194,11 @@ fn format_named_values(StringView names, Args &&...args) -> String
 {
   String out{};
   usize index = 0;
-  const usize value_count = sizeof...(Args);
+  let const value_count = sizeof...(Args);
 
   let const do_append_one = [&](auto &&value) {
-    StringView name = names;
-    Maybe<usize> comma_position = names.find_character(',');
+    let name = names;
+    let const comma_position = names.find_character(',');
     if (comma_position.has_value()) {
       name = names.substring_of_length(0, comma_position.value());
       names = names.substring(comma_position.value() + 1);
