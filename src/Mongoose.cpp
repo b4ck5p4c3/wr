@@ -19,24 +19,6 @@ mustuse pure fn to_view(mg_str text) noexcept -> StringView
   return StringView{text.buf, text.len};
 }
 
-/* The reason phrase for the status line, since the mongoose helper is private.
- */
-pure fn reason_phrase(u16 status) noexcept -> const char *
-{
-  switch (status) {
-  case 200: return "OK";
-  case 302: return "Found";
-  case 400: return "Bad Request";
-  case 401: return "Unauthorized";
-  case 403: return "Forbidden";
-  case 404: return "Not Found";
-  case 405: return "Method Not Allowed";
-  case 413: return "Payload Too Large";
-  case 500: return "Internal Server Error";
-  default: return "OK";
-  }
-}
-
 /* The logger verbosity drives the mongoose level, so one knob controls both. */
 pure fn mongoose_level_for(verbosity level) noexcept -> int
 {
@@ -149,10 +131,11 @@ fn MongooseServer::reply(opaque *connection, u16 status,
   /* mongoose printf reads the body through %s, which stops at the first null
      byte and truncates a binary asset such as a woff2 font or a webp image. The
      head is printed and the body is sent as raw bytes. */
-  mg_printf(mongoose_connection,
-            "HTTP/1.1 %d %s\r\n%sContent-Length: %lu\r\n\r\n",
-            static_cast<int>(status), reason_phrase(status),
-            header_block.c_str(), static_cast<unsigned long>(body.count()));
+  let const reason = status_text(static_cast<HttpStatus>(status));
+  mg_printf(
+      mongoose_connection, "HTTP/1.1 %d %.*s\r\n%sContent-Length: %lu\r\n\r\n",
+      static_cast<int>(status), static_cast<int>(reason.count()), reason.data,
+      header_block.c_str(), static_cast<unsigned long>(body.count()));
   mg_send(mongoose_connection, body.data, body.count());
   mongoose_connection->is_resp = 0;
   return Success;
@@ -194,7 +177,10 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
     let const message = static_cast<mg_http_message *>(event_data);
 
     if (message->body.len > MAX_REQUEST_BODY_LENGTH) {
-      mg_http_reply(connection, 413, "", "");
+      let const reason = status_text(HttpStatus::ContentTooLarge);
+      mg_printf(connection, "HTTP/1.1 413 %.*s\r\nContent-Length: 0\r\n\r\n",
+                static_cast<int>(reason.count()), reason.data);
+      connection->is_resp = 0;
       break;
     }
 
