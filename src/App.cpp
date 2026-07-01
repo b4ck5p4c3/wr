@@ -508,7 +508,7 @@ fn App::handle_config(HttpServerEvent &event) -> void
   let const telegram_bot =
       colon_position.has_value()
           ? telegram_token.substring_of_length(0, colon_position.value())
-          : telegram_token;
+          : StringView{};
 
   JsonWriter writer{m_allocator};
   writer.object_begin();
@@ -516,8 +516,7 @@ fn App::handle_config(HttpServerEvent &event) -> void
   writer.boolean(m_config.is_dev_mode);
   writer.key("github");
   writer.boolean(!m_config.github_client_id.view().is_empty());
-  writer.field("telegram_bot",
-               telegram_token.is_empty() ? StringView{} : telegram_bot);
+  writer.field("telegram_bot", telegram_bot);
   writer.key("metrics_enabled");
   writer.boolean(m_config.is_metrics_enabled);
   writer.field("version", StringView{WR_VERSION_STRING});
