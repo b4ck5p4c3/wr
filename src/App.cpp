@@ -666,29 +666,9 @@ fn App::serve_static(HttpServerEvent &event) -> void
   reply_message(event, 404, "Not found");
 }
 
-fn fill_response_headers(HttpHeaders &headers) -> void
-{
-  headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("X-Frame-Options", "DENY");
-  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  headers.set("Permissions-Policy",
-              "geolocation=(), camera=(), microphone=(), payment=(), usb=()");
-  headers.set("Strict-Transport-Security",
-              "max-age=63072000; includeSubDomains");
-
-  if (let const content_type = headers.get("content-type");
-      content_type.has_value() &&
-      content_type.value().starts_with("application/json"))
-  {
-    headers.set("Cache-Control", "no-store");
-  }
-}
-
 fn App::emit(HttpServerEvent &event, u16 status, HttpHeaders &headers,
              StringView body) -> void
 {
-  fill_response_headers(headers);
-
   /* The reply helpers funnel through here, so a pageview and an http error are
      traced at Debug to keep the routine access lines off the default level. The
      auth redirects reply directly and are not traced here. */
@@ -706,13 +686,14 @@ fn App::emit(HttpServerEvent &event, u16 status, HttpHeaders &headers,
         static_cast<int>(uri.count()), uri.data, status);
   }
 
-  unused(event.reply(status, headers, body).is_error());
+  unused(event.reply(status, headers, body, SECURITY_HEADER_BLOCK).is_error());
 }
 
 fn App::reply_json(HttpServerEvent &event, u16 status, StringView json) -> void
 {
   HttpHeaders headers{m_allocator};
   headers.set("Content-Type", "application/json");
+  headers.set("Cache-Control", "no-store");
   emit(event, status, headers, json);
 }
 

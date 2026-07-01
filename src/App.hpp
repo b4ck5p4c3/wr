@@ -105,7 +105,18 @@ private:
 mustuse fn client_address(HttpServerEvent &event, bool is_forwarded_trusted)
     -> StringView;
 
-fn fill_response_headers(HttpHeaders &headers) -> void;
+/* The security headers are identical on every response, so they are serialized
+   once here and written as a byte block, since rebuilding them in the
+   per-request header map dominated the response path under load. */
+inline constexpr char SECURITY_HEADER_BYTES[] =
+    "x-content-type-options: nosniff\r\n"
+    "x-frame-options: DENY\r\n"
+    "referrer-policy: strict-origin-when-cross-origin\r\n"
+    "permissions-policy: geolocation=(), camera=(), microphone=(), payment=(), "
+    "usb=()\r\n"
+    "strict-transport-security: max-age=63072000; includeSubDomains\r\n";
+inline constexpr StringView SECURITY_HEADER_BLOCK{
+    SECURITY_HEADER_BYTES, sizeof(SECURITY_HEADER_BYTES) - 1};
 
 mustuse fn find_query_param(StringView query, StringView name,
                             Allocator allocator) -> Maybe<String>;

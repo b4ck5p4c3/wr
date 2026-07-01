@@ -6,9 +6,10 @@ namespace wr {
 HttpServer::~HttpServer() = default;
 
 fn HttpServerEvent::reply(u16 status, const HttpHeaders &headers,
-                          StringView body) -> ErrorOr<Ok>
+                          StringView body, StringView static_headers)
+    -> ErrorOr<Ok>
 {
-  return m_server->reply(m_connection, status, headers, body);
+  return m_server->reply(m_connection, status, headers, body, static_headers);
 }
 
 } // namespace wr

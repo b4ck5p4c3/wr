@@ -87,36 +87,51 @@ fn MongooseServer::poll(u32 timeout_ms) -> ErrorOr<Ok>
 }
 
 fn MongooseServer::reply(opaque *connection, u16 status,
-                         const HttpHeaders &headers, StringView body)
-    -> ErrorOr<Ok>
+                         const HttpHeaders &headers, StringView body,
+                         StringView static_headers) -> ErrorOr<Ok>
 {
   let const mongoose_connection = static_cast<mg_connection *>(connection);
 
-  String header_block{m_allocator};
-  usize header_length = 0;
-  headers.for_each([&](StringView name, StringView value) {
-    header_length += name.count() + value.count() + 4;
-  });
-  header_block.reserve(header_length);
+  let const reason = status_text(static_cast<HttpStatus>(status));
 
+  usize head_length = static_headers.count() + reason.count() + 64;
+  headers.for_each([&](StringView name, StringView value) {
+    head_length += name.count() + value.count() + 4;
+  });
+
+  String head{m_allocator};
+  head.reserve(head_length);
+
+  char line[48];
+  let const line_length = std::snprintf(line, sizeof(line), "HTTP/1.1 %d ",
+                                        static_cast<int>(status));
+  if (line_length > 0)
+    head.append(StringView{line, static_cast<usize>(line_length)});
+  head.append(reason);
+  head.append("\r\n");
+
+  head.append(static_headers);
   headers.for_each([&](StringView name, StringView value) {
     /* mongoose appends its own Content-Length, so a caller-supplied one is
        dropped to keep the response from carrying two framing headers. */
     if (name == "content-length") return;
-    header_block.append(name);
-    header_block.append(": ");
-    header_block.append(value);
-    header_block.append("\r\n");
+    head.append(name);
+    head.append(": ");
+    head.append(value);
+    head.append("\r\n");
   });
+
+  char framing[40];
+  let const framing_length =
+      std::snprintf(framing, sizeof(framing), "Content-Length: %lu\r\n\r\n",
+                    static_cast<unsigned long>(body.count()));
+  if (framing_length > 0)
+    head.append(StringView{framing, static_cast<usize>(framing_length)});
 
   /* mongoose printf reads the body through %s, which stops at the first null
      byte and truncates a binary asset such as a woff2 font or a webp image. The
-     head is printed and the body is sent as raw bytes. */
-  let const reason = status_text(static_cast<HttpStatus>(status));
-  mg_printf(
-      mongoose_connection, "HTTP/1.1 %d %.*s\r\n%sContent-Length: %lu\r\n\r\n",
-      static_cast<int>(status), static_cast<int>(reason.count()), reason.data,
-      header_block.c_str(), static_cast<unsigned long>(body.count()));
+     head is sent as one buffer and the body is sent as raw bytes. */
+  mg_send(mongoose_connection, head.c_str(), head.length());
   mg_send(mongoose_connection, body.data, body.count());
   mongoose_connection->is_resp = 0;
   return Success;

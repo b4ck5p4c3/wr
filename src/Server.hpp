@@ -67,8 +67,8 @@ public:
     m_client_ip = client_ip;
   }
 
-  mustuse fn reply(u16 status, const HttpHeaders &headers, StringView body)
-      -> ErrorOr<Ok>;
+  mustuse fn reply(u16 status, const HttpHeaders &headers, StringView body,
+                   StringView static_headers = {}) -> ErrorOr<Ok>;
 
 private:
   Kind m_kind;
@@ -119,8 +119,8 @@ public:
 
   /* Write a response on the event's connection, serialized by the backend. */
   mustuse virtual fn reply(opaque *connection, u16 status,
-                           const HttpHeaders &headers, StringView body)
-      -> ErrorOr<Ok> = 0;
+                           const HttpHeaders &headers, StringView body,
+                           StringView static_headers) -> ErrorOr<Ok> = 0;
 
 protected:
   HttpServer() = default;

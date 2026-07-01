@@ -36,8 +36,7 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
   headers.set("Location", url.view());
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "github login started");
-  fill_response_headers(headers);
-  unused(event.reply(302, headers, "").is_error());
+  unused(event.reply(302, headers, "", SECURITY_HEADER_BLOCK).is_error());
 }
 
 fn App::handle_github_callback(HttpServerEvent &event) -> void
@@ -208,8 +207,7 @@ fn App::handle_logout(HttpServerEvent &event) -> void
   headers.set("Location", "/");
   headers.set("Set-Cookie",
               "wr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
-  fill_response_headers(headers);
-  unused(event.reply(302, headers, "").is_error());
+  unused(event.reply(302, headers, "", SECURITY_HEADER_BLOCK).is_error());
 }
 
 fn App::finish_login(HttpServerEvent &event, const identity &who,
@@ -254,8 +252,7 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
   headers.set("Location", is_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "login for %s", who.name.c_str());
-  fill_response_headers(headers);
-  unused(event.reply(302, headers, "").is_error());
+  unused(event.reply(302, headers, "", SECURITY_HEADER_BLOCK).is_error());
 }
 
 fn App::handle_dev_login(HttpServerEvent &event) -> void
