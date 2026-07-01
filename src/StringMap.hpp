@@ -66,7 +66,7 @@ public:
   cold fn reserve(usize expected_count) -> void
   {
     let const needed = (expected_count * 4 / 3) + 1;
-    usize new_capacity = m_capacity == 0 ? 16 : m_capacity;
+    usize new_capacity = m_capacity == 0 ? 4 : m_capacity;
     while (new_capacity < needed)
       new_capacity *= 2;
 

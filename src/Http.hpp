@@ -104,6 +104,8 @@ class HttpHeaders
 public:
   explicit HttpHeaders(Allocator allocator) : m_map(allocator) {}
 
+  fn reserve(usize expected_count) -> void { m_map.reserve(expected_count); }
+
   fn set(StringView name, StringView value) -> void
   {
     char buffer[NORMALIZE_CAPACITY];
