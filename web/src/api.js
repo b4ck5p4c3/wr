@@ -9,10 +9,10 @@ function networkError() {
   return error;
 }
 
-async function getJson(path) {
+async function request(path, options) {
   let response;
   try {
-    response = await fetch(path, { credentials: "same-origin" });
+    response = await fetch(path, options);
   } catch (_) {
     throw networkError();
   }
@@ -22,23 +22,15 @@ async function getJson(path) {
   return data;
 }
 
-async function sendJson(method, path, body) {
-  let response;
-  try {
-    response = await fetch(path, {
-      method,
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch (_) {
-    throw networkError();
-  }
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw new Error(data.message || "request failed with " + response.status);
-  return data;
-}
+const getJson = (path) => request(path, { credentials: "same-origin" });
+
+const sendJson = (method, path, body) =>
+  request(path, {
+    method,
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
 const postJson = (path, body) => sendJson("POST", path, body);
 const deleteJson = (path, body) => sendJson("DELETE", path, body);
