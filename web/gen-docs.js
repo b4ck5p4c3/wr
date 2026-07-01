@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { parse } from "yaml";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const specPath = join(here, "..", "openapi.yaml");
@@ -20,14 +21,7 @@ const fontFiles = [
   "terminus-bold-italic.woff2",
 ];
 
-const lines = readFileSync(specPath, "utf8").split("\n");
-
-const indentOf = (line) => {
-  let position = 0;
-  while (position < line.length && line[position] === " ") position++;
-  return position;
-};
-const isBlank = (line) => line.trim() === "";
+const doc = parse(readFileSync(specPath, "utf8"));
 
 function escapeHtml(text) {
   return text
@@ -36,98 +30,59 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;");
 }
 
-function refName(value) {
-  const match = value.match(/#\/components\/\w+\/(\w+)/);
+function refName(ref) {
+  if (typeof ref !== "string") return null;
+  const match = ref.match(/#\/components\/\w+\/(\w+)/);
   return match ? match[1] : null;
 }
 
-// The name of the first $ref in a span, or null when the span carries none.
-function firstRefIn(from, to) {
-  for (let i = from; i < to; i++) {
-    const refMatch = lines[i].match(/\$ref:\s*"([^"]+)"/);
-    if (refMatch) return refName(refMatch[1]);
+// The name of the first $ref found in document order under a node, or null when
+// the node carries none. A null kind matches any $ref, a named kind matches only
+// a ref whose target lives under that component bucket.
+function firstRef(node, kind) {
+  if (node == null || typeof node !== "object") return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = firstRef(item, kind);
+      if (found != null) return found;
+    }
+    return null;
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "$ref" && typeof value === "string") {
+      if (kind == null || value.includes("/" + kind + "/")) return refName(value);
+    }
+    const found = firstRef(value, kind);
+    if (found != null) return found;
   }
   return null;
 }
 
-// The child range of a key line is the half-open span of the lines indented
-// deeper than it, up to the next sibling or shallower line.
-function childRange(startIndex) {
-  const base = indentOf(lines[startIndex]);
-  let end = startIndex + 1;
-  while (
-    end < lines.length &&
-    (isBlank(lines[end]) || indentOf(lines[end]) > base)
-  ) {
-    end++;
-  }
-  return [startIndex + 1, end];
-}
-
-function topLevelIndex(key) {
-  return lines.findIndex((line) => line === key);
-}
-
-// A mapping key is found at a fixed indent inside a span by its leading name.
-function keyIndexAt(from, to, indent, name) {
-  for (let i = from; i < to; i++) {
-    if (isBlank(lines[i])) continue;
-    if (
-      indentOf(lines[i]) === indent &&
-      lines[i].trim().startsWith(name + ":")
-    ) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-function scalarAfter(line) {
-  const value = line.slice(line.indexOf(":") + 1).trim();
-  return value.replace(/^["']|["']$/g, "");
-}
-
-function flowList(line) {
-  const match = line.match(/\[([^\]]*)\]/);
-  if (match == null) return [];
-  return match[1]
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+// Whether a type of the given value appears anywhere under a node, so an array
+// response body is recognised through its nested items.
+function hasType(node, type) {
+  if (node == null || typeof node !== "object") return false;
+  if (Array.isArray(node)) return node.some((item) => hasType(item, type));
+  if (node.type === type) return true;
+  return Object.values(node).some((value) => hasType(value, type));
 }
 
 function parseSchemas() {
-  const schemasIndex = lines.findIndex((line) => line === "  schemas:");
   const schemas = {};
-  if (schemasIndex < 0) return schemas;
-  const [from, to] = childRange(schemasIndex);
-  for (let i = from; i < to; i++) {
-    if (isBlank(lines[i]) || indentOf(lines[i]) !== 4) {
-      continue;
-    }
-    const name = lines[i].trim().replace(/:$/, "");
-    const [sFrom, sTo] = childRange(i);
+  const node = doc.components?.schemas;
+  if (node == null) return schemas;
+  for (const [name, schema] of Object.entries(node)) {
     const fields = [];
-    const propsIndex = keyIndexAt(sFrom, sTo, 6, "properties");
-    if (propsIndex >= 0) {
-      const [pFrom, pTo] = childRange(propsIndex);
-      for (let p = pFrom; p < pTo; p++) {
-        if (isBlank(lines[p]) || indentOf(lines[p]) !== 8) {
-          continue;
-        }
-        const fieldName = lines[p].trim().replace(/:$/, "");
-        const [fFrom, fTo] = childRange(p);
-        const typeIndex = keyIndexAt(fFrom, fTo, 10, "type");
-        let type = typeIndex >= 0 ? scalarAfter(lines[typeIndex]) : "";
-        if (!type) {
-          const ref = firstRefIn(fFrom, fTo);
-          if (ref) type = ref;
-        }
-        fields.push({ name: fieldName, type });
+    const props = schema.properties ?? {};
+    for (const [fieldName, prop] of Object.entries(props)) {
+      let type = typeof prop.type === "string" ? prop.type : "";
+      if (!type) {
+        const ref = firstRef(prop, null);
+        if (ref != null) type = ref;
       }
+      fields.push({ name: fieldName, type });
     }
-    const requiredIndex = keyIndexAt(sFrom, sTo, 6, "required");
-    const required = requiredIndex >= 0 ? flowList(lines[requiredIndex]) : [];
+    const required = Array.isArray(schema.required) ? schema.required : [];
     schemas[name] = { fields, required };
   }
   return schemas;
@@ -138,44 +93,20 @@ function parseSchemas() {
 // schema.
 function parseResponseComponents() {
   const out = {};
-  const responsesIndex = lines.findIndex((line) => line === "  responses:");
-  if (responsesIndex < 0) return out;
-  const [from, to] = childRange(responsesIndex);
-  for (let i = from; i < to; i++) {
-    if (isBlank(lines[i]) || indentOf(lines[i]) !== 4) {
-      continue;
-    }
-    const name = lines[i].trim().replace(/:$/, "");
-    const [rFrom, rTo] = childRange(i);
-    const descIndex = keyIndexAt(rFrom, rTo, 6, "description");
-    const description = descIndex >= 0 ? scalarAfter(lines[descIndex]) : name;
-    let schema = null;
-    for (let r = rFrom; r < rTo; r++) {
-      const refMatch = lines[r].match(/\$ref:\s*"([^"]+\/schemas\/\w+)"/);
-      if (refMatch) {
-        schema = refName(refMatch[1]);
-        break;
-      }
-    }
-    out[name] = { description, schema };
+  const node = doc.components?.responses;
+  if (node == null) return out;
+  for (const [name, resp] of Object.entries(node)) {
+    const description =
+      typeof resp.description === "string" ? resp.description : name;
+    out[name] = { description, schema: firstRef(resp, "schemas") };
   }
   return out;
 }
 
 // A status block resolves to a label, a referenced response description, a
 // referenced schema name, or the inline description.
-function resolveStatus(from, to, responseComponents) {
-  let isArray = false;
-  let responseRef = null;
-  let schemaRef = null;
-  for (let i = from; i < to; i++) {
-    if (lines[i].includes("type: array")) isArray = true;
-    const refMatch = lines[i].match(/\$ref:\s*"([^"]+)"/);
-    if (refMatch == null) continue;
-    if (refMatch[1].includes("/responses/")) responseRef = refName(refMatch[1]);
-    else if (refMatch[1].includes("/schemas/")) schemaRef = refName(refMatch[1]);
-  }
-
+function resolveStatus(block, responseComponents) {
+  const responseRef = firstRef(block, "responses");
   if (responseRef != null) {
     const component = responseComponents[responseRef];
     return {
@@ -183,67 +114,52 @@ function resolveStatus(from, to, responseComponents) {
       schema: component ? component.schema : null,
     };
   }
+
+  const schemaRef = firstRef(block, "schemas");
   if (schemaRef != null) {
     return {
-      label: (isArray ? "array of " : "") + schemaRef,
+      label: (hasType(block, "array") ? "array of " : "") + schemaRef,
       schema: schemaRef,
     };
   }
 
-  const descIndex = keyIndexAt(from, to, 10, "description");
-  if (descIndex >= 0)
-    return { label: scalarAfter(lines[descIndex]), schema: null };
-  return { label: "", schema: null };
+  return {
+    label: typeof block.description === "string" ? block.description : "",
+    schema: null,
+  };
 }
 
-function parseOperation(from, to, responseComponents) {
+function parseOperation(operation, responseComponents) {
   const op = { auth: false, request: null, params: [], responses: [] };
 
-  const tagsIndex = keyIndexAt(from, to, 6, "tags");
-  op.tag = tagsIndex >= 0 ? flowList(lines[tagsIndex])[0] || "" : "";
+  op.tag = Array.isArray(operation.tags) ? operation.tags[0] || "" : "";
+  op.summary = typeof operation.summary === "string" ? operation.summary : "";
 
-  const summaryIndex = keyIndexAt(from, to, 6, "summary");
-  op.summary = summaryIndex >= 0 ? scalarAfter(lines[summaryIndex]) : "";
+  if (Array.isArray(operation.security))
+    op.auth = operation.security.some(
+      (entry) => entry != null && "sessionCookie" in entry,
+    );
 
-  const securityIndex = keyIndexAt(from, to, 6, "security");
-  if (securityIndex >= 0) {
-    const [secFrom, secTo] = childRange(securityIndex);
-    for (let i = secFrom; i < secTo; i++)
-      if (lines[i].includes("sessionCookie")) op.auth = true;
-  }
+  if (operation.requestBody != null)
+    op.request = firstRef(operation.requestBody, null);
 
-  const requestIndex = keyIndexAt(from, to, 6, "requestBody");
-  if (requestIndex >= 0) {
-    const [reqFrom, reqTo] = childRange(requestIndex);
-    op.request = firstRefIn(reqFrom, reqTo);
-  }
-
-  const paramsIndex = keyIndexAt(from, to, 6, "parameters");
-  if (paramsIndex >= 0) {
-    const [pFrom, pTo] = childRange(paramsIndex);
-    for (let i = pFrom; i < pTo; i++) {
-      const refMatch = lines[i].match(/parameters\/(\w+)/);
-      if (refMatch) {
-        op.params.push(refMatch[1].toLowerCase());
-        continue;
+  if (Array.isArray(operation.parameters)) {
+    for (const param of operation.parameters) {
+      if (param == null) continue;
+      if (typeof param.$ref === "string") {
+        const name = refName(param.$ref);
+        if (name != null) op.params.push(name.toLowerCase());
+      } else if (typeof param.name === "string") {
+        op.params.push(param.name);
       }
-      const nameMatch = lines[i].match(/^\s*- name:\s*(\w+)/);
-      if (nameMatch) op.params.push(nameMatch[1]);
     }
   }
 
-  const responsesIndex = keyIndexAt(from, to, 6, "responses");
-  if (responsesIndex >= 0) {
-    const [rFrom, rTo] = childRange(responsesIndex);
-    for (let i = rFrom; i < rTo; i++) {
-      if (isBlank(lines[i]) || indentOf(lines[i]) !== 8) {
-        continue;
-      }
-      const status = lines[i].trim().replace(/:$/, "").replace(/["']/g, "");
-      const [sFrom, sTo] = childRange(i);
+  if (operation.responses != null) {
+    for (const [status, block] of Object.entries(operation.responses)) {
       op.responses.push({
-        status,
-        ...resolveStatus(sFrom, sTo, responseComponents),
+        status: String(status),
+        ...resolveStatus(block ?? {}, responseComponents),
       });
     }
   }
@@ -252,47 +168,27 @@ function parseOperation(from, to, responseComponents) {
 }
 
 function parseSpec() {
-  let title = "api";
-  let version = "";
-  const tagOrder = [];
-
-  const infoIndex = topLevelIndex("info:");
-  if (infoIndex >= 0) {
-    const [from, to] = childRange(infoIndex);
-    const titleIndex = keyIndexAt(from, to, 2, "title");
-    if (titleIndex >= 0) title = scalarAfter(lines[titleIndex]);
-    const versionIndex = keyIndexAt(from, to, 2, "version");
-    if (versionIndex >= 0) version = scalarAfter(lines[versionIndex]);
-  }
-
-  const tagsIndex = lines.findIndex((line) => line === "tags:");
-  if (tagsIndex >= 0) {
-    const [from, to] = childRange(tagsIndex);
-    for (let i = from; i < to; i++) {
-      const match = lines[i].match(/^\s*- name:\s*(.+?)\s*$/);
-      if (match) tagOrder.push(match[1]);
-    }
-  }
-
   const responseComponents = parseResponseComponents();
   const schemas = parseSchemas();
 
+  const title = doc.info?.title ?? "api";
+  const version = doc.info?.version != null ? String(doc.info.version) : "";
+  const tagOrder = Array.isArray(doc.tags)
+    ? doc.tags.map((tag) => tag?.name).filter((name) => typeof name === "string")
+    : [];
+
+  const methods = ["get", "post", "put", "delete", "patch"];
   const endpoints = [];
-  const pathsIndex = topLevelIndex("paths:");
-  if (pathsIndex >= 0) {
-    const [from, to] = childRange(pathsIndex);
-    for (let i = from; i < to; i++) {
-      const pathMatch = lines[i].match(/^  (\/\S*):\s*$/);
-      if (!pathMatch) continue;
-      const path = pathMatch[1];
-      const [pFrom, pTo] = childRange(i);
-      for (let m = pFrom; m < pTo; m++) {
-        const methodMatch = lines[m].match(/^    (get|post|put|delete|patch):\s*$/);
-        if (!methodMatch) continue;
-        const [oFrom, oTo] = childRange(m);
-        const op = parseOperation(oFrom, oTo, responseComponents);
-        endpoints.push({ method: methodMatch[1], path, ...op });
-      }
+  const paths = doc.paths ?? {};
+  for (const [path, pathItem] of Object.entries(paths)) {
+    if (!path.startsWith("/") || pathItem == null) continue;
+    for (const [method, operation] of Object.entries(pathItem)) {
+      if (!methods.includes(method) || operation == null) continue;
+      endpoints.push({
+        method,
+        path,
+        ...parseOperation(operation, responseComponents),
+      });
     }
   }
 
