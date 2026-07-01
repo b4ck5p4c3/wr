@@ -181,18 +181,19 @@ fn Store::check_api_version() -> ErrorOr<Ok>
 {
   let const expected = StringView{WR_STRINGIFY(WR_API_VERSION)};
 
-  Maybe<String> stored{None};
+  Maybe<String> stored;
   {
     let read = TRY(m_database.prepare("SELECT value FROM wr WHERE key = ?;"));
     read.bind(StringView{"api_version"});
-    if (TRY(read.step())) stored = Maybe<String>{read.get<String>()};
+    if (TRY(read.step())) stored = read.get<String>();
   }
 
   if (stored.has_value()) {
-    if (stored.value().view() != expected) {
+    let const &current = stored.value();
+    if (current.view() != expected) {
       String message{m_allocator};
       message.append("The database API version ");
-      message.append(stored.value().view());
+      message.append(current.view());
       message.append(" does not match the server API version ");
       message.append(expected);
       message.append(", the database must be migrated");

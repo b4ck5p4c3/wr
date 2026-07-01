@@ -443,8 +443,9 @@ fn App::dispatch(HttpServerEvent &event) -> void
 
     StringView remainder{};
     let const first = split_first_segment(rest, remainder);
-    let const wants_data = first == "data" || remainder == "data";
-    let const step = first == "data" || first.is_empty() ? StringView{} : first;
+    let const is_first_data = first == "data";
+    let const wants_data = is_first_data || remainder == "data";
+    let const step = is_first_data || first.is_empty() ? StringView{} : first;
     handle_navigation(event, slug, step, wants_data);
     return;
   }

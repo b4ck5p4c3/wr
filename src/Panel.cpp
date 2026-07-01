@@ -418,7 +418,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
     reply_message(event, 500, owned.error().message().view());
     return;
   }
-  if (owned.value().count() == 0) {
+  if (owned.value().is_empty()) {
     LOG(Info, "comment rejected, author owns no ring site");
     reply_message(event, 403, "Only owners of a site in the ring may comment");
     return;

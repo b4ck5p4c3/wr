@@ -501,13 +501,7 @@ const REACTIONS = ["poop", "like", "eyes", "fire", "star", "skull"];
 export function ReactionBar({ site, me, onLogin, onReacted }) {
   const counts = site.reactions || {};
   const mine = site.reacted || [];
-  let hasReactions = false;
-  for (const key in counts) {
-    if (counts[key] > 0) {
-      hasReactions = true;
-      break;
-    }
-  }
+  const hasReactions = Object.values(counts).some((n) => n > 0);
   const react = async (emoji) => {
     if (!me) {
       if (onLogin) onLogin();
