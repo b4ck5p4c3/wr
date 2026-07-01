@@ -1,4 +1,4 @@
-# make MODE=dbg/rel/cov/cosmo/cosmo_dbg
+# make MODE=dbg/rel/prof/cov/cosmo/cosmo_dbg
 MODE ?= dbg
 
 GEN_EMBED_SRC := EmbeddedAssets.gen.cpp
@@ -162,6 +162,29 @@ CXXFLAGS += \
 	-static-pie \
 	-nostdlib++
 LINK_LIBS += -lsupc++
+# MODE=prof
+else ifeq ($(MODE), prof)
+CXXFLAGS += \
+	-g3 \
+	-O2 \
+	-DNDEBUG \
+	-flto \
+	-U_FORTIFY_SOURCE \
+	-D_FORTIFY_SOURCE=2 \
+	-fsanitize=undefined \
+	-fsanitize-minimal-runtime \
+	-fno-sanitize-recover=undefined \
+	-fno-omit-frame-pointer
+CFLAGS += \
+	-O2 \
+	-flto \
+	-U_FORTIFY_SOURCE \
+	-D_FORTIFY_SOURCE=2 \
+	-fno-omit-frame-pointer
+CXXFLAGS += \
+	-static-pie \
+	-nostdlib++
+LINK_LIBS += -lsupc++
 # MODE=dbg
 else ifeq ($(MODE), dbg)
 CXXFLAGS += \
@@ -211,7 +234,7 @@ ifneq ($(CXX), cosmoc++)
 $(error Your CXX is "$(CXX)" instead of "cosmoc++" for MODE=cosmo_dbg)
 endif
 else
-$(error Invalid MODE=$(MODE). Available modes are "dbg", "rel", "cov", "cosmo", "cosmo_dbg")
+$(error Invalid MODE=$(MODE). Available modes are "dbg", "rel", "prof", "cov", "cosmo", "cosmo_dbg")
 endif
 
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
@@ -308,7 +331,7 @@ fmt:
 	$(CLANG_FORMAT) -i $(SOURCES) $(HEADERS)
 
 clean:
-	rm -rf ./o ../wr ../wr-$(MODE) ../wr.com ../wr-cosmo.com ../wr-cosmo_dbg.com
+	rm -rf ./o ../wr ../wr-dbg ../wr-prof ../wr-cov ../wr-$(MODE) ../wr.com ../wr-cosmo.com ../wr-cosmo_dbg.com
 	rm -f $(GEN_EMBED_SRC)
 	rm -rf ../perf*
 	rm -rf ../*.profraw ../*.profdata ../coverage # Coverage
