@@ -320,6 +320,12 @@ img {
   background: rgba(0, 0, 0, 0.22);
 }
 
+.tui-card .tweet-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
 .tui-card,
 .tui-face {
   display: flex;
