@@ -1042,6 +1042,8 @@ function UptimeRow({ site }) {
   );
 }
 
+const SLUG_CHAR = /[a-z0-9-]/;
+
 export function AddSiteForm({
   onAdded,
   submitLabel = "Submit for review",
@@ -1083,15 +1085,14 @@ export function AddSiteForm({
         {form.slug ? (
           <span class="slug-preview">
             {" "}
-            {Array.from(form.slug).map((character, index) =>
-              /[a-z0-9-]/.test(character) ? (
-                <span key={index}>{character}</span>
-              ) : (
-                <span key={index} class="invalid-char">
-                  {character}
-                </span>
-              ),
-            )}
+            {Array.from(form.slug).map((character, index) => (
+              <span
+                key={index}
+                class={SLUG_CHAR.test(character) ? undefined : "invalid-char"}
+              >
+                {character}
+              </span>
+            ))}
           </span>
         ) : null}
       </p>

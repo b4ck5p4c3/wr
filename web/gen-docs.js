@@ -75,11 +75,10 @@ function parseSchemas() {
     const fields = [];
     const props = schema.properties ?? {};
     for (const [fieldName, prop] of Object.entries(props)) {
-      let type = typeof prop.type === "string" ? prop.type : "";
-      if (!type) {
-        const ref = firstRef(prop, null);
-        if (ref != null) type = ref;
-      }
+      const type =
+        typeof prop.type === "string" && prop.type
+          ? prop.type
+          : (firstRef(prop, null) ?? "");
       fields.push({ name: fieldName, type });
     }
     const required = Array.isArray(schema.required) ? schema.required : [];
