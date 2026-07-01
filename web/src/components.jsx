@@ -1778,7 +1778,7 @@ function renderMentions(body, slugs, people) {
     const slug = handle.toLowerCase();
     if (slugs.has(slug)) {
       return (
-        <a class="mention" href={"/" + slug}>
+        <a class="mention" href={"/" + slug} rel="noopener">
           {part}
         </a>
       );

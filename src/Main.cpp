@@ -160,7 +160,11 @@ fn main(int argc, char **argv) -> int
   if (FLAG_LOGFILE.is_set()) {
     let const log_path = String{FLAG_LOGFILE.value()};
     let log_result = set_log_file(Path{log_path});
-    if (log_result.is_error()) fail(log_result.error().message());
+    if (log_result.is_error()) {
+      let const message = log_result.error().message();
+      LOG(Info, "log file could not be opened, logging to stderr, %.*s",
+          static_cast<int>(message.view().count()), message.view().data);
+    }
   }
 
   let const allocator = heap_allocator();
