@@ -163,7 +163,12 @@ fn App::handle_me(HttpServerEvent &event) -> void
   for (usize i = 0; i < sites.count(); i++) {
     let history_or = m_store.get_liveness_history(sites[i].slug.view(), now);
     ArrayList<i64> uptime{m_allocator};
-    if (!history_or.is_error()) uptime = steal(history_or.value());
+    if (!history_or.is_error())
+      uptime = steal(history_or.value());
+    else
+      LOG(All, "liveness history unavailable, slug=%.*s",
+          static_cast<int>(sites[i].slug.view().count()),
+          sites[i].slug.view().data);
 
     write_panel_site(writer, sites[i], uptime);
   }

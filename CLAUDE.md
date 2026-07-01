@@ -87,7 +87,7 @@ The logger lives in src/Trace.hpp. A message is checked against a verbosity leve
 and written to the active sink.
 
 - A printf-style line is printed by `LOG(level, ...)`, and the named variables are dumped by `LOG_VARS(level, ...)`.
-- The levels are Nothing, Info, Debug, and All, and a line is printed when its level is at or below LOGGER_VERBOSITY.
+- The levels are Nothing, Info, Debug, All, and Everything, and a line is printed when its level is at or below LOGGER_VERBOSITY.
 - A line carries the `[HH:MM:SS]` timestamp, the severity, the file and line, and the function.
 - The logger is kept in every build, since a running server is traced at runtime.
 - The sink is standard error by default. `set_log_file` returns an ErrorOr and routes the log to a file opened for append, selected through the `-L` flag.

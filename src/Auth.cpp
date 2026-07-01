@@ -199,8 +199,8 @@ fn App::handle_logout(HttpServerEvent &event) -> void
   let const account_cookie = event.request_headers().get("cookie");
   if (account_cookie.has_value()) {
     let const token = find_cookie(account_cookie.value(), "wr_session");
-    if (token.has_value())
-      unused(m_store.delete_session(token.value()).is_error());
+    if (token.has_value() && m_store.delete_session(token.value()).is_error())
+      LOG(Info, "logout session delete dropped");
   }
 
   HttpHeaders headers{m_allocator};

@@ -174,8 +174,12 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
 
     if (message->body.len > MAX_REQUEST_BODY_LENGTH) {
       let const reason = status_text(HttpStatus::ContentTooLarge);
-      mg_printf(connection, "HTTP/1.1 413 %.*s\r\nContent-Length: 0\r\n\r\n",
-                static_cast<int>(reason.count()), reason.data);
+      char head[64];
+      let const head_length = std::snprintf(
+          head, sizeof(head), "HTTP/1.1 413 %.*s\r\nContent-Length: 0\r\n\r\n",
+          static_cast<int>(reason.count()), reason.data);
+      if (head_length > 0)
+        mg_send(connection, head, static_cast<usize>(head_length));
       connection->is_resp = 0;
       break;
     }
