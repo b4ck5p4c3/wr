@@ -316,6 +316,16 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
   return steal(found.value());
 }
 
+fn App::require_account(HttpServerEvent &event) -> Maybe<account>
+{
+  let who = current_account(event);
+  if (!who.has_value()) {
+    reply_message(event, 401, "Not signed in");
+    return None;
+  }
+  return who;
+}
+
 fn App::require_admin(HttpServerEvent &event) -> Maybe<account>
 {
   let const ip = client_address(event, m_config.is_forwarded_trusted);

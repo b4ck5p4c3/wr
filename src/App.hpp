@@ -93,6 +93,7 @@ private:
   fn finish_login(HttpServerEvent &event, const identity &who,
                   Maybe<bool> force_admin = {}) -> void;
   mustuse fn current_account(HttpServerEvent &event) -> Maybe<account>;
+  mustuse fn require_account(HttpServerEvent &event) -> Maybe<account>;
   mustuse fn require_admin(HttpServerEvent &event) -> Maybe<account>;
 
   Allocator m_allocator;

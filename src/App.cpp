@@ -378,37 +378,25 @@ fn App::dispatch(HttpServerEvent &event) -> void
     case route::admin_stats: handle_admin_stats(event); break;
     case route::admin_cache_clear: handle_admin_cache_clear(event); break;
     case route::sites_add: {
-      let const who = current_account(event);
-      if (who.has_value())
+      if (let const who = require_account(event); who.has_value())
         handle_user_add(event, who.value());
-      else
-        reply_message(event, 401, "Not signed in");
       break;
     }
     case route::sites_rename: {
-      let const who = current_account(event);
-      if (who.has_value())
+      if (let const who = require_account(event); who.has_value())
         handle_user_rename(event, who.value());
-      else
-        reply_message(event, 401, "Not signed in");
       break;
     }
     case route::sites_react: {
-      let const who = current_account(event);
-      if (who.has_value())
+      if (let const who = require_account(event); who.has_value())
         handle_user_react(event, who.value());
-      else
-        reply_message(event, 401, "Not signed in");
       break;
     }
     case route::sites_click: handle_site_click(event); break;
     case route::comments_list: handle_comments_list(event); break;
     case route::comments_add: {
-      let const who = current_account(event);
-      if (who.has_value())
+      if (let const who = require_account(event); who.has_value())
         handle_comment_post(event, who.value());
-      else
-        reply_message(event, 401, "Not signed in");
       break;
     }
     }
@@ -684,14 +672,17 @@ fn App::serve_static(HttpServerEvent &event) -> void
     return;
   }
 
+  static constexpr StaticStringMap<const char *, 5> SPA_ROUTES{
+      {{"/docs", "/docs.html"},
+       {"/", "/index.html"},
+       {"/about", "/index.html"},
+       {"/panel", "/index.html"},
+       {"/admin", "/index.html"}}
+  };
+
   StringView asset_path = path;
-  if (path == "/docs") {
-    asset_path = "/docs.html";
-  } else if (path == "/" || path == "/about" || path == "/panel" ||
-             path == "/admin")
-  {
-    asset_path = "/index.html";
-  }
+  if (let const *mapped = SPA_ROUTES.find(path); mapped != nullptr)
+    asset_path = StringView{*mapped};
 
   if (let const *asset = find_embedded_asset(asset_path); asset != nullptr) {
     reply_text(
