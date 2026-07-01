@@ -1044,6 +1044,37 @@ function UptimeRow({ site }) {
 
 const SLUG_CHAR = /[a-z0-9-]/;
 
+export function SlugField({ value, onInput }) {
+  const backdropRef = useRef(null);
+
+  const syncScroll = (event) => {
+    if (backdropRef.current != null)
+      backdropRef.current.scrollLeft = event.target.scrollLeft;
+  };
+
+  return (
+    <div class="slug-field">
+      <div class="slug-backdrop" ref={backdropRef} aria-hidden="true">
+        {Array.from(value).map((character, index) => (
+          <span
+            key={index}
+            class={SLUG_CHAR.test(character) ? undefined : "over"}
+          >
+            {character}
+          </span>
+        ))}
+      </div>
+      <input
+        aria-label="site slug"
+        placeholder="slug"
+        value={value}
+        onInput={onInput}
+        onScroll={syncScroll}
+      />
+    </div>
+  );
+}
+
 export function AddSiteForm({
   onAdded,
   submitLabel = "Submit for review",
@@ -1058,6 +1089,17 @@ export function AddSiteForm({
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const field = fieldSetter(setForm);
+
+  const isAnyRequiredEmpty =
+    form.slug.trim() === "" ||
+    form.name.trim() === "" ||
+    form.url.trim() === "";
+  const isDescriptionShort = form.description.trim().length < 8;
+  const formHint = isAnyRequiredEmpty
+    ? "Fill in the slug, the name, and the url."
+    : isDescriptionShort
+      ? "Write more about yourself and your site."
+      : null;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -1074,28 +1116,8 @@ export function AddSiteForm({
   return (
     <form class="card" onSubmit={submit}>
       <h3>add a site</h3>
-      <input
-        aria-label="site slug"
-        placeholder="slug"
-        value={form.slug}
-        onInput={field("slug")}
-      />
-      <p class="hint">
-        slug allows a-z, 0-9, and a dash
-        {form.slug ? (
-          <span class="slug-preview">
-            {" "}
-            {Array.from(form.slug).map((character, index) => (
-              <span
-                key={index}
-                class={SLUG_CHAR.test(character) ? undefined : "invalid-char"}
-              >
-                {character}
-              </span>
-            ))}
-          </span>
-        ) : null}
-      </p>
+      <SlugField value={form.slug} onInput={field("slug")} />
+      <p class="hint">slug allows a-z, 0-9, and a dash</p>
       <input
         aria-label="site name"
         placeholder="name"
@@ -1113,6 +1135,7 @@ export function AddSiteForm({
         value={form.description}
         onInput={field("description")}
       />
+      {formHint ? <p class="hint">{formHint}</p> : null}
       <button class="primary" type="submit">
         {submitLabel}..
       </button>

@@ -1063,14 +1063,35 @@ code {
   color: #e6dff4;
 }
 
-.slug-preview {
-  font-weight: 700;
-  word-break: break-all;
+.slug-field {
+  position: relative;
+  width: 100%;
 }
 
-.invalid-char {
+.slug-field input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-primary);
+}
+
+.slug-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border: 1px solid transparent;
+  padding: 0.6ch 1ch;
+  white-space: pre;
+  background: rgba(0, 0, 0, 0.26);
+  color: var(--text-primary);
+}
+
+.slug-backdrop .over {
   color: var(--down);
-  text-decoration: underline;
 }
 
 .error {
