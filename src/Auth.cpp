@@ -298,7 +298,7 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
     return None;
   }
 
-  let const found = m_store.find_account(session.who);
+  let found = m_store.find_account(session.who);
   if (found.is_error()) {
     LOG(All, "current account none, account lookup failed");
     return None;
@@ -313,7 +313,7 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
   LOG(All, "current account resolved, source=%d name=%s is_admin=%d",
       static_cast<int>(resolved.who.source), resolved.who.name.c_str(),
       resolved.is_admin ? 1 : 0);
-  return found.value();
+  return steal(found.value());
 }
 
 fn App::require_admin(HttpServerEvent &event) -> Maybe<account>
