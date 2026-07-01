@@ -421,14 +421,31 @@ function formatTimestamp(epochSeconds) {
 }
 
 const UPTIME_COLUMN_COUNT = 48;
+const UPTIME_COLUMN_COUNT_NARROW = 24;
 
 export function UptimeGraph({ history }) {
+  const [columnCount, setColumnCount] = useState(() =>
+    typeof matchMedia !== "undefined" && matchMedia(NARROW_QUERY).matches
+      ? UPTIME_COLUMN_COUNT_NARROW
+      : UPTIME_COLUMN_COUNT,
+  );
+  useEffect(() => {
+    if (typeof matchMedia === "undefined") return;
+    const query = matchMedia(NARROW_QUERY);
+    const onChange = () =>
+      setColumnCount(
+        query.matches ? UPTIME_COLUMN_COUNT_NARROW : UPTIME_COLUMN_COUNT,
+      );
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
   const columns = useMemo(() => {
     if (history == null || history.length === 0) return null;
 
     const built = [];
-    const perColumn = history.length / UPTIME_COLUMN_COUNT;
-    for (let column = 0; column < UPTIME_COLUMN_COUNT; column++) {
+    const perColumn = history.length / columnCount;
+    for (let column = 0; column < columnCount; column++) {
       const start = Math.floor(column * perColumn);
       const end = Math.floor((column + 1) * perColumn);
       let sum = 0;
@@ -443,7 +460,7 @@ export function UptimeGraph({ history }) {
     }
 
     return built;
-  }, [history]);
+  }, [history, columnCount]);
 
   if (columns == null) return null;
 
@@ -1069,12 +1086,18 @@ function fieldSetter(setForm) {
 }
 
 function UptimeRow({ site }) {
+  const hasData =
+    Array.isArray(site.uptime) && site.uptime.some((value) => value >= 0);
+  const isUp = hasData && site.is_reachable;
+  const label = !hasData
+    ? "currently unknown"
+    : site.is_reachable
+      ? "currently up"
+      : "currently down";
   return (
     <div class="uptime-row">
       <UptimeGraph history={site.uptime} />
-      <span class={site.is_reachable ? "up" : "down"}>
-        {site.is_reachable ? "currently up" : "currently down"}
-      </span>
+      <span class={isUp ? "up" : "down"}>{label}</span>
     </div>
   );
 }
