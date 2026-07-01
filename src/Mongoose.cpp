@@ -25,25 +25,6 @@ pure fn mongoose_level_for(verbosity level) noexcept -> int
   return level == verbosity::All ? MG_LL_VERBOSE : MG_LL_NONE;
 }
 
-donteliminate fn contains_substring(StringView haystack,
-                                    StringView needle) noexcept -> bool
-{
-  if (needle.count() == 0 || needle.count() > haystack.count()) {
-    return false;
-  }
-  for (usize start = 0; start + needle.count() <= haystack.count(); start++) {
-    bool is_match = true;
-    for (usize i = 0; i < needle.count(); i++) {
-      if (haystack[start + i] != needle[i]) {
-        is_match = false;
-        break;
-      }
-    }
-    if (is_match) return true;
-  }
-  return false;
-}
-
 } // namespace
 
 MongooseServer::MongooseServer(Allocator allocator) : m_allocator(allocator)

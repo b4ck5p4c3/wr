@@ -386,8 +386,9 @@ fn parse_flags(const ArrayList<Flag *> &flags, int argc,
             const StringView flag_sv = flag_offset;
             let const equals_position = flag_sv.find_character('=');
 
-            if (equals_position)
-              error_message += flag_sv.substring_of_length(0, *equals_position);
+            if (equals_position.has_value())
+              error_message +=
+                  flag_sv.substring_of_length(0, equals_position.value());
             else
               error_message += flag_sv;
           }
