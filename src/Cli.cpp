@@ -183,20 +183,6 @@ static fn find_flag(const ArrayList<Flag *> &flags, const char *flag_start,
   return longest_length > 0;
 }
 
-fn parse_flags_vec(const ArrayList<Flag *> &flags,
-                   const ArrayList<String> &args, usize base_position,
-                   const Flag *operand_value_flag) -> ErrorOr<ArrayList<String>>
-{
-  let os_argv = ArrayList<const char *>{};
-  os_argv.reserve(args.count());
-
-  for (let const &arg : args)
-    os_argv.push(arg.c_str());
-
-  return parse_flags(flags, static_cast<int>(os_argv.count()), os_argv.begin(),
-                     base_position, operand_value_flag);
-}
-
 static fn flag_name(const Flag *f, bool is_long) -> String
 {
   let name = String{};
@@ -409,23 +395,6 @@ fn parse_flags(const ArrayList<Flag *> &flags, int argc,
   }
 
   return args;
-}
-
-fn join_command_line(int argc, const char *const *argv) -> String
-{
-  let s = String{};
-  for (int i = 0; i < argc; i++) {
-    if (i > 0) s.push(' ');
-    s.append(StringView{argv[i], std::strlen(argv[i])});
-  }
-  return s;
-}
-
-fn reset_flags(const ArrayList<Flag *> &flags) -> void
-{
-  for (let const flag : flags) {
-    flag->reset();
-  }
 }
 
 cold fn show_version() -> void

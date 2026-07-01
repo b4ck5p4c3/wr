@@ -136,18 +136,10 @@ private:
   usize m_value_position{0};
 };
 
-fn parse_flags_vec(const ArrayList<Flag *> &flags,
-                   const ArrayList<String> &args, usize base_position = 0,
-                   const Flag *operand_value_flag = nullptr)
-    -> ErrorOr<ArrayList<String>>;
 fn parse_flags(const ArrayList<Flag *> &flags, int argc,
                const char *const *argv, usize base_position = 0,
                const Flag *operand_value_flag = nullptr)
     -> ErrorOr<ArrayList<String>>;
-
-fn join_command_line(int argc, const char *const *argv) -> String;
-
-fn reset_flags(const ArrayList<Flag *> &flags) -> void;
 
 fn show_version() -> void;
 
