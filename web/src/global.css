@@ -1274,6 +1274,8 @@ footer {
   flex-direction: column;
   gap: 0.4ch;
   padding: 1.2ch;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 1px var(--panel-outline);
   animation: comment-enter 0.3s ease;
 }
 
