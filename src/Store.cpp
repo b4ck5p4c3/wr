@@ -310,16 +310,21 @@ fn Store::upsert_site(const site &row) -> ErrorOr<Ok>
   return Success;
 }
 
-fn Store::rename_site(StringView slug, StringView name) -> ErrorOr<Ok>
+fn Store::update_site_details(StringView slug, StringView name, StringView url,
+                              StringView description) -> ErrorOr<Ok>
 {
-  let statement = TRY(m_database.prepare(
-      "UPDATE sites SET name = ? WHERE slug = ? AND is_deleted = 0;"));
+  let statement = TRY(m_database.prepare("UPDATE sites SET name = ?, url = ?, "
+                                         "description = ? WHERE slug = ? AND "
+                                         "is_deleted = 0;"));
   statement.bind(name);
+  statement.bind(url);
+  statement.bind(description);
   statement.bind(slug);
   unused(TRY(statement.step()));
 
-  LOG(Info, "site renamed, slug=%.*s name=%.*s", static_cast<int>(slug.count()),
-      slug.data, static_cast<int>(name.count()), name.data);
+  LOG(Info, "site details updated, slug=%.*s name=%.*s",
+      static_cast<int>(slug.count()), slug.data, static_cast<int>(name.count()),
+      name.data);
   return Success;
 }
 

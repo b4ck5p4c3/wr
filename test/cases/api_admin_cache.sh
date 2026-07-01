@@ -3,7 +3,7 @@
 # a wrong method is rejected, so the cache clear endpoint is admin only and POST
 # only.
 set -u
-PORT=18781
+PORT=18777
 DB=$(mktemp -u /tmp/wr_cache_XXXXXX.db)
 AJAR=$(mktemp -u /tmp/wr_cache_jar_XXXXXX)
 

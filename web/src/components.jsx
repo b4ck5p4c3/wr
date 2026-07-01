@@ -1245,11 +1245,15 @@ export function AddSiteForm({
 
 export function OwnedSite({ site, onRenamed }) {
   const [name, setName] = useState(site.name);
+  const [url, setUrl] = useState(site.url);
+  const [description, setDescription] = useState(site.description);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
-  const rename = async () => {
+  const isDescriptionShort = description.trim().length < 8;
+  const isUrlInvalid = !isValidUrlForm(url);
+  const save = async () => {
     try {
-      const result = await api.renameSite(site.slug, name);
+      const result = await api.renameSite(site.slug, name, url, description);
       setMessage(result.message);
       if (onRenamed) onRenamed();
     } catch (e) {
@@ -1264,8 +1268,20 @@ export function OwnedSite({ site, onRenamed }) {
         value={name}
         onInput={(e) => setName(e.target.value)}
       />
+      <input
+        aria-label="site url"
+        value={url}
+        onInput={(e) => setUrl(e.target.value)}
+      />
+      <input
+        aria-label="site description"
+        value={description}
+        onInput={(e) => setDescription(e.target.value)}
+      />
       <div class="row-actions">
-        <button onClick={rename}>rename..</button>
+        <button onClick={save} disabled={isDescriptionShort || isUrlInvalid}>
+          save edit..
+        </button>
       </div>
       <UptimeRow site={site} />
       {message ? <span class="hint">{message}</span> : null}

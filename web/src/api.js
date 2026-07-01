@@ -41,7 +41,8 @@ export const api = {
   me: () => getJson("/api/v1/me"),
   logout: () => postJson("/auth/logout", {}),
   addSite: (site) => postJson("/api/v1/sites/add", site),
-  renameSite: (slug, name) => postJson("/api/v1/sites/rename", { slug, name }),
+  renameSite: (slug, name, url, description) =>
+    postJson("/api/v1/sites/rename", { slug, name, url, description }),
   react: (slug, emoji) => postJson("/api/v1/sites/react", { slug, emoji }),
   recordClick: (slug) => postJson("/api/v1/sites/click", { slug }),
   listComments: (offset = 0, limit = 5) =>

@@ -288,9 +288,11 @@ paths:
   /api/v1/sites/rename:
     post:
       tags: [panel]
-      summary: Submit a rename for review.
+      summary: Submit a name, url, and description edit for review.
       description: >-
-        The request is written as a pending rename of a site the caller owns.
+        The request is written as a pending edit of a site the caller owns. The
+        name, the url, and the description are carried through the pending
+        queue, and an admin approval applies them to the site.
       security:
         - sessionCookie: []
       requestBody:
@@ -440,8 +442,8 @@ paths:
       tags: [admin]
       summary: Approve a pending action.
       description: >-
-        An approved add writes the site into the store, and an approved rename
-        applies the new name.
+        An approved add writes the site into the store, and an approved edit
+        applies the new name and description.
       security:
         - sessionCookie: []
       requestBody:
@@ -922,7 +924,7 @@ components:
       required: [oauth, tag, display_name, is_admin, sites, pending]
     Submission:
       type: object
-      description: A caller's own add or rename awaiting review.
+      description: A caller's own add or edit awaiting review.
       properties:
         id:
           type: integer
@@ -935,8 +937,8 @@ components:
         payload:
           type: string
           description: >-
-            The requested data, a JSON object for an add and the new name for a
-            rename.
+            The requested data as a JSON object, the name, url, and description
+            for an add and the name and description for an edit.
       required: [id, kind, target_slug, payload]
     PendingAction:
       type: object
@@ -966,8 +968,8 @@ components:
         payload:
           type: string
           description: >-
-            The requested data, a JSON object for an add and the new name for a
-            rename.
+            The requested data as a JSON object, the name, url, and description
+            for an add and the name and description for an edit.
       required:
         [id, kind, owner, owner_oauth, owner_display_name, owner_tag,
          target_slug, payload]
@@ -995,12 +997,22 @@ components:
       required: [slug, name, url, description]
     RenameInput:
       type: object
+      description: The fields for an owner edit, carried through the pending queue.
       properties:
         slug:
           type: string
         name:
           type: string
-      required: [slug, name]
+          minLength: 1
+          maxLength: 16
+        url:
+          type: string
+          description: An http or https url.
+        description:
+          type: string
+          minLength: 8
+          maxLength: 280
+      required: [slug, name, url, description]
     ReactInput:
       type: object
       properties:

@@ -238,38 +238,40 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
 fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
 {
   let const document = Json::from(m_allocator, event.body());
-  let const slug = document["slug"].to<StringView>();
-  let const name = document["name"].to<StringView>();
-  if (!slug.has_value() || !name.has_value()) {
-    reply_message(event, 400, "A slug and a name are required");
-    return;
-  }
-  if (name.value().is_empty() || name.value().count() > 16) {
-    reply_message(event, 400, "The name must be 1 to 16 characters");
+  site_input input{};
+  if (let const error = validate_site_input(document, input); error != nullptr)
+  {
+    reply_message(event, 400, error);
     return;
   }
 
-  let const owned = m_store.find_site(slug.value());
+  let const owned = m_store.find_site(input.slug);
   if (owned.is_error() || !owned.value().has_value() ||
       owned.value().value().owner != who.who)
   {
-    LOG(Info, "site rename rejected, not owned, slug=%.*s",
-        static_cast<int>(slug.value().count()), slug.value().data);
+    LOG(Info, "site edit rejected, not owned, slug=%.*s",
+        static_cast<int>(input.slug.count()), input.slug.data);
     reply_message(event, 403, "That site is not yours");
     return;
   }
 
-  let const recorded = m_store.add_pending("rename", who.who, slug.value(),
-                                           name.value(), now_seconds());
+  JsonWriter payload{m_allocator};
+  payload.object_begin();
+  payload.field("name", input.name);
+  payload.field("url", input.url);
+  payload.field("description", input.description);
+  payload.object_end();
+
+  let const recorded = m_store.add_pending("rename", who.who, input.slug,
+                                           payload.view(), now_seconds());
   if (recorded.is_error()) {
     reply_message(event, 500, recorded.error().message().view());
     return;
   }
 
-  record_audit_or_log(event, who.who, "submit rename", slug.value(),
-                      name.value());
+  record_audit_or_log(event, who.who, "submit rename", input.slug, input.name);
 
-  reply_message(event, 200, "Your rename was submitted for review");
+  reply_message(event, 200, "Your edit was submitted for review");
 }
 
 fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
@@ -843,12 +845,22 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
         break;
       }
       case pending_kind::rename: {
-        let const renamed = m_store.rename_site(action.target_slug.view(),
-                                                action.payload.view());
-        if (renamed.is_error()) {
-          reply_message(event, 500, renamed.error().message().view());
+        let const payload = Json::from(m_allocator, action.payload.view());
+        let const name = payload["name"].to<StringView>().value_or({});
+        let const url = payload["url"].to<StringView>().value_or({});
+        let const description =
+            payload["description"].to<StringView>().value_or({});
+        let const updated = m_store.update_site_details(
+            action.target_slug.view(), name, url, description);
+        if (updated.is_error()) {
+          reply_message(event, 500, updated.error().message().view());
           return;
         }
+
+        if (m_store.schedule_recheck(action.target_slug.view()).is_error())
+          LOG(Info, "recheck schedule dropped for %.*s",
+              static_cast<int>(action.target_slug.view().count()),
+              action.target_slug.view().data);
         break;
       }
       }

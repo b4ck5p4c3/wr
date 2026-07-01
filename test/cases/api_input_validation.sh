@@ -21,8 +21,10 @@ echo "add-empty-name: $(post sites/add '{"slug":"ok","name":"","url":"https://a.
 echo "add-bad-url: $(post sites/add '{"slug":"ok","name":"n","url":"ftp://a.example","description":"long enough desc"}')"
 echo "add-scheme-only-url: $(post sites/add '{"slug":"ok","name":"n","url":"https://","description":"long enough desc"}')"
 echo "add-short-desc: $(post sites/add '{"slug":"ok","name":"n","url":"https://a.example","description":"short"}')"
-echo "rename-empty-name: $(post sites/rename '{"slug":"ok","name":""}')"
-echo "rename-long-name: $(post sites/rename '{"slug":"ok","name":"this name is too long"}')"
+echo "rename-empty-name: $(post sites/rename '{"slug":"ok","name":"","url":"https://a.example","description":"long enough desc"}')"
+echo "rename-long-name: $(post sites/rename '{"slug":"ok","name":"this name is too long","url":"https://a.example","description":"long enough desc"}')"
+echo "rename-bad-url: $(post sites/rename '{"slug":"ok","name":"n","url":"ftp://a.example","description":"long enough desc"}')"
+echo "rename-short-desc: $(post sites/rename '{"slug":"ok","name":"n","url":"https://a.example","description":"short"}')"
 
 kill "$server" 2>/dev/null
 rm -rf "$DB" "$UJAR"
