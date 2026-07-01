@@ -19,7 +19,7 @@ BumpArena::~BumpArena()
 
 cold fn BumpArena::add_block(usize minimum_size) noexcept -> void
 {
-  usize size = DEFAULT_BLOCK_SIZE;
+  let size = DEFAULT_BLOCK_SIZE;
   if (minimum_size > size) size = minimum_size;
 
   let const base = static_cast<u8 *>(std::malloc(size));
@@ -53,11 +53,20 @@ cold fn BumpArena::reset() noexcept -> void
 {
   LOG(All, "resetting the arena holding %zu blocks", m_blocks.count());
 
-  for (usize i = 1; i < m_blocks.count(); i++)
-    std::free(m_blocks[i].base);
-  while (m_blocks.count() > 1)
+  while (m_blocks.count() > 1) {
+    std::free(m_blocks.back().base);
     m_blocks.pop_back();
-  if (!m_blocks.is_empty()) m_blocks.front().used = 0;
+  }
+
+  if (m_blocks.is_empty()) return;
+
+  let &entry = m_blocks.front();
+  if (entry.size > DEFAULT_BLOCK_SIZE) {
+    std::free(entry.base);
+    m_blocks.pop_back();
+  } else {
+    entry.used = 0;
+  }
 }
 
 } // namespace wr
