@@ -1273,15 +1273,12 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
   const [siteQuery, setSiteQuery] = useState("");
   const [showActions, setShowActions] = useState(false);
   const [actionQuery, setActionQuery] = useState("");
-  const [showComments, setShowComments] = useState(false);
-  const [commentQuery, setCommentQuery] = useState("");
   const [busyCommentId, setBusyCommentId] = useState(null);
   const [isCacheBusy, setIsCacheBusy] = useState(false);
   const [cacheNotice, setCacheNotice] = useState(null);
   const [cacheError, setCacheError] = useState(null);
   useEscape(() => setShowAllSites(false), showAllSites);
   useEscape(() => setShowActions(false), showActions);
-  useEscape(() => setShowComments(false), showComments);
   const reload = () => {
     api
       .me()
@@ -1366,7 +1363,7 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
       <h1>admin</h1>
       <p>Signed in as {account.display_name}.</p>
       <button class="primary" onClick={() => setShowActions(true)}>
-        pending actions.. ({pending.length})
+        pending actions.. ({pending.length + pendingComments.length})
       </button>
       {showActions ? (
         <SearchModal
@@ -1375,34 +1372,20 @@ export function Admin({ me: appMe, onLogin, onLogout }) {
           onQuery={setActionQuery}
           searchLabel="search pending actions"
           searchPlaceholder="search by user or content"
-          isEmpty={pending.length === 0}
+          isEmpty={pending.length + pendingComments.length === 0}
           emptyText="Nothing is waiting for review."
           onClose={() => setShowActions(false)}
         >
           <ul class="pendings modal-scroll">
             {matchPending(pending, actionQuery).map((action) => (
-              <PendingRow key={action.id} action={action} onResolved={reload} />
+              <PendingRow
+                key={`action-${action.id}`}
+                action={action}
+                onResolved={reload}
+              />
             ))}
-          </ul>
-        </SearchModal>
-      ) : null}
-      <button class="primary" onClick={() => setShowComments(true)}>
-        pending comments.. ({pendingComments.length})
-      </button>
-      {showComments ? (
-        <SearchModal
-          title="pending comments"
-          query={commentQuery}
-          onQuery={setCommentQuery}
-          searchLabel="search pending comments"
-          searchPlaceholder="search by user or content"
-          isEmpty={pendingComments.length === 0}
-          emptyText="No comments are waiting for review."
-          onClose={() => setShowComments(false)}
-        >
-          <ul class="pending-comments modal-scroll">
-            {matchComments(pendingComments, commentQuery).map((comment) => (
-              <li class="pending-comment" key={comment.id}>
+            {matchComments(pendingComments, actionQuery).map((comment) => (
+              <li class="pending-comment" key={`comment-${comment.id}`}>
                 <div class="comment-head">
                   <CommentAuthor comment={comment} />
                   <span class="comment-time">

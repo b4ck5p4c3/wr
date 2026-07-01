@@ -1319,15 +1319,6 @@ footer {
   margin: 1.5ch auto 0;
 }
 
-.pending-comments {
-  list-style: none;
-  margin: 0 0 1.5ch;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1ch;
-}
-
 .pending-comment {
   display: flex;
   flex-direction: column;
