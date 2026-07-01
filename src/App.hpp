@@ -115,6 +115,7 @@ mustuse fn find_cookie(StringView cookie_header, StringView name)
 
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions = nullptr,
-                   const ArrayList<String> *reacted = nullptr) -> void;
+                   const ArrayList<String> *reacted = nullptr,
+                   const i64 *click_count = nullptr) -> void;
 
 } // namespace wr

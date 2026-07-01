@@ -604,16 +604,34 @@ function cardBody(site, ctx) {
         </span>
       </header>
       {site.description ? <p class="tweet-text">{site.description}</p> : null}
-      <a
-        class="tweet-link"
-        href={site.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={recordClick}
-      >
-        {"visit " + displayUrl(site.url)}
-      </a>
+      <div class="tweet-foot">
+        {site.click_count != null ? (
+          <span class="tweet-clicks" title="clicks">
+            <svg
+              class="tweet-clicks-icon"
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              aria-hidden="true"
+            >
+              <rect x="3" y="13" width="4" height="7" />
+              <rect x="10" y="8" width="4" height="12" />
+              <rect x="17" y="3" width="4" height="17" />
+            </svg>
+            {site.click_count}
+          </span>
+        ) : null}
+        <a
+          class="tweet-link"
+          href={site.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={recordClick}
+        >
+          {"visit " + displayUrl(site.url)}
+        </a>
+      </div>
       <ReactionBar
         site={site}
         me={ctx.me}
@@ -1184,7 +1202,7 @@ export function AddSiteForm({
         isInvalidChar={() => !isValidUrlForm(form.url)}
       />
       <DescriptionField
-        placeholder="description (at least 8 characters)"
+        placeholder="description"
         value={form.description}
         onInput={field("description")}
       />

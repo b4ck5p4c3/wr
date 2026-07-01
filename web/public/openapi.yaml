@@ -815,6 +815,12 @@ components:
             public listing only when a session cookie is sent.
           items:
             type: string
+        click_count:
+          type: integer
+          format: int64
+          description: >-
+            The recorded outbound clicks, present on the public listing only
+            when the server runs with metrics enabled.
       required:
         [
           slug,

@@ -154,6 +154,7 @@ public:
   fn record_click(StringView slug) -> ErrorOr<Ok>;
   fn record_hop(StringView slug) -> ErrorOr<Ok>;
   mustuse fn get_site_metrics() const -> ErrorOr<ArrayList<site_metric>>;
+  mustuse fn get_click_count(StringView slug) const -> ErrorOr<i64>;
 
   mustuse fn find_account(const identity &who) const -> ErrorOr<Maybe<account>>;
   fn upsert_account(const identity &who, bool is_admin) -> ErrorOr<Ok>;

@@ -300,14 +300,22 @@ img {
 }
 
 /* On a phone the cylinder is replaced by a plain vertical list of cards. */
+/* On a phone the ring is a plain vertical timeline, the cards stack full width
+   and are split by a divider rather than floated as separate slabs. */
 .ring-vertical {
   list-style: none;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.2ch;
-  max-width: 360px;
+  gap: 0;
+  max-width: 100%;
+}
+
+.tui-card {
+  box-shadow: none;
+  border-width: 0 0 1px 0;
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .tui-card,
@@ -493,12 +501,34 @@ img {
   line-clamp: 4;
 }
 
-/* The visit button is the last in-flow child, so a top auto margin drops it to
-   the bottom right corner of the card under the description. */
-.tweet-link {
+/* The footer is the last in-flow child, so a top auto margin drops it to the
+   bottom of the card under the description, the clicks on the left and the visit
+   link on the right. */
+.tweet-foot {
   margin-top: auto;
-  align-self: flex-end;
-  max-width: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1ch;
+}
+
+.tweet-clicks {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4ch;
+  flex: 0 0 auto;
+  color: var(--footer-text);
+  text-shadow: none;
+}
+
+.tweet-clicks-icon {
+  fill: currentColor;
+  opacity: 0.85;
+}
+
+.tweet-link {
+  min-width: 0;
   text-shadow: none;
   white-space: nowrap;
   overflow: hidden;

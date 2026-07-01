@@ -180,7 +180,8 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
    built from it. The dev bypass accounts point at GitHub. */
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions,
-                   const ArrayList<String> *reacted) -> void
+                   const ArrayList<String> *reacted, const i64 *click_count)
+    -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -209,6 +210,11 @@ fn write_site_json(JsonWriter &writer, const site &row,
     for (usize i = 0; i < reacted->count(); i++)
       writer.string((*reacted)[i].view());
     writer.array_end();
+  }
+
+  if (click_count != nullptr) {
+    writer.key("click_count");
+    writer.number(*click_count);
   }
 
   writer.object_end();
@@ -458,7 +464,18 @@ fn App::write_listing_site(JsonWriter &writer, const site &row,
     if (!reacted_or.is_error()) reacted = reacted_or.value().clone();
   }
 
-  write_site_json(writer, row, &counts, who.has_value() ? &reacted : nullptr);
+  i64 click_count = 0;
+  bool has_click_count = false;
+  if (m_config.is_metrics_enabled) {
+    let const clicks_or = m_store.get_click_count(row.slug.view());
+    if (!clicks_or.is_error()) {
+      click_count = clicks_or.value();
+      has_click_count = true;
+    }
+  }
+
+  write_site_json(writer, row, &counts, who.has_value() ? &reacted : nullptr,
+                  has_click_count ? &click_count : nullptr);
 }
 
 fn App::handle_sites(HttpServerEvent &event) -> void

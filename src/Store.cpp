@@ -567,6 +567,17 @@ fn Store::get_site_metrics() const -> ErrorOr<ArrayList<site_metric>>
   return metrics;
 }
 
+fn Store::get_click_count(StringView slug) const -> ErrorOr<i64>
+{
+  let statement = TRY(m_database.prepare(
+      "SELECT click_count FROM site_metrics WHERE slug = ?;"));
+  statement.bind(slug);
+
+  if (TRY(statement.step())) return statement.get<i64>();
+
+  return i64{0};
+}
+
 fn Store::find_account(const identity &who) const -> ErrorOr<Maybe<account>>
 {
   let statement =
