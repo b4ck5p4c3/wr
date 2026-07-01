@@ -1078,6 +1078,23 @@ export function AddSiteForm({
         value={form.slug}
         onInput={field("slug")}
       />
+      <p class="hint">
+        slug allows a-z, 0-9, and a dash
+        {form.slug ? (
+          <span class="slug-preview">
+            {" "}
+            {Array.from(form.slug).map((character, index) =>
+              /[a-z0-9-]/.test(character) ? (
+                <span key={index}>{character}</span>
+              ) : (
+                <span key={index} class="invalid-char">
+                  {character}
+                </span>
+              ),
+            )}
+          </span>
+        ) : null}
+      </p>
       <input
         aria-label="site name"
         placeholder="name"

@@ -1067,6 +1067,16 @@ code {
   color: #e6dff4;
 }
 
+.slug-preview {
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.invalid-char {
+  color: var(--down);
+  text-decoration: underline;
+}
+
 .error {
   color: var(--down);
 }
