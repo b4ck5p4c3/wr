@@ -111,6 +111,8 @@ fn validate_site_input(const Json &document, site_input &out) -> const char *
 
   out.description =
       description.has_value() ? description.value() : StringView{};
+  if (out.description.count() < 8)
+    return "The description must be at least 8 characters";
   if (out.description.count() > 280)
     return "The description must be 280 characters or fewer";
 

@@ -983,8 +983,10 @@ components:
           description: An http or https url.
         description:
           type: string
-          description: A short blurb, 280 characters or fewer.
-      required: [slug, name, url]
+          minLength: 8
+          maxLength: 280
+          description: A short blurb, 8 to 280 characters.
+      required: [slug, name, url, description]
     RenameInput:
       type: object
       properties:

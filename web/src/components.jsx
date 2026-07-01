@@ -1184,12 +1184,16 @@ export function AddSiteForm({
         isInvalidChar={() => !isValidUrlForm(form.url)}
       />
       <DescriptionField
-        placeholder="description (optional)"
+        placeholder="description (at least 8 characters)"
         value={form.description}
         onInput={field("description")}
       />
       {formHint ? <p class="hint">{formHint}</p> : null}
-      <button class="primary" type="submit">
+      <button
+        class="primary"
+        type="submit"
+        disabled={isAnyRequiredEmpty || isDescriptionShort}
+      >
         {submitLabel}..
       </button>
       {message ? <p class="hint">{message}</p> : null}
