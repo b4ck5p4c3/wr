@@ -161,10 +161,9 @@ fn App::handle_me(HttpServerEvent &event) -> void
   let const now = now_seconds();
   let const &sites = sites_or.value();
   for (usize i = 0; i < sites.count(); i++) {
-    let const history_or =
-        m_store.get_liveness_history(sites[i].slug.view(), now);
+    let history_or = m_store.get_liveness_history(sites[i].slug.view(), now);
     ArrayList<i64> uptime{m_allocator};
-    if (!history_or.is_error()) uptime = history_or.value().clone();
+    if (!history_or.is_error()) uptime = steal(history_or.value());
 
     write_panel_site(writer, sites[i], uptime);
   }

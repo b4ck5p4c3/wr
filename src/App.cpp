@@ -455,15 +455,15 @@ fn App::dispatch(HttpServerEvent &event) -> void
 fn App::write_listing_site(JsonWriter &writer, const site &row,
                            const Maybe<account> &who) -> void
 {
-  let const counts_or = m_store.get_reactions(row.slug.view());
+  let counts_or = m_store.get_reactions(row.slug.view());
   ArrayList<reaction_count> counts{m_allocator};
-  if (!counts_or.is_error()) counts = counts_or.value().clone();
+  if (!counts_or.is_error()) counts = steal(counts_or.value());
 
   ArrayList<String> reacted{m_allocator};
   if (who.has_value()) {
-    let const reacted_or =
+    let reacted_or =
         m_store.get_user_reactions(row.slug.view(), who.value().who);
-    if (!reacted_or.is_error()) reacted = reacted_or.value().clone();
+    if (!reacted_or.is_error()) reacted = steal(reacted_or.value());
   }
 
   i64 click_count = 0;
