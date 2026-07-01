@@ -88,6 +88,7 @@ export function useEscape(onClose, isOpen) {
 const CLICK_PARTICLE_COUNT = 12;
 
 function spawnClickParticles(originX, originY) {
+  const fragment = document.createDocumentFragment();
   for (let i = 0; i < CLICK_PARTICLE_COUNT; i++) {
     const particle = document.createElement("span");
     particle.className = "click-particle";
@@ -98,9 +99,10 @@ function spawnClickParticles(originX, originY) {
     particle.style.top = originY + "px";
     particle.style.setProperty("--dx", Math.cos(angle) * distance + "px");
     particle.style.setProperty("--dy", Math.sin(angle) * distance + "px");
-    document.body.appendChild(particle);
+    fragment.appendChild(particle);
     particle.addEventListener("animationend", () => particle.remove());
   }
+  document.body.appendChild(fragment);
 }
 
 // Every enabled button across the site scatters a spark burst on click. The
