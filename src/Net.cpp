@@ -97,7 +97,7 @@ fn address_is_private(const sockaddr *address) -> bool
   if (address->sa_family == AF_INET6) {
     let const bytes =
         reinterpret_cast<const sockaddr_in6 *>(address)->sin6_addr.s6_addr;
-    bool is_loopback = bytes[15] == 1;
+    let is_loopback = bytes[15] == 1;
     for (usize i = 0; i < 15; i++)
       if (bytes[i] != 0) is_loopback = false;
     if (is_loopback) return true;

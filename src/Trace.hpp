@@ -57,9 +57,9 @@ inline fn set_log_file(Path path) -> ErrorOr<Ok>
   return Success;
 }
 
-constexpr const char *verbosity_to_string(verbosity verbosity)
+constexpr const char *verbosity_to_string(verbosity level)
 {
-  switch (verbosity) {
+  switch (level) {
   case verbosity::Nothing: return "OFF";
   case verbosity::Info: return "INF";
   case verbosity::Debug: return "DBG";
@@ -134,19 +134,22 @@ inline fn log_emit(verbosity level, const char *file_line, const char *func,
 
 namespace log_detail {
 
-inline String value_to_log_string(StringView value) { return String{value}; }
+inline fn value_to_log_string(StringView value) -> String
+{
+  return String{value};
+}
 
-inline String value_to_log_string(const char *value)
+inline fn value_to_log_string(const char *value) -> String
 {
   return value != nullptr ? String{value} : String{"(null)"};
 }
 
-inline String value_to_log_string(bool value)
+inline fn value_to_log_string(bool value) -> String
 {
   return value ? String{"true"} : String{"false"};
 }
 
-inline String value_to_log_string(char value)
+inline fn value_to_log_string(char value) -> String
 {
   String out{};
   out.push(value);
@@ -155,7 +158,7 @@ inline String value_to_log_string(char value)
 
 template <class T>
   requires(__is_integral(T))
-String value_to_log_string(T value)
+fn value_to_log_string(T value) -> String
 {
   char buffer[32];
   if constexpr (__is_signed(T)) {
@@ -170,7 +173,7 @@ String value_to_log_string(T value)
 
 template <class T>
   requires(__is_floating_point(T))
-String value_to_log_string(T value)
+fn value_to_log_string(T value) -> String
 {
   char buffer[64];
   std::snprintf(buffer, sizeof(buffer), "%g", static_cast<double>(value));
@@ -179,7 +182,7 @@ String value_to_log_string(T value)
 
 template <class T>
   requires(__is_pointer(T))
-String value_to_log_string(T value)
+fn value_to_log_string(T value) -> String
 {
   char buffer[32];
   std::snprintf(buffer, sizeof(buffer), "%p", static_cast<const void *>(value));
@@ -187,13 +190,13 @@ String value_to_log_string(T value)
 }
 
 template <class... Args>
-String format_named_values(StringView names, Args &&...args)
+fn format_named_values(StringView names, Args &&...args) -> String
 {
   String out{};
   usize index = 0;
   const usize value_count = sizeof...(Args);
 
-  auto do_append_one = [&](auto &&value) {
+  let const do_append_one = [&](auto &&value) {
     StringView name = names;
     Maybe<usize> comma_position = names.find_character(',');
     if (comma_position.has_value()) {
