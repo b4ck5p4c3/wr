@@ -78,17 +78,14 @@ fn Sqlite::acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>
       return entry.handle;
     }
 
-  let const text = String{m_allocator, sql};
+  let text = String{m_allocator, sql};
   sqlite3_stmt *handle = nullptr;
   if (sqlite3_prepare_v2(m_connection, text.c_str(), -1, &handle, nullptr) !=
       SQLITE_OK)
     return make_error("Unable to prepare the statement");
 
   if (m_statement_cache.count() < STATEMENT_CACHE_CAPACITY) {
-    m_statement_cache.push(cached_statement{
-        String{m_allocator, sql},
-        handle, m_use_count
-    });
+    m_statement_cache.push(cached_statement{steal(text), handle, m_use_count});
     return handle;
   }
 
@@ -99,10 +96,8 @@ fn Sqlite::acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>
       evicted_index = i;
 
   sqlite3_finalize(m_statement_cache[evicted_index].handle);
-  m_statement_cache[evicted_index] = cached_statement{
-      String{m_allocator, sql},
-      handle, m_use_count
-  };
+  m_statement_cache[evicted_index] =
+      cached_statement{steal(text), handle, m_use_count};
   return handle;
 }
 
