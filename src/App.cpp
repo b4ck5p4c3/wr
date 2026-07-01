@@ -752,6 +752,20 @@ fn App::reply_redirect(HttpServerEvent &event, StringView location) -> void
   emit(event, 302, headers, "");
 }
 
+fn App::record_audit_or_log(HttpServerEvent &event, const identity &actor,
+                            StringView action, StringView target,
+                            StringView detail) -> void
+{
+  if (m_store
+          .record_audit(actor,
+                        client_address(event, m_config.is_forwarded_trusted),
+                        action, target, detail, now_seconds())
+          .is_error())
+    LOG(Info, "audit record dropped, action=%.*s target=%.*s",
+        static_cast<int>(action.count()), action.data,
+        static_cast<int>(target.count()), target.data);
+}
+
 fn App::reply_message(HttpServerEvent &event, u16 status, StringView message)
     -> void
 {

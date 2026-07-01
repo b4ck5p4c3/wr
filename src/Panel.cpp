@@ -230,13 +230,7 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  if (m_store
-          .record_audit(who.who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        "submit add", input.slug, input.name, now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for submit add %.*s",
-        static_cast<int>(input.slug.count()), input.slug.data);
+  record_audit_or_log(event, who.who, "submit add", input.slug, input.name);
 
   reply_message(event, 200, "Your site was submitted for review");
 }
@@ -272,13 +266,8 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  if (m_store
-          .record_audit(
-              who.who, client_address(event, m_config.is_forwarded_trusted),
-              "submit rename", slug.value(), name.value(), now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for submit rename %.*s",
-        static_cast<int>(slug.value().count()), slug.value().data);
+  record_audit_or_log(event, who.who, "submit rename", slug.value(),
+                      name.value());
 
   reply_message(event, 200, "Your rename was submitted for review");
 }
@@ -327,14 +316,9 @@ fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  if (m_store
-          .record_audit(who.who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        toggled.value() ? "react add" : "react remove",
-                        slug.value(), emoji.value(), now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for react on %.*s",
-        static_cast<int>(slug.value().count()), slug.value().data);
+  record_audit_or_log(event, who.who,
+                      toggled.value() ? "react add" : "react remove",
+                      slug.value(), emoji.value());
 
   reply_message(event, 200,
                 toggled.value() ? "Reaction added" : "Reaction removed");
@@ -453,12 +437,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
   }
 
   let const audit_detail = to_single_line(m_allocator, body.value());
-  if (m_store
-          .record_audit(who.who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        "comment", "", audit_detail.view(), now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for comment by %s", who.who.name.c_str());
+  record_audit_or_log(event, who.who, "comment", "", audit_detail.view());
 
   reply_message(event, 200, "Comment posted");
 }
@@ -512,14 +491,9 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
   let const audit_target =
       to_single_line(m_allocator, target.author.name.view());
   let const audit_detail = to_single_line(m_allocator, target.body.view());
-  if (m_store
-          .record_audit(who.value().who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        should_approve ? "comment approve" : "comment delete",
-                        audit_target.view(), audit_detail.view(), now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for comment %lld",
-        static_cast<long long>(id));
+  record_audit_or_log(event, who.value().who,
+                      should_approve ? "comment approve" : "comment delete",
+                      audit_target.view(), audit_detail.view());
 
   reply_message(event, 200,
                 should_approve ? "Comment approved" : "Comment deleted");
@@ -533,12 +507,7 @@ fn App::handle_admin_cache_clear(HttpServerEvent &event) -> void
   m_store.clear_statement_cache();
   LOG(Info, "statement cache cleared");
 
-  if (m_store
-          .record_audit(who.value().who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        "cache clear", "", "", now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for cache clear");
+  record_audit_or_log(event, who.value().who, "cache clear", "", "");
 
   reply_message(event, 200, "Cache cleared");
 }
@@ -581,13 +550,8 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
     return;
   }
 
-  if (m_store
-          .record_audit(who.value().who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        "add site", input.slug, input.name, now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for add %.*s",
-        static_cast<int>(input.slug.count()), input.slug.data);
+  record_audit_or_log(event, who.value().who, "add site", input.slug,
+                      input.name);
 
   reply_message(event, 200, "Site added");
 }
@@ -620,14 +584,8 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
     return;
   }
 
-  if (m_store
-          .record_audit(who.value().who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        "remove site", slug.value(),
-                        found.value().value().name.view(), now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for remove %.*s",
-        static_cast<int>(slug.value().count()), slug.value().data);
+  record_audit_or_log(event, who.value().who, "remove site", slug.value(),
+                      found.value().value().name.view());
 
   reply_message(event, 200, "Site removed");
 }
@@ -679,13 +637,8 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
     LOG(Info, "recheck schedule dropped for %.*s",
         static_cast<int>(input.slug.count()), input.slug.data);
 
-  if (m_store
-          .record_audit(who.value().who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        "edit site", input.slug, input.name, now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for edit %.*s",
-        static_cast<int>(input.slug.count()), input.slug.data);
+  record_audit_or_log(event, who.value().who, "edit site", input.slug,
+                      input.name);
 
   reply_message(event, 200, "Saved");
 }
@@ -918,14 +871,8 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
   String action_label{m_allocator};
   action_label.append(should_approve ? "approve " : "reject ");
   action_label.append(action.kind.view());
-  if (m_store
-          .record_audit(who.value().who,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        action_label.view(), action.target_slug.view(),
-                        action.owner.name.view(), now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped for pending %lld",
-        static_cast<long long>(id));
+  record_audit_or_log(event, who.value().who, action_label.view(),
+                      action.target_slug.view(), action.owner.name.view());
 
   reply_message(event, 200, should_approve ? "Approved" : "Rejected");
 }

@@ -88,6 +88,9 @@ private:
   fn reply_redirect(HttpServerEvent &event, StringView location) -> void;
   fn reply_message(HttpServerEvent &event, u16 status, StringView message)
       -> void;
+  fn record_audit_or_log(HttpServerEvent &event, const identity &actor,
+                         StringView action, StringView target,
+                         StringView detail) -> void;
   fn reply_comments_json(HttpServerEvent &event,
                          const ArrayList<comment> &comments) -> void;
   fn finish_login(HttpServerEvent &event, const identity &who,
