@@ -266,6 +266,7 @@ img {
    holds its shape when the ring replaces the placeholder. */
 .ring-area {
   min-height: 360px;
+  padding: 2.5ch 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -274,6 +275,7 @@ img {
 @media (max-width: 640px) {
   .ring-area {
     min-height: 0;
+    align-items: stretch;
   }
 }
 
@@ -309,7 +311,7 @@ img {
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-width: 100%;
+  width: 100%;
 }
 
 .tui-card {

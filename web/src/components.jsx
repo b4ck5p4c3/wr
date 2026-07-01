@@ -965,7 +965,11 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
             add a site..
           </button>
           {showAddSite ? (
-            <Modal label="add a site" onClose={() => setShowAddSite(false)}>
+            <Modal
+              label="add a site"
+              wide
+              onClose={() => setShowAddSite(false)}
+            >
               <AddSiteForm
                 onAdded={() => {
                   reload();
