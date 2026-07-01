@@ -194,9 +194,6 @@ public:
   }
 
 private:
-  mustuse fn query_sites(const char *filter_sql, const identity *owner) const
-      -> ErrorOr<ArrayList<site>>;
-
   Allocator m_allocator;
   SqlDatabase &m_database;
 };

@@ -173,18 +173,16 @@ fn Store::migrate() -> ErrorOr<Ok>
   return Success;
 }
 
-fn Store::query_sites(const char *filter_sql, const identity *owner) const
-    -> ErrorOr<ArrayList<site>>
+fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
 {
   ArrayList<site> sites{m_allocator};
   String sql{m_allocator};
   sql.append("SELECT ");
   sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites ");
-  sql.append(filter_sql);
+  sql.append(" FROM sites WHERE is_reachable = 1 AND is_deleted = 0 "
+             "ORDER BY created_at, slug;");
 
   let statement = TRY(m_database.prepare(sql.view()));
-  if (owner != nullptr) bind_identity(statement, *owner);
 
   while (TRY(statement.step()))
     sites.push(read_site(statement));
@@ -192,25 +190,39 @@ fn Store::query_sites(const char *filter_sql, const identity *owner) const
   return sites;
 }
 
-fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
-{
-  return query_sites(
-      "WHERE is_reachable = 1 AND is_deleted = 0 ORDER BY created_at, slug;",
-      nullptr);
-}
-
 fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
 {
-  return query_sites("WHERE is_deleted = 0 ORDER BY created_at, slug;",
-                     nullptr);
+  ArrayList<site> sites{m_allocator};
+  String sql{m_allocator};
+  sql.append("SELECT ");
+  sql.append(SITE_COLUMNS);
+  sql.append(" FROM sites WHERE is_deleted = 0 ORDER BY created_at, slug;");
+
+  let statement = TRY(m_database.prepare(sql.view()));
+
+  while (TRY(statement.step()))
+    sites.push(read_site(statement));
+
+  return sites;
 }
 
 fn Store::list_sites_for_owner(const identity &owner) const
     -> ErrorOr<ArrayList<site>>
 {
-  return query_sites("WHERE owner_source = ? AND owner_name = ? AND "
-                     "is_deleted = 0 ORDER BY created_at, slug;",
-                     &owner);
+  ArrayList<site> sites{m_allocator};
+  String sql{m_allocator};
+  sql.append("SELECT ");
+  sql.append(SITE_COLUMNS);
+  sql.append(" FROM sites WHERE owner_source = ? AND owner_name = ? AND "
+             "is_deleted = 0 ORDER BY created_at, slug;");
+
+  let statement = TRY(m_database.prepare(sql.view()));
+  bind_identity(statement, owner);
+
+  while (TRY(statement.step()))
+    sites.push(read_site(statement));
+
+  return sites;
 }
 
 fn Store::find_site(StringView slug) const -> ErrorOr<Maybe<site>>
