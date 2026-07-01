@@ -12,14 +12,14 @@ static const StringView GITHUB_USER_AGENT = "wr-webring";
 
 fn App::handle_login_github(HttpServerEvent &event) -> void
 {
-  let const state_or = random_token(m_allocator);
+  let const state_or = random_token(event.request_allocator());
   if (state_or.is_error()) {
     reply_message(event, 500, "Unable to start the login");
     return;
   }
   let const &state = state_or.value();
 
-  String url{m_allocator};
+  String url{event.request_allocator()};
   url.append("https://github.com/login/oauth/authorize?client_id=");
   url.append(m_config.github_client_id.view());
   url.append("&redirect_uri=");
@@ -27,12 +27,12 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
   url.append("/auth/github/callback&scope=read:user&state=");
   url.append(state.view());
 
-  String cookie{m_allocator};
+  String cookie{event.request_allocator()};
   cookie.append("wr_oauth_state=");
   cookie.append(state.view());
   cookie.append("; Path=/; HttpOnly; SameSite=Lax; Max-Age=600");
 
-  HttpHeaders headers{m_allocator};
+  HttpHeaders headers{event.request_allocator()};
   headers.set("Location", url.view());
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "github login started");
@@ -41,8 +41,10 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
 
 fn App::handle_github_callback(HttpServerEvent &event) -> void
 {
-  let const code = find_query_param(event.query(), "code", m_allocator);
-  let const state = find_query_param(event.query(), "state", m_allocator);
+  let const code =
+      find_query_param(event.query(), "code", event.request_allocator());
+  let const state =
+      find_query_param(event.query(), "state", event.request_allocator());
   let const cookie_header = event.request_headers().get("cookie");
   if (!code.has_value() || !state.has_value() || !cookie_header.has_value()) {
     LOG(Info, "github callback rejected, missing oauth parameters");
@@ -58,7 +60,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  String token_body{m_allocator};
+  String token_body{event.request_allocator()};
   token_body.append("client_id=");
   token_body.append(m_config.github_client_id.view());
   token_body.append("&client_secret=");
@@ -66,7 +68,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   token_body.append("&code=");
   token_body.append(code.value().view());
 
-  HttpRequestBuilder token_builder{m_allocator};
+  HttpRequestBuilder token_builder{event.request_allocator()};
   let const token_request =
       token_builder.set_method(HttpMethod::Post)
           .set_url("https://github.com/login/oauth/access_token")
@@ -81,7 +83,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     return;
   }
   let const token_document =
-      Json::from(m_allocator, token_response.value().body());
+      Json::from(event.request_allocator(), token_response.value().body());
   let const access_token = token_document["access_token"].to<StringView>();
   if (!access_token.has_value()) {
     LOG(Info, "github refused the code");
@@ -89,11 +91,11 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  String authorization{m_allocator};
+  String authorization{event.request_allocator()};
   authorization.append("token ");
   authorization.append(access_token.value());
 
-  HttpRequestBuilder user_builder{m_allocator};
+  HttpRequestBuilder user_builder{event.request_allocator()};
   let const user_request =
       user_builder.set_method(HttpMethod::Get)
           .set_url("https://api.github.com/user")
@@ -108,7 +110,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
   }
 
   let const user_document =
-      Json::from(m_allocator, user_response.value().body());
+      Json::from(event.request_allocator(), user_response.value().body());
   let const id = user_document["id"].to<i64>();
   let const login = user_document["login"].to<StringView>();
   if (!id.has_value() || !login.has_value()) {
@@ -117,7 +119,7 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  String name{m_allocator};
+  String name{event.request_allocator()};
   name.append(login.value());
   finish_login(event, identity{identity_source::github, move(name)});
 }
@@ -125,8 +127,9 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
 fn App::handle_telegram_callback(HttpServerEvent &event) -> void
 {
   let const query = event.query();
-  let const provided_hash = find_query_param(query, "hash", m_allocator);
-  let const id = find_query_param(query, "id", m_allocator);
+  let const provided_hash =
+      find_query_param(query, "hash", event.request_allocator());
+  let const id = find_query_param(query, "id", event.request_allocator());
   if (!provided_hash.has_value() || !id.has_value()) {
     LOG(Info, "telegram callback rejected, missing parameters");
     reply_message(event, 400, "Missing the Telegram parameters");
@@ -137,10 +140,10 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
      key=value line, with the hash field left out. */
   let const fields = {"auth_date", "first_name", "id",
                       "last_name", "photo_url",  "username"};
-  String check{m_allocator};
+  String check{event.request_allocator()};
   bool is_first = true;
   for (const char *field : fields) {
-    let const value = find_query_param(query, field, m_allocator);
+    let const value = find_query_param(query, field, event.request_allocator());
     if (!value.has_value()) continue;
     if (!is_first) check.push('\n');
     is_first = false;
@@ -167,7 +170,7 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  String computed{m_allocator};
+  String computed{event.request_allocator()};
   append_hex(computed, digest, sizeof(digest));
   if (!constant_time_equal(computed.view(), provided_hash.value().view())) {
     LOG(Info, "telegram callback rejected, signature mismatch");
@@ -177,7 +180,8 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
 
   /* A valid signature can be replayed forever, so the login is rejected once it
      is more than a day old. */
-  let const auth_date = find_query_param(query, "auth_date", m_allocator);
+  let const auth_date =
+      find_query_param(query, "auth_date", event.request_allocator());
   let const signed_at =
       auth_date.has_value() ? parse_i64(auth_date.value().view(), 0) : 0;
   let const age_seconds = now_seconds() - signed_at;
@@ -187,8 +191,9 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
     return;
   }
 
-  let const username = find_query_param(query, "username", m_allocator);
-  String name{m_allocator};
+  let const username =
+      find_query_param(query, "username", event.request_allocator());
+  String name{event.request_allocator()};
   name.append(username.has_value() ? username.value().view()
                                    : id.value().view());
   finish_login(event, identity{identity_source::telegram, move(name)});
@@ -203,7 +208,7 @@ fn App::handle_logout(HttpServerEvent &event) -> void
       LOG(Info, "logout session delete dropped");
   }
 
-  HttpHeaders headers{m_allocator};
+  HttpHeaders headers{event.request_allocator()};
   headers.set("Location", "/");
   headers.set("Set-Cookie",
               "wr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
@@ -230,7 +235,7 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
     return;
   }
 
-  let const token_or = random_token(m_allocator);
+  let const token_or = random_token(event.request_allocator());
   if (token_or.is_error()) {
     reply_message(event, 500, "Unable to open the session");
     return;
@@ -243,12 +248,12 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
     return;
   }
 
-  String cookie{m_allocator};
+  String cookie{event.request_allocator()};
   cookie.append("wr_session=");
   cookie.append(token.view());
   cookie.append("; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000");
 
-  HttpHeaders headers{m_allocator};
+  HttpHeaders headers{event.request_allocator()};
   headers.set("Location", is_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "login for %s", who.name.c_str());
@@ -262,13 +267,14 @@ fn App::handle_dev_login(HttpServerEvent &event) -> void
     return;
   }
 
-  let const role = find_query_param(event.query(), "role", m_allocator);
+  let const role =
+      find_query_param(event.query(), "role", event.request_allocator());
   let const is_admin = role.has_value() && role.value().view() == "admin";
   LOG(Info, "dev login bypass, role=%s", is_admin ? "admin" : "user");
 
   /* The bypass account is fixed per role, so a dev login reuses the same row
      and the same sites across runs. */
-  String name{m_allocator};
+  String name{event.request_allocator()};
   name.append(is_admin ? "toiletbril" : "radi0dev");
   finish_login(event, identity{identity_source::dev, move(name)},
                Maybe<bool>{is_admin});

@@ -149,7 +149,7 @@ fn App::handle_me(HttpServerEvent &event) -> void
     return;
   }
 
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.object_begin();
   writer.field("oauth", source_oauth(me.who.source));
   writer.field("tag", me.who.name.view());
@@ -162,7 +162,7 @@ fn App::handle_me(HttpServerEvent &event) -> void
   let const &sites = sites_or.value();
   for (usize i = 0; i < sites.count(); i++) {
     let history_or = m_store.get_liveness_history(sites[i].slug.view(), now);
-    ArrayList<i64> uptime{m_allocator};
+    ArrayList<i64> uptime{event.request_allocator()};
     if (!history_or.is_error())
       uptime = steal(history_or.value());
     else
@@ -194,7 +194,7 @@ fn App::handle_me(HttpServerEvent &event) -> void
 
 fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
 {
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   site_input input{};
   if (let const error = validate_site_input(document, input); error != nullptr)
   {
@@ -216,7 +216,7 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  JsonWriter payload{m_allocator};
+  JsonWriter payload{event.request_allocator()};
   payload.object_begin();
   payload.field("name", input.name);
   payload.field("url", input.url);
@@ -237,7 +237,7 @@ fn App::handle_user_add(HttpServerEvent &event, const account &who) -> void
 
 fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
 {
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   site_input input{};
   if (let const error = validate_site_input(document, input); error != nullptr)
   {
@@ -255,7 +255,7 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  JsonWriter payload{m_allocator};
+  JsonWriter payload{event.request_allocator()};
   payload.object_begin();
   payload.field("name", input.name);
   payload.field("url", input.url);
@@ -276,7 +276,7 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
 
 fn App::handle_user_react(HttpServerEvent &event, const account &who) -> void
 {
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   let const slug = document["slug"].to<StringView>();
   let const emoji = document["emoji"].to<StringView>();
   if (!slug.has_value() || !emoji.has_value()) {
@@ -333,7 +333,7 @@ fn App::handle_site_click(HttpServerEvent &event) -> void
     return;
   }
 
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   let const slug = document["slug"].to<StringView>();
   if (!slug.has_value()) {
     reply_message(event, 400, "A slug is required");
@@ -361,7 +361,7 @@ fn App::handle_site_click(HttpServerEvent &event) -> void
 fn App::reply_comments_json(HttpServerEvent &event,
                             const ArrayList<comment> &comments) -> void
 {
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.array_begin();
   for (usize i = 0; i < comments.count(); i++)
     write_comment_json(writer, comments[i]);
@@ -376,8 +376,9 @@ fn App::handle_comments_list(HttpServerEvent &event) -> void
   static constexpr i64 COMMENT_PAGE_LIMIT_MAX = 100;
 
   let const offset_param =
-      find_query_param(event.query(), "offset", m_allocator);
-  let const limit_param = find_query_param(event.query(), "limit", m_allocator);
+      find_query_param(event.query(), "offset", event.request_allocator());
+  let const limit_param =
+      find_query_param(event.query(), "limit", event.request_allocator());
 
   i64 offset_count = 0;
   if (offset_param.has_value())
@@ -415,7 +416,7 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   let const body = document["body"].to<StringView>();
   if (!body.has_value() || body.value().is_empty()) {
     reply_message(event, 400, "A comment body is required");
@@ -438,7 +439,8 @@ fn App::handle_comment_post(HttpServerEvent &event, const account &who) -> void
     return;
   }
 
-  let const audit_detail = to_single_line(m_allocator, body.value());
+  let const audit_detail =
+      to_single_line(event.request_allocator(), body.value());
   record_audit_or_log(event, who.who, "comment", "", audit_detail.view());
 
   reply_message(event, 200, "Comment posted");
@@ -464,7 +466,7 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
   let const who = require_admin(event);
   if (!who.has_value()) return;
 
-  let const request = Json::from(m_allocator, event.body());
+  let const request = Json::from(event.request_allocator(), event.body());
   let const id_or = request["id"].to<i64>();
   if (!id_or.has_value()) {
     reply_message(event, 400, "An id is required");
@@ -491,8 +493,9 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
   }
 
   let const audit_target =
-      to_single_line(m_allocator, target.author.name.view());
-  let const audit_detail = to_single_line(m_allocator, target.body.view());
+      to_single_line(event.request_allocator(), target.author.name.view());
+  let const audit_detail =
+      to_single_line(event.request_allocator(), target.body.view());
   record_audit_or_log(event, who.value().who,
                       should_approve ? "comment approve" : "comment delete",
                       audit_target.view(), audit_detail.view());
@@ -519,7 +522,7 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   let const who = require_admin(event);
   if (!who.has_value()) return;
 
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   site_input input{};
   if (let const error = validate_site_input(document, input); error != nullptr)
   {
@@ -538,12 +541,13 @@ fn App::handle_admin_add(HttpServerEvent &event) -> void
   }
 
   site row{};
-  row.slug = String{m_allocator, input.slug};
-  row.name = String{m_allocator, input.name};
-  row.url = String{m_allocator, input.url};
-  row.description = String{m_allocator, input.description};
+  row.slug = String{event.request_allocator(), input.slug};
+  row.name = String{event.request_allocator(), input.name};
+  row.url = String{event.request_allocator(), input.url};
+  row.description = String{event.request_allocator(), input.description};
   row.owner.source = who.value().who.source;
-  row.owner.name = String{m_allocator, who.value().who.name.view()};
+  row.owner.name =
+      String{event.request_allocator(), who.value().who.name.view()};
   row.created_at = now_seconds();
 
   let const stored = m_store.upsert_site(row);
@@ -563,7 +567,7 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
   let const who = require_admin(event);
   if (!who.has_value()) return;
 
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   let const slug = document["slug"].to<StringView>();
   if (!slug.has_value()) {
     reply_message(event, 400, "A slug is required");
@@ -597,7 +601,7 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
   let const who = require_admin(event);
   if (!who.has_value()) return;
 
-  let const document = Json::from(m_allocator, event.body());
+  let const document = Json::from(event.request_allocator(), event.body());
   site_input input{};
   if (let const error = validate_site_input(document, input); error != nullptr)
   {
@@ -619,12 +623,12 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
   let const &current = existing.value().value();
 
   site row{};
-  row.slug = String{m_allocator, input.slug};
-  row.name = String{m_allocator, input.name};
-  row.url = String{m_allocator, input.url};
-  row.description = String{m_allocator, input.description};
+  row.slug = String{event.request_allocator(), input.slug};
+  row.name = String{event.request_allocator(), input.name};
+  row.url = String{event.request_allocator(), input.url};
+  row.description = String{event.request_allocator(), input.description};
   row.owner.source = current.owner.source;
-  row.owner.name = String{m_allocator, current.owner.name.view()};
+  row.owner.name = String{event.request_allocator(), current.owner.name.view()};
   row.created_at = current.created_at;
 
   let const stored = m_store.upsert_site(row);
@@ -655,7 +659,7 @@ fn App::handle_admin_pending(HttpServerEvent &event) -> void
     return;
   }
 
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.array_begin();
   let const &actions = actions_or.value();
   for (usize i = 0; i < actions.count(); i++) {
@@ -681,9 +685,9 @@ fn App::handle_admin_logs(HttpServerEvent &event) -> void
 {
   if (!require_admin(event).has_value()) return;
 
-  let const lines = log_ring_snapshot(m_allocator);
+  let const lines = log_ring_snapshot(event.request_allocator());
 
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.array_begin();
   for (usize i = 0; i < lines.count(); i++) {
     let const text = lines[i].view();
@@ -707,7 +711,7 @@ fn App::handle_admin_audit(HttpServerEvent &event) -> void
     return;
   }
 
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.array_begin();
   let const &entries = entries_or.value();
   for (usize i = 0; i < entries.count(); i++) {
@@ -748,7 +752,7 @@ fn App::handle_admin_stats(HttpServerEvent &event) -> void
     total_hops += metrics[i].hop_count;
   }
 
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.object_begin();
   writer.key("enabled");
   writer.boolean(m_config.is_metrics_enabled);
@@ -778,7 +782,7 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
   let const who = require_admin(event);
   if (!who.has_value()) return;
 
-  let const request = Json::from(m_allocator, event.body());
+  let const request = Json::from(event.request_allocator(), event.body());
   let const id_or = request["id"].to<i64>();
   if (!id_or.has_value()) {
     reply_message(event, 400, "An id is required");
@@ -825,17 +829,20 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
           return;
         }
 
-        let const payload = Json::from(m_allocator, action.payload.view());
+        let const payload =
+            Json::from(event.request_allocator(), action.payload.view());
         site row{};
-        row.slug = String{m_allocator, action.target_slug.view()};
-        row.name =
-            String{m_allocator, payload["name"].to<StringView>().value_or({})};
-        row.url =
-            String{m_allocator, payload["url"].to<StringView>().value_or({})};
-        row.description = String{
-            m_allocator, payload["description"].to<StringView>().value_or({})};
+        row.slug = String{event.request_allocator(), action.target_slug.view()};
+        row.name = String{event.request_allocator(),
+                          payload["name"].to<StringView>().value_or({})};
+        row.url = String{event.request_allocator(),
+                         payload["url"].to<StringView>().value_or({})};
+        row.description =
+            String{event.request_allocator(),
+                   payload["description"].to<StringView>().value_or({})};
         row.owner.source = action.owner.source;
-        row.owner.name = String{m_allocator, action.owner.name.view()};
+        row.owner.name =
+            String{event.request_allocator(), action.owner.name.view()};
         row.created_at = now_seconds();
         let const stored = m_store.upsert_site(row);
         if (stored.is_error()) {
@@ -845,7 +852,8 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
         break;
       }
       case pending_kind::rename: {
-        let const payload = Json::from(m_allocator, action.payload.view());
+        let const payload =
+            Json::from(event.request_allocator(), action.payload.view());
         let const name = payload["name"].to<StringView>().value_or({});
         let const url = payload["url"].to<StringView>().value_or({});
         let const description =
@@ -880,7 +888,7 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
     return;
   }
 
-  String action_label{m_allocator};
+  String action_label{event.request_allocator()};
   action_label.append(should_approve ? "approve " : "reject ");
   action_label.append(action.kind.view());
   record_audit_or_log(event, who.value().who, action_label.view(),

@@ -99,7 +99,7 @@ fn MongooseServer::reply(opaque *connection, u16 status,
     head_length += name.count() + value.count() + 4;
   });
 
-  String head{m_allocator};
+  String head{bump_allocator(m_request_arena)};
   head.reserve(head_length);
 
   head.append("HTTP/1.1 ");
@@ -167,6 +167,10 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
   case MG_EV_HTTP_MSG: {
     let const message = static_cast<mg_http_message *>(event_data);
 
+    /* The request and the reply scratch draw from this arena, reset at the top
+       of each request once the previous response has been sent and copied. */
+    m_request_arena.reset();
+
     if (message->body.len > MAX_REQUEST_BODY_LENGTH) {
       let const reason = status_text(HttpStatus::ContentTooLarge);
       char head[64];
@@ -179,8 +183,10 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
       break;
     }
 
+    let const arena = bump_allocator(m_request_arena);
+
     /* The header map lives only for the handler call. */
-    HttpHeaders request_headers{m_allocator};
+    HttpHeaders request_headers{arena};
 
     for (usize i = 0; i < MG_MAX_HTTP_HEADERS; i++) {
       let const &header = message->headers[i];
@@ -193,6 +199,7 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
     request_event.set_request(to_view(message->method), to_view(message->uri),
                               to_view(message->query), to_view(message->body),
                               request_headers);
+    request_event.set_request_allocator(arena);
 
     char client_ip[52];
     let ip_length = mg_snprintf(client_ip, sizeof(client_ip), "%M", mg_print_ip,

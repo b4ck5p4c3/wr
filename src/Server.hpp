@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Allocator.hpp"
 #include "Common.hpp"
 #include "Debug.hpp"
 #include "ErrorOr.hpp"
@@ -48,6 +49,15 @@ public:
     return *m_request_headers;
   }
 
+  /* The per-request scratch allocator. A backend points it at its request arena
+     before a Request is dispatched, so the reply helpers and the handler
+     scratch draw from the arena and it is reset after the response. It defaults
+     to the heap for the non-request event paths. */
+  mustuse pure fn request_allocator() const noexcept -> Allocator
+  {
+    return m_request_allocator;
+  }
+
   /* Filled by a backend before a Request event is dispatched. */
   fn set_request(StringView method, StringView uri, StringView query,
                  StringView body, const HttpHeaders &headers) noexcept -> void
@@ -66,6 +76,10 @@ public:
   {
     m_client_ip = client_ip;
   }
+  fn set_request_allocator(Allocator allocator) noexcept -> void
+  {
+    m_request_allocator = allocator;
+  }
 
   mustuse fn reply(u16 status, const HttpHeaders &headers, StringView body,
                    StringView static_headers = {}) -> ErrorOr<Ok>;
@@ -81,6 +95,7 @@ private:
   StringView m_error_message;
   StringView m_client_ip;
   const HttpHeaders *m_request_headers{nullptr};
+  Allocator m_request_allocator{heap_allocator()};
 };
 
 using HttpServerHandler = void (*)(HttpServerEvent &event, opaque *user);

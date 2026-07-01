@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Allocator.hpp"
+#include "Arena.hpp"
 #include "Common.hpp"
 #include "ErrorOr.hpp"
 #include "Http.hpp"
@@ -46,6 +47,7 @@ private:
   static constexpr usize MAX_LOG_LINE_LENGTH = 1024;
 
   Allocator m_allocator;
+  BumpArena m_request_arena;
   mg_mgr m_manager;
   HttpServerHandler m_handler{nullptr};
   opaque *m_user{nullptr};

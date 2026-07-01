@@ -342,7 +342,7 @@ fn App::dispatch(HttpServerEvent &event) -> void
     {
       LOG(Info, "method not allowed, uri=%.*s", static_cast<int>(path.count()),
           path.data);
-      String message{m_allocator};
+      String message{event.request_allocator()};
       message.append("This endpoint requires ");
       message.append(http_method_name(target->method));
       reply_message(event, 405, message.view());
@@ -480,13 +480,13 @@ fn App::handle_sites(HttpServerEvent &event) -> void
   let const &sites = sites_or.value();
 
   let reactions_or = m_store.get_all_reactions();
-  StringMap<ArrayList<reaction_count>> reactions{m_allocator};
+  StringMap<ArrayList<reaction_count>> reactions{event.request_allocator()};
   if (!reactions_or.is_error())
     reactions = steal(reactions_or.value());
   else
     LOG(Info, "site listing reactions unavailable");
 
-  StringMap<ArrayList<String>> user_reactions{m_allocator};
+  StringMap<ArrayList<String>> user_reactions{event.request_allocator()};
   if (who.has_value()) {
     let user_or = m_store.get_all_user_reactions(who.value().who);
     if (!user_or.is_error())
@@ -495,7 +495,7 @@ fn App::handle_sites(HttpServerEvent &event) -> void
       LOG(Info, "site listing user reactions unavailable");
   }
 
-  StringMap<i64> click_counts{m_allocator};
+  StringMap<i64> click_counts{event.request_allocator()};
   if (m_config.is_metrics_enabled) {
     let metrics_or = m_store.get_site_metrics();
     if (!metrics_or.is_error()) {
@@ -507,10 +507,10 @@ fn App::handle_sites(HttpServerEvent &event) -> void
     }
   }
 
-  const ArrayList<reaction_count> empty_counts{m_allocator};
-  const ArrayList<String> empty_reacted{m_allocator};
+  const ArrayList<reaction_count> empty_counts{event.request_allocator()};
+  const ArrayList<String> empty_reacted{event.request_allocator()};
 
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.array_begin();
   for (usize i = 0; i < sites.count(); i++) {
     let const slug = sites[i].slug.view();
@@ -547,7 +547,7 @@ fn App::handle_config(HttpServerEvent &event) -> void
           ? telegram_token.substring_of_length(0, colon_position.value())
           : StringView{};
 
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.object_begin();
   writer.key("is_dev");
   writer.boolean(m_config.is_dev_mode);
@@ -648,7 +648,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
   let const previous = (target + count - 1) % count;
   let const next = (target + 1) % count;
   let const who = current_account(event);
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.object_begin();
   writer.key("previous");
   write_listing_site(writer, sites[previous], who);
@@ -730,7 +730,8 @@ fn App::emit(HttpServerEvent &event, u16 status, HttpHeaders &headers,
 
 fn App::reply_json(HttpServerEvent &event, u16 status, StringView json) -> void
 {
-  HttpHeaders headers{m_allocator};
+  HttpHeaders headers{event.request_allocator()};
+  headers.reserve(2);
   headers.set("Content-Type", "application/json");
   headers.set("Cache-Control", "no-store");
   emit(event, status, headers, json);
@@ -739,14 +740,16 @@ fn App::reply_json(HttpServerEvent &event, u16 status, StringView json) -> void
 fn App::reply_text(HttpServerEvent &event, u16 status, StringView content_type,
                    StringView body) -> void
 {
-  HttpHeaders headers{m_allocator};
+  HttpHeaders headers{event.request_allocator()};
+  headers.reserve(1);
   headers.set("Content-Type", content_type);
   emit(event, status, headers, body);
 }
 
 fn App::reply_redirect(HttpServerEvent &event, StringView location) -> void
 {
-  HttpHeaders headers{m_allocator};
+  HttpHeaders headers{event.request_allocator()};
+  headers.reserve(1);
   headers.set("Location", location);
   emit(event, 302, headers, "");
 }
@@ -772,7 +775,7 @@ fn App::record_audit_or_log(HttpServerEvent &event, const identity &actor,
 fn App::reply_message(HttpServerEvent &event, u16 status, StringView message)
     -> void
 {
-  JsonWriter writer{m_allocator};
+  JsonWriter writer{event.request_allocator()};
   writer.object_begin();
   writer.field("message", message);
   writer.object_end();
