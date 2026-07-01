@@ -193,6 +193,18 @@ export function Modal({ label, wide, onClose, children }) {
   );
 }
 
+export function ErrorModal({ message, onClose }) {
+  return (
+    <Modal label="error" onClose={onClose}>
+      <h2>error</h2>
+      <p class="error">{message}</p>
+      <button class="close" onClick={onClose}>
+        close..
+      </button>
+    </Modal>
+  );
+}
+
 function SearchModal({
   title,
   query,
@@ -1042,6 +1054,7 @@ export function AddSiteForm({
     description: "",
   });
   const [message, setMessage] = useState(null);
+  const [error, setError] = useState(null);
   const field = fieldSetter(setForm);
 
   const submit = async (event) => {
@@ -1052,7 +1065,7 @@ export function AddSiteForm({
       setForm({ slug: "", name: "", url: "", description: "" });
       if (onAdded) onAdded();
     } catch (e) {
-      setMessage(e.message);
+      setError(e.message);
     }
   };
 
@@ -1086,6 +1099,9 @@ export function AddSiteForm({
         {submitLabel}..
       </button>
       {message ? <p class="hint">{message}</p> : null}
+      {error ? (
+        <ErrorModal message={error} onClose={() => setError(null)} />
+      ) : null}
     </form>
   );
 }
@@ -1093,13 +1109,14 @@ export function AddSiteForm({
 export function OwnedSite({ site, onRenamed }) {
   const [name, setName] = useState(site.name);
   const [message, setMessage] = useState(null);
+  const [error, setError] = useState(null);
   const rename = async () => {
     try {
       const result = await api.renameSite(site.slug, name);
       setMessage(result.message);
       if (onRenamed) onRenamed();
     } catch (e) {
-      setMessage(e.message);
+      setError(e.message);
     }
   };
   return (
@@ -1115,6 +1132,9 @@ export function OwnedSite({ site, onRenamed }) {
       </div>
       <UptimeRow site={site} />
       {message ? <span class="hint">{message}</span> : null}
+      {error ? (
+        <ErrorModal message={error} onClose={() => setError(null)} />
+      ) : null}
     </li>
   );
 }
@@ -1233,7 +1253,9 @@ export function AdminSite({ site, onSaved, onDeleted }) {
         </button>
       </div>
       <UptimeRow site={site} />
-      {message ? <span class="hint error">{message}</span> : null}
+      {message ? (
+        <ErrorModal message={message} onClose={() => setMessage(null)} />
+      ) : null}
     </li>
   );
 }
@@ -1638,6 +1660,7 @@ export function CommentsSection({ me }) {
   const [people, setPeople] = useState({});
   const [draft, setDraft] = useState("");
   const [error, setError] = useState(null);
+  const [postError, setPostError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [removingId, setRemovingId] = useState(null);
@@ -1692,7 +1715,7 @@ export function CommentsSection({ me }) {
     try {
       await api.postComment(draft.trim());
       setDraft("");
-      setError(null);
+      setPostError(null);
       if (isAdmin) {
         setNotice("Your comment is posted.");
         loadPage(0);
@@ -1700,7 +1723,7 @@ export function CommentsSection({ me }) {
         setNotice("Your comment was sent and is waiting for approval.");
       }
     } catch (e) {
-      setError(e.message);
+      setPostError(e.message);
       setNotice(null);
     }
   };
@@ -1725,7 +1748,7 @@ export function CommentsSection({ me }) {
         setLeavingId(null);
       }, COMMENT_LEAVE_MS);
     } catch (e) {
-      setError(e.message);
+      setPostError(e.message);
     } finally {
       setRemovingId(null);
     }
@@ -1795,6 +1818,9 @@ export function CommentsSection({ me }) {
       )}
       {notice && !error ? <p class="notice">{notice}</p> : null}
       {error ? <p class="error">{error}</p> : null}
+      {postError ? (
+        <ErrorModal message={postError} onClose={() => setPostError(null)} />
+      ) : null}
       {comments === null ? (
         error ? null : (
           <Loading />
