@@ -91,6 +91,7 @@ private:
   fn record_audit_or_log(HttpServerEvent &event, const identity &actor,
                          StringView action, StringView target,
                          StringView detail) -> void;
+  mustuse fn client_address(HttpServerEvent &event) -> StringView;
   fn reply_comments_json(HttpServerEvent &event,
                          const ArrayList<comment> &comments) -> void;
   fn finish_login(HttpServerEvent &event, const identity &who,

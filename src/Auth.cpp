@@ -328,7 +328,7 @@ fn App::require_account(HttpServerEvent &event) -> Maybe<account>
 
 fn App::require_admin(HttpServerEvent &event) -> Maybe<account>
 {
-  let const ip = client_address(event, m_config.is_forwarded_trusted);
+  let const ip = client_address(event);
   let const ip_count = static_cast<int>(ip.count());
 
   let who = current_account(event);

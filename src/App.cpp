@@ -329,9 +329,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
   if (let const target = ROUTES.find(path); target != nullptr) {
     /* Dev mode skips the throttle, so the test suite hammers the endpoints. */
     if (!m_config.is_dev_mode &&
-        !m_limiter.allow(client_address(event, m_config.is_forwarded_trusted),
-                         static_cast<u8>(target->id), target->limit,
-                         now_seconds()))
+        !m_limiter.allow(client_address(event), static_cast<u8>(target->id),
+                         target->limit, now_seconds()))
     {
       LOG(Info, "rate limited, route=%d", static_cast<int>(target->id));
       reply_message(event, 429, "Too many requests, slow down");
@@ -420,8 +419,8 @@ fn App::dispatch(HttpServerEvent &event) -> void
        human pace. Dev mode skips the throttle. */
     static constexpr u8 SLUG_BUCKET = 255;
     if (!m_config.is_dev_mode &&
-        !m_limiter.allow(client_address(event, m_config.is_forwarded_trusted),
-                         SLUG_BUCKET, {1000, 60}, now_seconds()))
+        !m_limiter.allow(client_address(event), SLUG_BUCKET, {1000, 60},
+                         now_seconds()))
     {
       LOG(Info, "rate limited, slug hop=%.*s", static_cast<int>(slug.count()),
           slug.data);
@@ -714,7 +713,7 @@ fn App::emit(HttpServerEvent &event, u16 status, HttpHeaders &headers,
      auth redirects reply directly and are not traced here. */
   let const method = event.method();
   let const uri = event.uri();
-  let const client = client_address(event, m_config.is_forwarded_trusted);
+  let const client = client_address(event);
 
   if (method == "GET") {
     LOG(All, "%.*s %.*s %.*s -> %u", static_cast<int>(client.count()),
@@ -752,14 +751,18 @@ fn App::reply_redirect(HttpServerEvent &event, StringView location) -> void
   emit(event, 302, headers, "");
 }
 
+fn App::client_address(HttpServerEvent &event) -> StringView
+{
+  return wr::client_address(event, m_config.is_forwarded_trusted);
+}
+
 fn App::record_audit_or_log(HttpServerEvent &event, const identity &actor,
                             StringView action, StringView target,
                             StringView detail) -> void
 {
   if (m_store
-          .record_audit(actor,
-                        client_address(event, m_config.is_forwarded_trusted),
-                        action, target, detail, now_seconds())
+          .record_audit(actor, client_address(event), action, target, detail,
+                        now_seconds())
           .is_error())
     LOG(Info, "audit record dropped, action=%.*s target=%.*s",
         static_cast<int>(action.count()), action.data,
