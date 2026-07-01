@@ -6,10 +6,6 @@
 
 namespace wr {
 
-/* A bump allocator for the request-to-reply cycle. Bytes are handed out from a
-   growing list of blocks, and reset reclaims them all at once, so the per-reply
-   scratch never takes and gives individual blocks from the pooled heap. The
-   single-threaded event loop owns one arena and resets it between requests. */
 class BumpArena
 {
 public:

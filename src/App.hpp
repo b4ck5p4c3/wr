@@ -110,9 +110,6 @@ private:
 mustuse fn client_address(HttpServerEvent &event, bool is_forwarded_trusted)
     -> StringView;
 
-/* The security headers are identical on every response, so they are serialized
-   once here and written as a byte block, since rebuilding them in the
-   per-request header map dominated the response path under load. */
 inline constexpr char SECURITY_HEADER_BYTES[] =
     "x-content-type-options: nosniff\r\n"
     "x-frame-options: DENY\r\n"

@@ -49,10 +49,6 @@ public:
     return *m_request_headers;
   }
 
-  /* The per-request scratch allocator. A backend points it at its request arena
-     before a Request is dispatched, so the reply helpers and the handler
-     scratch draw from the arena and it is reset after the response. It defaults
-     to the heap for the non-request event paths. */
   mustuse pure fn request_allocator() const noexcept -> Allocator
   {
     return m_request_allocator;

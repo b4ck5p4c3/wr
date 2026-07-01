@@ -167,8 +167,6 @@ fn MongooseServer::dispatch(mg_connection *connection, int event,
   case MG_EV_HTTP_MSG: {
     let const message = static_cast<mg_http_message *>(event_data);
 
-    /* The request and the reply scratch draw from this arena, reset at the top
-       of each request once the previous response has been sent and copied. */
     m_request_arena.reset();
 
     if (message->body.len > MAX_REQUEST_BODY_LENGTH) {
