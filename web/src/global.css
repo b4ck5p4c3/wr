@@ -705,10 +705,6 @@ main {
   gap: 1ch;
 }
 
-.card > button {
-  padding: 0.6ch 1.4ch;
-}
-
 /* The management entry is a slab set apart at the foot of the home page. */
 .panel {
   padding: 2.5ch;
@@ -1175,18 +1171,18 @@ code {
   margin: 0;
 }
 
-.modal:not(.modal-wide) h2 {
-  line-height: 1;
-}
-
 .modal:not(.modal-wide) p {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
 .modal:not(.modal-wide) button {
   width: 100%;
   margin: 0;
+}
+
+.modal:not(.modal-wide) button + button {
+  margin-top: 0.4ch;
 }
 
 .modal.modal-wide {

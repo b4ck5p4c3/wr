@@ -141,8 +141,9 @@ export function App() {
                 toggleLowDetail();
               }}
             >
-              toggle low detail mode
+              low detail mode
             </a>
+            {"."}
           </p>
           {isUnstable ? (
             <p class="hint">This is an unstable {versionExtra} build.</p>
