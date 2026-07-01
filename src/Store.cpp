@@ -102,6 +102,14 @@ static const char *const SCHEMA =
     "  name TEXT NOT NULL,"
     "  is_admin INTEGER NOT NULL DEFAULT 0,"
     "  PRIMARY KEY (source, name));"
+    "CREATE TABLE IF NOT EXISTS oauth_sources ("
+    "  source INTEGER PRIMARY KEY,"
+    "  name TEXT NOT NULL);"
+    "INSERT OR IGNORE INTO oauth_sources (source, name) VALUES "
+    "  (0, 'github'), (1, 'telegram'), (2, 'dev');"
+    "CREATE TABLE IF NOT EXISTS wr ("
+    "  key TEXT PRIMARY KEY,"
+    "  value TEXT NOT NULL);"
     "CREATE TABLE IF NOT EXISTS sessions ("
     "  token TEXT PRIMARY KEY,"
     "  source INTEGER NOT NULL,"
@@ -170,6 +178,52 @@ fn Store::migrate() -> ErrorOr<Ok>
 {
   TRY(m_database.execute(SCHEMA));
   LOG(Info, "schema ensured");
+  return Success;
+}
+
+fn Store::check_api_version() -> ErrorOr<Ok>
+{
+  let const expected = StringView{WR_STRINGIFY(WR_API_VERSION)};
+
+  Maybe<String> stored{None};
+  {
+    let read = TRY(m_database.prepare("SELECT value FROM wr WHERE key = ?;"));
+    read.bind(StringView{"api_version"});
+    if (TRY(read.step())) stored = Maybe<String>{read.get<String>()};
+  }
+
+  if (stored.has_value()) {
+    if (stored.value().view() != expected) {
+      String message{m_allocator};
+      message.append("The database API version ");
+      message.append(stored.value().view());
+      message.append(" does not match the server API version ");
+      message.append(expected);
+      message.append(", the database must be migrated");
+
+      Error error{message.view()};
+      return error.as_critical();
+    }
+
+    LOG(Info, "database api version matches, version=%.*s",
+        static_cast<int>(expected.count()), expected.data);
+  } else {
+    let seed =
+        TRY(m_database.prepare("INSERT INTO wr (key, value) VALUES (?, ?);"));
+    seed.bind(StringView{"api_version"});
+    seed.bind(expected);
+    unused(TRY(seed.step()));
+
+    LOG(Info, "database api version seeded, version=%.*s",
+        static_cast<int>(expected.count()), expected.data);
+  }
+
+  let info = TRY(m_database.prepare(
+      "INSERT OR REPLACE INTO wr (key, value) VALUES (?, ?);"));
+  info.bind(StringView{"version"});
+  info.bind(StringView{WR_VERSION_STRING});
+  unused(TRY(info.step()));
+
   return Success;
 }
 

@@ -48,6 +48,11 @@
 #define WR_VER_MINOR 0
 #define WR_VER_PATCH 1
 
+/* The database API version is bumped when the schema changes in a way an older
+   server cannot read. The server refuses to start when the version stored in
+   the database differs from this one. */
+#define WR_API_VERSION 1
+
 /* The suffix marks the build channel. "rc" and "release" are production, "dev"
    is staging and shows the drill banner, and "beta" and "alpha" are unstable
    and are noted in the footer. */

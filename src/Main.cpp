@@ -253,6 +253,9 @@ fn main(int argc, char **argv) -> int
   let migrate_result = store.migrate();
   if (migrate_result.is_error()) fail(migrate_result.error().message().view());
 
+  let version_result = store.check_api_version();
+  if (version_result.is_error()) fail(version_result.error().message().view());
+
   /* The OAuth exchange runs on a request thread, so the connect phase is
      bounded to keep a stalled provider from pinning a worker. */
   CurlClient::Options client_options;

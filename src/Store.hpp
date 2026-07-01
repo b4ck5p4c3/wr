@@ -124,6 +124,7 @@ public:
   Store &operator=(const Store &) = delete;
 
   fn migrate() -> ErrorOr<Ok>;
+  fn check_api_version() -> ErrorOr<Ok>;
 
   mustuse fn list_active_sites() const -> ErrorOr<ArrayList<site>>;
   mustuse fn list_all_sites() const -> ErrorOr<ArrayList<site>>;
