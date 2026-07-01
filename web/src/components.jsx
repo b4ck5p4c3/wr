@@ -12,6 +12,23 @@ function prefersReducedMotion() {
   );
 }
 
+// A media query is read once for the initial state and then tracked, so a
+// viewport that crosses the breakpoint re-renders the caller.
+function useMediaMatch(query) {
+  const [matches, setMatches] = useState(
+    () => typeof matchMedia !== "undefined" && matchMedia(query).matches,
+  );
+  useEffect(() => {
+    if (typeof matchMedia === "undefined") return;
+    const mediaQuery = matchMedia(query);
+    const onChange = () => setMatches(mediaQuery.matches);
+    onChange();
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
 // A route change is wrapped in the View Transitions API, borrowed from the
 // fennec.support navigation. The old page crossfades into the new one, and a
 // browser without the API swaps the path with no animation. The returned promise
@@ -424,21 +441,10 @@ const UPTIME_COLUMN_COUNT = 48;
 const UPTIME_COLUMN_COUNT_NARROW = 24;
 
 export function UptimeGraph({ history }) {
-  const [columnCount, setColumnCount] = useState(() =>
-    typeof matchMedia !== "undefined" && matchMedia(NARROW_QUERY).matches
-      ? UPTIME_COLUMN_COUNT_NARROW
-      : UPTIME_COLUMN_COUNT,
-  );
-  useEffect(() => {
-    if (typeof matchMedia === "undefined") return;
-    const query = matchMedia(NARROW_QUERY);
-    const onChange = () =>
-      setColumnCount(
-        query.matches ? UPTIME_COLUMN_COUNT_NARROW : UPTIME_COLUMN_COUNT,
-      );
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
+  const isNarrow = useMediaMatch(NARROW_QUERY);
+  const columnCount = isNarrow
+    ? UPTIME_COLUMN_COUNT_NARROW
+    : UPTIME_COLUMN_COUNT;
 
   const columns = useMemo(() => {
     if (history == null || history.length === 0) return null;
@@ -679,16 +685,7 @@ const WHEEL_GAIN = 0.35;
 // the cylinder is replaced by a plain vertical list.
 export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
   const ctx = { me, onLogin, onReacted, metricsEnabled };
-  const [isNarrow, setIsNarrow] = useState(
-    typeof matchMedia !== "undefined" && matchMedia(NARROW_QUERY).matches,
-  );
-  useEffect(() => {
-    if (typeof matchMedia === "undefined") return;
-    const query = matchMedia(NARROW_QUERY);
-    const onChange = () => setIsNarrow(query.matches);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
+  const isNarrow = useMediaMatch(NARROW_QUERY);
 
   const ringRef = useRef(null);
   const cardRefs = useRef([]);
@@ -707,30 +704,30 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
     isHovering: false,
   });
 
-  const count = sites.length;
+  const siteCount = sites.length;
   // The drift slows as the count grows to keep the cards readable. A pixel of
   // horizontal drag turns the ring by the arc it subtends at the card radius,
   // the front card surface tracks the cursor.
   const { anglePerCard, radius, idleSpeed, degreePerDragPixel } =
     useMemo(() => {
-      const anglePerCard = 360 / count;
+      const anglePerCard = 360 / siteCount;
       const radius =
-        Math.round(171 / Math.tan(Math.PI / Math.max(count, 2))) + 40;
-      const idleSpeed = Math.min(0.18, 0.36 / count);
+        Math.round(171 / Math.tan(Math.PI / Math.max(siteCount, 2))) + 40;
+      const idleSpeed = Math.min(0.18, 0.36 / siteCount);
       const degreePerDragPixel = 180 / (Math.PI * radius);
       return { anglePerCard, radius, idleSpeed, degreePerDragPixel };
-    }, [count]);
+    }, [siteCount]);
 
   useEffect(() => {
     if (isNarrow) return;
-    const reduced = prefersReducedMotion();
+    const isReducedMotion = prefersReducedMotion();
     let frame;
     const tick = () => {
       const motion = motionRef.current;
       if (!motion.isDragging) {
         const spinScale = motion.isHovering ? HOVER_SPIN_SCALE : 1;
         motion.rotation +=
-          (motion.velocity || (reduced ? 0 : idleSpeed)) * spinScale;
+          (motion.velocity || (isReducedMotion ? 0 : idleSpeed)) * spinScale;
         motion.velocity *= 0.94;
         if (Math.abs(motion.velocity) < 0.05) motion.velocity = 0;
       }
