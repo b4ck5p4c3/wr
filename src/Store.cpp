@@ -77,10 +77,6 @@ fn read_comment(SqlStatement &statement) -> comment
   return row;
 }
 
-const StringView SITE_COLUMNS = "slug, name, url, description, is_reachable, "
-                                "last_seen_at, owner_source, owner_name, "
-                                "created_at";
-
 } // namespace
 
 /* The schema is one idempotent baseline. Every statement is a CREATE IF NOT
@@ -230,13 +226,10 @@ fn Store::check_api_version() -> ErrorOr<Ok>
 fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
 {
   ArrayList<site> sites{m_allocator};
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites WHERE is_reachable = 1 AND is_deleted = 0 "
-             "ORDER BY created_at, slug;");
-
-  let statement = TRY(m_database.prepare(sql.view()));
+  let statement = TRY(m_database.prepare(
+      "SELECT slug, name, url, description, is_reachable, last_seen_at, "
+      "owner_source, owner_name, created_at FROM sites "
+      "WHERE is_reachable = 1 AND is_deleted = 0 ORDER BY created_at, slug;"));
 
   while (TRY(statement.step()))
     sites.push(read_site(statement));
@@ -247,12 +240,10 @@ fn Store::list_active_sites() const -> ErrorOr<ArrayList<site>>
 fn Store::list_all_sites() const -> ErrorOr<ArrayList<site>>
 {
   ArrayList<site> sites{m_allocator};
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites WHERE is_deleted = 0 ORDER BY created_at, slug;");
-
-  let statement = TRY(m_database.prepare(sql.view()));
+  let statement = TRY(m_database.prepare(
+      "SELECT slug, name, url, description, is_reachable, last_seen_at, "
+      "owner_source, owner_name, created_at FROM sites "
+      "WHERE is_deleted = 0 ORDER BY created_at, slug;"));
 
   while (TRY(statement.step()))
     sites.push(read_site(statement));
@@ -264,13 +255,11 @@ fn Store::list_sites_for_owner(const identity &owner) const
     -> ErrorOr<ArrayList<site>>
 {
   ArrayList<site> sites{m_allocator};
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites WHERE owner_source = ? AND owner_name = ? AND "
-             "is_deleted = 0 ORDER BY created_at, slug;");
-
-  let statement = TRY(m_database.prepare(sql.view()));
+  let statement = TRY(m_database.prepare(
+      "SELECT slug, name, url, description, is_reachable, last_seen_at, "
+      "owner_source, owner_name, created_at FROM sites "
+      "WHERE owner_source = ? AND owner_name = ? AND is_deleted = 0 "
+      "ORDER BY created_at, slug;"));
   bind_identity(statement, owner);
 
   while (TRY(statement.step()))
@@ -281,14 +270,14 @@ fn Store::list_sites_for_owner(const identity &owner) const
 
 fn Store::find_site(StringView slug) const -> ErrorOr<Maybe<site>>
 {
-  String sql{m_allocator};
-  sql.append("SELECT ");
-  sql.append(SITE_COLUMNS);
-  sql.append(" FROM sites WHERE slug = ? AND is_deleted = 0;");
-
-  let statement = TRY(m_database.prepare(sql.view()));
+  let statement = TRY(m_database.prepare(
+      "SELECT slug, name, url, description, is_reachable, last_seen_at, "
+      "owner_source, owner_name, created_at FROM sites "
+      "WHERE slug = ? AND is_deleted = 0;"));
   statement.bind(slug);
+
   if (TRY(statement.step())) return Maybe<site>{read_site(statement)};
+
   return Maybe<site>{None};
 }
 

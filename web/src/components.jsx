@@ -1182,6 +1182,7 @@ export function AddSiteForm({
     form.name.trim() === "" ||
     form.url.trim() === "";
   const isDescriptionShort = form.description.trim().length < 8;
+  const isUrlInvalid = !isValidUrlForm(form.url);
   const formHint = isAnyRequiredEmpty
     ? "Fill in the slug, the name, and the url."
     : isDescriptionShort
@@ -1226,7 +1227,7 @@ export function AddSiteForm({
         placeholder="https://your.site"
         value={form.url}
         onInput={field("url")}
-        isInvalidChar={() => !isValidUrlForm(form.url)}
+        isInvalidChar={() => isUrlInvalid}
       />
       <DescriptionField
         placeholder="description"
