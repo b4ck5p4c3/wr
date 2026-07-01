@@ -1,20 +1,19 @@
+#include <openssl/err.h>
+#include <openssl/evp.h>
+
 #include "Crypto.hpp"
 
 #include "Errors.hpp"
 #include "String.hpp"
 
-#include <mbedtls/error.h>
-#include <mbedtls/md.h>
-#include <mbedtls/sha256.h>
-
 namespace wr {
 
 namespace {
 
-fn mbedtls_error(StringView context, int code) -> Error
+fn openssl_error(StringView context) -> Error
 {
-  char detail[128];
-  mbedtls_strerror(code, detail, sizeof(detail));
+  char detail[256];
+  ERR_error_string_n(ERR_get_error(), detail, sizeof(detail));
 
   String message{};
   message.append(context);
@@ -27,24 +26,22 @@ fn mbedtls_error(StringView context, int code) -> Error
 
 fn sha256(StringView input, unsigned char output[32]) -> ErrorOr<Ok>
 {
-  let const code =
-      mbedtls_sha256(reinterpret_cast<const unsigned char *>(input.data),
-                     input.count(), output, 0);
-  if (code != 0) return mbedtls_error("SHA-256 failed", code);
+  usize digest_length = 0;
+  let const hash_result = EVP_Q_digest(nullptr, "SHA256", nullptr, input.data,
+                                       input.count(), output, &digest_length);
+  if (hash_result != 1) return openssl_error("SHA-256 failed");
   return Success;
 }
 
 fn hmac_sha256(StringView key, StringView message, unsigned char output[32])
     -> ErrorOr<Ok>
 {
-  let const info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-  if (info == nullptr) return Error{"The SHA-256 digest is unavailable"};
-
-  let const code = mbedtls_md_hmac(
-      info, reinterpret_cast<const unsigned char *>(key.data), key.count(),
+  usize output_length = 0;
+  let const digest = EVP_Q_mac(
+      nullptr, "HMAC", nullptr, "SHA256", nullptr, key.data, key.count(),
       reinterpret_cast<const unsigned char *>(message.data), message.count(),
-      output);
-  if (code != 0) return mbedtls_error("HMAC-SHA256 failed", code);
+      output, 32, &output_length);
+  if (digest == nullptr) return openssl_error("HMAC-SHA256 failed");
   return Success;
 }
 

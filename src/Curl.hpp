@@ -28,8 +28,8 @@ public:
        address curl actually connects to, so a DNS rebinding cannot steer the
        request at an internal host. The liveness probe sets this. */
     bool should_reject_private_addresses{false};
-    /* mbedtls ships no default trust store, so the system CA bundle is named
-       for a verified TLS request. */
+    /* The vendored OpenSSL carries no usable default trust store, so the
+       system CA bundle is named for a verified TLS request. */
     const char *ca_path{"/etc/ssl/certs/ca-certificates.crt"};
   };
 
