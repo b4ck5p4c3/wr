@@ -102,11 +102,9 @@ fn MongooseServer::reply(opaque *connection, u16 status,
   String head{m_allocator};
   head.reserve(head_length);
 
-  char line[48];
-  let const line_length = std::snprintf(line, sizeof(line), "HTTP/1.1 %d ",
-                                        static_cast<int>(status));
-  if (line_length > 0)
-    head.append(StringView{line, static_cast<usize>(line_length)});
+  head.append("HTTP/1.1 ");
+  head.append_number(status);
+  head.append(' ');
   head.append(reason);
   head.append("\r\n");
 
@@ -121,12 +119,9 @@ fn MongooseServer::reply(opaque *connection, u16 status,
     head.append("\r\n");
   });
 
-  char framing[40];
-  let const framing_length =
-      std::snprintf(framing, sizeof(framing), "Content-Length: %lu\r\n\r\n",
-                    static_cast<unsigned long>(body.count()));
-  if (framing_length > 0)
-    head.append(StringView{framing, static_cast<usize>(framing_length)});
+  head.append("Content-Length: ");
+  head.append_number(body.count());
+  head.append("\r\n\r\n");
 
   /* mongoose printf reads the body through %s, which stops at the first null
      byte and truncates a binary asset such as a woff2 font or a webp image. The

@@ -83,6 +83,20 @@ hot fn String::push(char c) -> void
   m_data[m_length] = '\0';
 }
 
+hot fn String::append_number(u64 value) -> void
+{
+  char digits[20];
+  usize length = 0;
+  do {
+    digits[length++] = static_cast<char>('0' + (value % 10));
+    value /= 10;
+  } while (value != 0);
+
+  reserve(m_length + length);
+  while (length > 0)
+    push(digits[--length]);
+}
+
 hot fn String::append(StringView other) -> void
 {
   if (other.length == 0) return;

@@ -77,6 +77,7 @@ public:
   fn pop_back() noexcept -> void;
 
   hot flatten fn append(char c) -> void { push(c); }
+  hot fn append_number(u64 value) -> void;
   fn operator+=(StringView other)->String &;
   fn operator+=(char c)->String &;
 
