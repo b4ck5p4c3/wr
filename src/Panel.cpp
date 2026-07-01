@@ -484,7 +484,11 @@ fn App::handle_admin_comment_resolve(HttpServerEvent &event,
   let const id = id_or.value();
 
   let const found = m_store.find_comment(id);
-  if (found.is_error() || !found.value().has_value()) {
+  if (found.is_error()) {
+    reply_message(event, 500, found.error().message().view());
+    return;
+  }
+  if (!found.value().has_value()) {
     reply_message(event, 404, "No such comment");
     return;
   }
@@ -593,7 +597,11 @@ fn App::handle_admin_delete(HttpServerEvent &event) -> void
   }
 
   let const found = m_store.find_site(slug.value());
-  if (found.is_error() || !found.value().has_value()) {
+  if (found.is_error()) {
+    reply_message(event, 500, found.error().message().view());
+    return;
+  }
+  if (!found.value().has_value()) {
     reply_message(event, 404, "No such site");
     return;
   }

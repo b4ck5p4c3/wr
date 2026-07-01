@@ -179,10 +179,8 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
   /* A valid signature can be replayed forever, so the login is rejected once it
      is more than a day old. */
   let const auth_date = find_query_param(query, "auth_date", m_allocator);
-  let const signed_at = auth_date.has_value()
-                            ? static_cast<i64>(std::strtoll(
-                                  auth_date.value().c_str(), nullptr, 10))
-                            : 0;
+  let const signed_at =
+      auth_date.has_value() ? parse_i64(auth_date.value().view(), 0) : 0;
   let const age_seconds = now_seconds() - signed_at;
   if (signed_at <= 0 || age_seconds < 0 || age_seconds > 86400) {
     LOG(Info, "telegram callback rejected, login expired");
@@ -281,18 +279,10 @@ fn App::handle_dev_login(HttpServerEvent &event) -> void
 
 fn App::current_account(HttpServerEvent &event) -> Maybe<account>
 {
-  let const cookie_header = event.request_headers().get("cookie");
-  if (!cookie_header.has_value()) {
-    LOG(All, "current account none, request carries no cookie header");
-    return None;
-  }
-  let const token = find_cookie(cookie_header.value(), "wr_session");
-  if (!token.has_value()) {
-    LOG(All, "current account none, cookie header has no wr_session");
-    return None;
-  }
+  let const cookie_header = UNWRAP(event.request_headers().get("cookie"));
+  let const token = UNWRAP(find_cookie(cookie_header, "wr_session"));
 
-  let const session_row = m_store.find_session(token.value());
+  let const session_row = m_store.find_session(token);
   if (session_row.is_error()) {
     LOG(All, "current account none, session lookup failed, %.*s",
         static_cast<int>(session_row.error().message().view().count()),
