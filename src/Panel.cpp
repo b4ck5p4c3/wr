@@ -246,6 +246,10 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
     reply_message(event, 400, "A slug and a name are required");
     return;
   }
+  if (name.value().is_empty() || name.value().count() > 16) {
+    reply_message(event, 400, "The name must be 1 to 16 characters");
+    return;
+  }
 
   let const owned = m_store.find_site(slug.value());
   if (owned.is_error() || !owned.value().has_value() ||

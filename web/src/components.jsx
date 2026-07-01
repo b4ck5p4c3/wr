@@ -1775,9 +1775,10 @@ function renderMentions(body, slugs, people) {
   return body.split(/(@[A-Za-z0-9_-]+)/g).map((part) => {
     if (part[0] !== "@") return part;
     const handle = part.slice(1);
-    if (slugs.has(handle)) {
+    const slug = handle.toLowerCase();
+    if (slugs.has(slug)) {
       return (
-        <a class="mention" href={"/" + handle}>
+        <a class="mention" href={"/" + slug}>
           {part}
         </a>
       );

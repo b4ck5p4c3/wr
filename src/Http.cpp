@@ -30,6 +30,7 @@ fn status_text(HttpStatus status) noexcept -> StringView
   case HttpStatus::ContentTooLarge: return "Payload Too Large";
   case HttpStatus::TooManyRequests: return "Too Many Requests";
   case HttpStatus::InternalServerError: return "Internal Server Error";
+  case HttpStatus::BadGateway: return "Bad Gateway";
   default: return "OK";
   }
 }
