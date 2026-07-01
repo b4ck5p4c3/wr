@@ -95,8 +95,6 @@ enum class HttpStatus : u16
   NetworkAuthenticationRequired = 511,
 };
 
-/* The reason phrase for the status line, owned by the wr HTTP layer since the
-   mongoose helper is private. */
 mustuse fn status_text(HttpStatus status) noexcept -> StringView;
 
 /* A case-insensitive header collection. A name is stored lowercased and a set

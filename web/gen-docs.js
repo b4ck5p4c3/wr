@@ -36,9 +36,6 @@ function refName(ref) {
   return match ? match[1] : null;
 }
 
-// The name of the first $ref found in document order under a node, or null when
-// the node carries none. A null kind matches any $ref, a named kind matches only
-// a ref whose target lives under that component bucket.
 function firstRef(node, kind) {
   if (node == null || typeof node !== "object") return null;
   if (Array.isArray(node)) {
@@ -58,8 +55,6 @@ function firstRef(node, kind) {
   return null;
 }
 
-// Whether a type of the given value appears anywhere under a node, so an array
-// response body is recognised through its nested items.
 function hasType(node, type) {
   if (node == null || typeof node !== "object") return false;
   if (Array.isArray(node)) return node.some((item) => hasType(item, type));

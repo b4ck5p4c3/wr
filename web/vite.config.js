@@ -7,18 +7,10 @@ import obfuscator from "vite-plugin-javascript-obfuscator";
 export default defineConfig({
   plugins: [
     preact(),
-    // The bundle is served in the open, so its string literals are hidden in an
-    // encoded string array and its identifiers are mangled. Only the string and
-    // identifier transforms are enabled. The control-flow flattening, the dead
-    // code injection, the self defending, and the debug protection are left off,
-    // since they break a Preact runtime and bloat the payload without hiding
-    // more of the source.
     obfuscator({
       apply: "build",
       include: ["**/*.js", "**/*.jsx"],
       options: {
-        // A nonfixed seed reshuffles the string array on every build, so two
-        // builds never produce the same bundle to diff against.
         seed: 0,
         compact: true,
         identifierNamesGenerator: "mangled",
