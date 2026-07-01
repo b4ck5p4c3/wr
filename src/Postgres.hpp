@@ -9,17 +9,15 @@
 #include "String.hpp"
 #include "StringView.hpp"
 
-struct sqlite3;
-struct sqlite3_stmt;
+struct pg_conn;
 
 namespace wr {
 
-/* The connection string is a local file path for the sqlite backend. */
-class Sqlite final : public SqlDatabase
+class Postgres final : public SqlDatabase
 {
 public:
-  explicit Sqlite(Allocator allocator) : m_allocator(allocator) {}
-  ~Sqlite() override;
+  explicit Postgres(Allocator allocator) : m_allocator(allocator) {}
+  ~Postgres() override;
 
   fn open(StringView connection_string) -> ErrorOr<Ok> override;
   fn execute(StringView sql) -> ErrorOr<Ok> override;
@@ -27,7 +25,7 @@ public:
   fn clear_statement_cache() noexcept -> void override;
   mustuse fn dialect() const noexcept -> sql_dialect override
   {
-    return sql_dialect::sqlite;
+    return sql_dialect::postgresql;
   }
 
 protected:
@@ -41,13 +39,20 @@ protected:
   mustuse fn column_int(opaque *handle, int column) const -> i64 override;
 
 private:
-  /* A prepared statement is compiled once and kept here, keyed by its sql, so a
-     repeated query is reset instead of recompiled. The least recently used
-     entry is finalized once the cache is full. */
+  struct pq_statement
+  {
+    String name;
+    ArrayList<String> parameters;
+    opaque *result;
+    int row_position;
+    int row_count;
+    bool was_executed;
+  };
+
   struct cached_statement
   {
     String sql;
-    sqlite3_stmt *handle;
+    pq_statement *handle;
     u64 last_used_count;
   };
 
@@ -56,12 +61,17 @@ private:
   mustuse fn make_error(StringView context,
                         ErrorBase::Severity severity =
                             ErrorBase::Severity::Recoverable) const -> Error;
-  mustuse fn acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>;
+  mustuse fn make_result_error(opaque *result, StringView context) const
+      -> Error;
+  mustuse fn acquire_statement(StringView sql) -> ErrorOr<pq_statement *>;
+  mustuse fn create_statement(StringView sql) -> ErrorOr<pq_statement *>;
+  fn destroy_statement(pq_statement *statement) noexcept -> void;
 
   Allocator m_allocator;
-  sqlite3 *m_connection{nullptr};
+  pg_conn *m_connection{nullptr};
   ArrayList<cached_statement> m_statement_cache{m_allocator};
   u64 m_use_count{0};
+  u64 m_prepared_count{0};
 };
 
 } // namespace wr

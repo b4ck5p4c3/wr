@@ -7,6 +7,7 @@
 #include "Liveness.hpp"
 #include "Mongoose.hpp"
 #include "Path.hpp"
+#include "Postgres.hpp"
 #include "Sqlite.hpp"
 #include "Store.hpp"
 #include "Trace.hpp"
@@ -29,7 +30,7 @@ FLAG(LISTEN, String, 'l', "listen-address", Server,
 FLAG(DATABASE, String, 'd', "database-url", Server,
      "Path or URL to the database (required). Or set WR_DATABASE_URL.");
 FLAG(DBBACKEND, String, 'D', "database-backend", Server,
-     "Database backend. One of: sqlite (default sqlite). Or set "
+     "Database backend. One of: sqlite, postgresql (default sqlite). Or set "
      "WR_DATABASE_BACKEND.");
 FLAG(PUBLICURL, String, 'u', "web-root-url", Server,
      "Public base URL for the OAuth redirect, defaults to the listen URL. Or "
@@ -201,9 +202,12 @@ fn main(int argc, char **argv) -> int
     fail(message.view());
   }
 
-  if (FLAG_DBBACKEND.is_set() && FLAG_DBBACKEND.value() != "sqlite") {
-    fail("error: Only the sqlite database backend is implemented.");
+  let const backend =
+      FLAG_DBBACKEND.is_set() ? FLAG_DBBACKEND.value() : StringView{"sqlite"};
+  if (backend != "sqlite" && backend != "postgresql") {
+    fail("error: Unknown database backend.");
   }
+  let const is_postgres_backend = backend == "postgresql";
 
   config cfg;
   cfg.listen_url = String{allocator, FLAG_LISTEN.value()};
@@ -219,9 +223,12 @@ fn main(int argc, char **argv) -> int
   cfg.telegram_bot_token =
       String{allocator, env_or("WR_TELEGRAM_BOT_TOKEN", "")};
   cfg.session_key = String{allocator, env_or("WR_SESSION_KEY", "")};
+  cfg.github_org = String{allocator, env_or("WR_GITHUB_ORG", "b4ck5p4c3")};
+  cfg.github_org_token = String{allocator, env_or("WR_GITHUB_ORG_TOKEN", "")};
   cfg.is_dev_mode = FLAG_DEV.is_enabled();
   cfg.is_metrics_enabled = FLAG_METRICS.is_enabled();
   cfg.is_forwarded_trusted = FLAG_TRUSTFWD.is_enabled();
+  cfg.is_postgres_backend = is_postgres_backend;
 
   LOG(Info, "wr is starting up");
   if (cfg.is_dev_mode) LOG(Info, "dev mode is on, the login bypass is enabled");
@@ -248,7 +255,12 @@ fn main(int argc, char **argv) -> int
     return 1;
   }
 
-  Sqlite database{allocator};
+  Sqlite sqlite_database{allocator};
+  Postgres postgres_database{allocator};
+  SqlDatabase *database_backend = &sqlite_database;
+  if (is_postgres_backend) database_backend = &postgres_database;
+  SqlDatabase &database = *database_backend;
+
   let database_result = database.open(cfg.database_path.view());
   if (database_result.is_error())
     fail(database_result.error().message().view());

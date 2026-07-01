@@ -8,6 +8,12 @@
 
 namespace wr {
 
+enum class sql_dialect : u8
+{
+  sqlite,
+  postgresql
+};
+
 class SqlDatabase;
 
 /* The handle is finalized on destruction, so a statement is move-only. */
@@ -62,6 +68,7 @@ public:
   virtual fn execute(StringView sql) -> ErrorOr<Ok> = 0;
   mustuse virtual fn prepare(StringView sql) -> ErrorOr<SqlStatement> = 0;
   virtual fn clear_statement_cache() noexcept -> void = 0;
+  mustuse virtual fn dialect() const noexcept -> sql_dialect = 0;
 
 protected:
   SqlDatabase() = default;

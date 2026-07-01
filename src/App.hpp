@@ -24,9 +24,12 @@ struct config
   String github_client_secret;
   String telegram_bot_token;
   String session_key;
+  String github_org;
+  String github_org_token;
   bool is_dev_mode = false;
   bool is_metrics_enabled = false;
   bool is_forwarded_trusted = false;
+  bool is_postgres_backend = false;
 };
 
 /* The application context threaded through every request. It owns no
@@ -129,6 +132,7 @@ mustuse fn find_cookie(StringView cookie_header, StringView name)
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions = nullptr,
                    const ArrayList<String> *reacted = nullptr,
-                   const i64 *click_count = nullptr) -> void;
+                   const i64 *click_count = nullptr,
+                   bool is_owner_verified = false) -> void;
 
 } // namespace wr

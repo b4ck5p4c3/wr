@@ -81,7 +81,7 @@ fn read_comment(SqlStatement &statement) -> comment
 
 /* The schema is one idempotent baseline. Every statement is a CREATE IF NOT
    EXISTS, so a boot against a database that already holds it does nothing. */
-static const char *const SCHEMA =
+static const char *const SCHEMA_SQLITE =
     "CREATE TABLE IF NOT EXISTS sites ("
     "  slug TEXT PRIMARY KEY,"
     "  name TEXT NOT NULL,"
@@ -101,8 +101,9 @@ static const char *const SCHEMA =
     "CREATE TABLE IF NOT EXISTS oauth_sources ("
     "  source INTEGER PRIMARY KEY,"
     "  name TEXT NOT NULL);"
-    "INSERT OR IGNORE INTO oauth_sources (source, name) VALUES "
-    "  (0, 'github'), (1, 'telegram'), (2, 'dev');"
+    "INSERT INTO oauth_sources (source, name) VALUES "
+    "  (0, 'github'), (1, 'telegram'), (2, 'dev')"
+    "  ON CONFLICT (source) DO NOTHING;"
     "CREATE TABLE IF NOT EXISTS wr ("
     "  key TEXT PRIMARY KEY,"
     "  value TEXT NOT NULL);"
@@ -152,6 +153,101 @@ static const char *const SCHEMA =
     "  slug TEXT PRIMARY KEY,"
     "  click_count INTEGER NOT NULL DEFAULT 0,"
     "  hop_count INTEGER NOT NULL DEFAULT 0);"
+    "CREATE TABLE IF NOT EXISTS org_membership ("
+    "  name TEXT PRIMARY KEY,"
+    "  is_member INTEGER NOT NULL DEFAULT 0,"
+    "  last_checked_at INTEGER NOT NULL DEFAULT 0);"
+    "CREATE INDEX IF NOT EXISTS index_sites_owner ON "
+    "sites(owner_source, owner_name);"
+    "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
+    "CREATE INDEX IF NOT EXISTS index_pending_owner ON "
+    "pending_actions(owner_source, owner_name);"
+    "CREATE INDEX IF NOT EXISTS index_pending_status ON "
+    "pending_actions(status);"
+    "CREATE INDEX IF NOT EXISTS index_sessions_expires ON sessions(expires_at);"
+    "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "
+    "liveness_buckets(hour_bucket);"
+    "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"
+    "CREATE INDEX IF NOT EXISTS index_audit_created ON audit_log(created_at);"
+    "CREATE INDEX IF NOT EXISTS index_comments_created ON "
+    "comments(created_at);";
+
+static const char *const SCHEMA_POSTGRES =
+    "CREATE TABLE IF NOT EXISTS sites ("
+    "  slug TEXT PRIMARY KEY,"
+    "  name TEXT NOT NULL,"
+    "  url TEXT NOT NULL,"
+    "  is_reachable BIGINT NOT NULL DEFAULT 1,"
+    "  last_seen_at BIGINT NOT NULL DEFAULT 0,"
+    "  owner_source BIGINT NOT NULL DEFAULT 0,"
+    "  owner_name TEXT NOT NULL DEFAULT '',"
+    "  created_at BIGINT NOT NULL DEFAULT 0,"
+    "  is_deleted BIGINT NOT NULL DEFAULT 0,"
+    "  description TEXT NOT NULL DEFAULT '');"
+    "CREATE TABLE IF NOT EXISTS accounts ("
+    "  source BIGINT NOT NULL,"
+    "  name TEXT NOT NULL,"
+    "  is_admin BIGINT NOT NULL DEFAULT 0,"
+    "  PRIMARY KEY (source, name));"
+    "CREATE TABLE IF NOT EXISTS oauth_sources ("
+    "  source BIGINT PRIMARY KEY,"
+    "  name TEXT NOT NULL);"
+    "INSERT INTO oauth_sources (source, name) VALUES "
+    "  (0, 'github'), (1, 'telegram'), (2, 'dev')"
+    "  ON CONFLICT (source) DO NOTHING;"
+    "CREATE TABLE IF NOT EXISTS wr ("
+    "  key TEXT PRIMARY KEY,"
+    "  value TEXT NOT NULL);"
+    "CREATE TABLE IF NOT EXISTS sessions ("
+    "  token TEXT PRIMARY KEY,"
+    "  source BIGINT NOT NULL,"
+    "  name TEXT NOT NULL,"
+    "  expires_at BIGINT NOT NULL);"
+    "CREATE TABLE IF NOT EXISTS pending_actions ("
+    "  id BIGSERIAL PRIMARY KEY,"
+    "  kind TEXT NOT NULL,"
+    "  owner_source BIGINT NOT NULL DEFAULT 0,"
+    "  owner_name TEXT NOT NULL DEFAULT '',"
+    "  target_slug TEXT NOT NULL DEFAULT '',"
+    "  payload TEXT NOT NULL DEFAULT '',"
+    "  created_at BIGINT NOT NULL,"
+    "  status TEXT NOT NULL DEFAULT 'pending');"
+    "CREATE TABLE IF NOT EXISTS liveness_buckets ("
+    "  slug TEXT NOT NULL,"
+    "  hour_bucket BIGINT NOT NULL,"
+    "  up_count BIGINT NOT NULL DEFAULT 0,"
+    "  probe_count BIGINT NOT NULL DEFAULT 0,"
+    "  PRIMARY KEY (slug, hour_bucket));"
+    "CREATE TABLE IF NOT EXISTS reactions ("
+    "  slug TEXT NOT NULL,"
+    "  emoji TEXT NOT NULL,"
+    "  source BIGINT NOT NULL,"
+    "  name TEXT NOT NULL,"
+    "  PRIMARY KEY (slug, emoji, source, name));"
+    "CREATE TABLE IF NOT EXISTS audit_log ("
+    "  id BIGSERIAL PRIMARY KEY,"
+    "  actor_source BIGINT NOT NULL DEFAULT 0,"
+    "  actor_name TEXT NOT NULL DEFAULT '',"
+    "  action TEXT NOT NULL,"
+    "  target TEXT NOT NULL DEFAULT '',"
+    "  detail TEXT NOT NULL DEFAULT '',"
+    "  created_at BIGINT NOT NULL,"
+    "  actor_ip TEXT NOT NULL DEFAULT '');"
+    "CREATE TABLE IF NOT EXISTS comments ("
+    "  id BIGSERIAL PRIMARY KEY,"
+    "  author_source BIGINT NOT NULL DEFAULT 0,"
+    "  author_name TEXT NOT NULL DEFAULT '',"
+    "  body TEXT NOT NULL,"
+    "  created_at BIGINT NOT NULL,"
+    "  is_approved BIGINT NOT NULL DEFAULT 0);"
+    "CREATE TABLE IF NOT EXISTS site_metrics ("
+    "  slug TEXT PRIMARY KEY,"
+    "  click_count BIGINT NOT NULL DEFAULT 0,"
+    "  hop_count BIGINT NOT NULL DEFAULT 0);"
+    "CREATE TABLE IF NOT EXISTS org_membership ("
+    "  name TEXT PRIMARY KEY,"
+    "  is_member BIGINT NOT NULL DEFAULT 0,"
+    "  last_checked_at BIGINT NOT NULL DEFAULT 0);"
     "CREATE INDEX IF NOT EXISTS index_sites_owner ON "
     "sites(owner_source, owner_name);"
     "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
@@ -172,7 +268,10 @@ static constexpr i64 LIVENESS_WINDOW_HOURS = 168;
 
 fn Store::migrate() -> ErrorOr<Ok>
 {
-  TRY(m_database.execute(SCHEMA));
+  let const schema = m_database.dialect() == sql_dialect::postgresql
+                         ? SCHEMA_POSTGRES
+                         : SCHEMA_SQLITE;
+  TRY(m_database.execute(schema));
   LOG(Info, "schema ensured");
   return Success;
 }
@@ -216,7 +315,8 @@ fn Store::check_api_version() -> ErrorOr<Ok>
   }
 
   let info = TRY(m_database.prepare(
-      "INSERT OR REPLACE INTO wr (key, value) VALUES (?, ?);"));
+      "INSERT INTO wr (key, value) VALUES (?, ?) "
+      "ON CONFLICT (key) DO UPDATE SET value = excluded.value;"));
   info.bind(StringView{"version"});
   info.bind(StringView{WR_VERSION_STRING});
   unused(TRY(info.step()));
@@ -640,6 +740,62 @@ fn Store::upsert_account(const identity &who, bool is_admin) -> ErrorOr<Ok>
   LOG(Info, "account upserted, source=%d name=%s is_admin=%d",
       static_cast<int>(who.source), who.name.c_str(), is_admin ? 1 : 0);
   return Success;
+}
+
+fn Store::set_org_membership(StringView name, bool is_member, i64 checked_at)
+    -> ErrorOr<Ok>
+{
+  let statement = TRY(m_database.prepare(
+      "INSERT INTO org_membership (name, is_member, last_checked_at) "
+      "VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET "
+      "is_member = excluded.is_member, "
+      "last_checked_at = excluded.last_checked_at;"));
+  statement.bind(name);
+  statement.bind(is_member);
+  statement.bind(checked_at);
+  unused(TRY(statement.step()));
+
+  LOG(Info, "org membership recorded, name=%.*s is_member=%d",
+      static_cast<int>(name.count()), name.data, is_member ? 1 : 0);
+  return Success;
+}
+
+fn Store::list_org_handles_due(i64 cutoff) const -> ErrorOr<ArrayList<String>>
+{
+  ArrayList<String> handles{m_allocator};
+  let statement = TRY(m_database.prepare(
+      "SELECT DISTINCT s.owner_name FROM sites s "
+      "LEFT JOIN org_membership m ON m.name = s.owner_name "
+      "WHERE s.owner_source = 0 AND s.is_deleted = 0 AND s.owner_name <> '' "
+      "AND (m.last_checked_at IS NULL OR m.last_checked_at < ?);"));
+  statement.bind(cutoff);
+  while (TRY(statement.step()))
+    handles.push(statement.get<String>());
+
+  return handles;
+}
+
+fn Store::get_verified_members() const -> ErrorOr<StringMap<bool>>
+{
+  StringMap<bool> members{m_allocator};
+  let statement = TRY(
+      m_database.prepare("SELECT name FROM org_membership WHERE is_member = 1;"));
+  while (TRY(statement.step())) {
+    let const name = statement.get<String>();
+    members.set(name.view(), true);
+  }
+
+  return members;
+}
+
+fn Store::is_org_member(StringView name) const -> ErrorOr<bool>
+{
+  let statement = TRY(m_database.prepare(
+      "SELECT is_member FROM org_membership WHERE name = ?;"));
+  statement.bind(name);
+  if (TRY(statement.step())) return statement.get<i64>() != 0;
+
+  return false;
 }
 
 fn Store::create_session(StringView token, const identity &who, i64 expires_at)

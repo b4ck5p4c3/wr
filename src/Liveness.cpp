@@ -13,6 +13,8 @@ namespace wr {
 static const StringView LIVENESS_USER_AGENT =
     "Mozilla/5.0 (compatible; wr-webring liveness checker)";
 
+static const StringView GITHUB_API_USER_AGENT = "wr-webring";
+
 fn Liveness::start() -> ErrorOr<Ok>
 {
   TRY(m_database.open(m_config.database_path.view()));
@@ -96,6 +98,69 @@ fn Liveness::sweep() -> void
 
   if (m_store.rotate_liveness(now).is_error())
     LOG(Debug, "liveness bucket rotation dropped");
+
+  refresh_org_membership(now);
+}
+
+fn Liveness::refresh_org_membership(i64 now) -> void
+{
+  if (m_config.is_dev_mode || m_config.github_org.view().is_empty()) {
+    return;
+  }
+
+  let const handles_or =
+      m_store.list_org_handles_due(now - ORG_REFRESH_SECONDS);
+  if (handles_or.is_error()) {
+    LOG(Debug, "org membership handles could not be read");
+    return;
+  }
+
+  let const &handles = handles_or.value();
+  if (handles.is_empty()) return;
+
+  let const has_token = !m_config.github_org_token.view().is_empty();
+  usize checked_count = 0;
+  for (usize i = 0; i < handles.count(); i++) {
+    if (__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST)) return;
+
+    if (checked_count >= ORG_REFRESH_MAX_PER_SWEEP) {
+      LOG(Info, "org membership refresh capped at %zu handles this sweep",
+          ORG_REFRESH_MAX_PER_SWEEP);
+      break;
+    }
+
+    let const &handle = handles[i];
+
+    String url{m_allocator};
+    url.append("https://api.github.com/orgs/");
+    url.append(m_config.github_org.view());
+    url.append(has_token ? "/members/" : "/public_members/");
+    url.append(handle.view());
+
+    HttpRequestBuilder builder{m_allocator};
+    builder.set_method(HttpMethod::Get);
+    builder.set_url(url.view());
+    builder.add_auxiliary_headers(GITHUB_API_USER_AGENT, "application/json");
+    if (has_token) {
+      String authorization{m_allocator};
+      authorization.append("token ");
+      authorization.append(m_config.github_org_token.view());
+      builder.add_header("Authorization", authorization.view());
+    }
+
+    let const response = m_client.send(builder.build());
+    if (response.is_error()) continue;
+
+    let const status = response.value().status();
+    if (status != 204 && status != 404) {
+      continue;
+    }
+
+    checked_count++;
+    let const is_member = status == 204;
+    if (m_store.set_org_membership(handle.view(), is_member, now).is_error())
+      LOG(Info, "org membership write dropped for %s", handle.c_str());
+  }
 }
 
 } // namespace wr

@@ -164,6 +164,13 @@ public:
   mustuse fn find_account(const identity &who) const -> ErrorOr<Maybe<account>>;
   fn upsert_account(const identity &who, bool is_admin) -> ErrorOr<Ok>;
 
+  fn set_org_membership(StringView name, bool is_member, i64 checked_at)
+      -> ErrorOr<Ok>;
+  mustuse fn list_org_handles_due(i64 cutoff) const
+      -> ErrorOr<ArrayList<String>>;
+  mustuse fn get_verified_members() const -> ErrorOr<StringMap<bool>>;
+  mustuse fn is_org_member(StringView name) const -> ErrorOr<bool>;
+
   fn create_session(StringView token, const identity &who, i64 expires_at)
       -> ErrorOr<Ok>;
   mustuse fn find_session(StringView token) const -> ErrorOr<Maybe<session>>;
