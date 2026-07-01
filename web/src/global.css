@@ -1126,6 +1126,10 @@ code {
   margin: 0;
 }
 
+.modal:not(.modal-wide) h2 {
+  line-height: 1;
+}
+
 .modal:not(.modal-wide) p {
   color: var(--text-secondary);
   line-height: 1.4;

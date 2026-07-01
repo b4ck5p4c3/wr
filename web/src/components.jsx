@@ -196,7 +196,7 @@ export function Modal({ label, wide, onClose, children }) {
 export function ErrorModal({ message, onClose }) {
   return (
     <Modal label="error" onClose={onClose}>
-      <h2>error</h2>
+      <h2 class="error">error</h2>
       <p class="error">{message}</p>
       <button class="close" onClick={onClose}>
         close..
