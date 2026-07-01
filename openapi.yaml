@@ -802,6 +802,11 @@ components:
         owner_name:
           type: string
           description: The owner handle, kept under the owner-name field.
+        owner_is_verified:
+          type: boolean
+          description: >-
+            True when the owner is a github user in the configured
+            organisation, shown as a verified badge on the public listing.
         reactions:
           type: object
           description: >-

@@ -614,6 +614,22 @@ function cardBody(site, ctx) {
                 <span class={handleClass}>{handle}</span>
               )
             ) : null}
+            {site.owner_is_verified ? (
+              <svg
+                class="tweet-verified"
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                aria-label="Verified member"
+              >
+                <title>Verified member</title>
+                <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.68.88-3.34 2.19c-1.39-.46-2.9-.2-3.91.81s-1.27 2.52-.81 3.91c-1.31.66-2.19 1.91-2.19 3.34s.88 2.67 2.19 3.34c-.46 1.39-.2 2.9.81 3.91s2.52 1.27 3.91.81c.66 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.46 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.66 2.19-1.91 2.19-3.34z" />
+                <path
+                  class="tweet-verified-check"
+                  d="M9.8 17.3l-4.2-4.1L7 11.8l2.8 2.7L17 7.4l1.4 1.4-8.6 8.5z"
+                />
+              </svg>
+            ) : null}
             {site.created_at ? (
               <span class="tweet-age">
                 {formatAge(site.created_at) + " ago"}

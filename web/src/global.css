@@ -493,6 +493,16 @@ img {
   color: var(--telegram-blue);
 }
 
+.tweet-verified {
+  flex: none;
+  align-self: center;
+  fill: #4aa3ff;
+}
+
+.tweet-verified-check {
+  fill: #fff;
+}
+
 .tweet-text {
   margin: 0;
   width: 100%;

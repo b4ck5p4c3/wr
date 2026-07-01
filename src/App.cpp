@@ -182,8 +182,8 @@ fn find_cookie(StringView cookie_header, StringView name) -> Maybe<StringView>
    built from it. The dev bypass accounts point at GitHub. */
 fn write_site_json(JsonWriter &writer, const site &row,
                    const ArrayList<reaction_count> *reactions,
-                   const ArrayList<String> *reacted, const i64 *click_count)
-    -> void
+                   const ArrayList<String> *reacted, const i64 *click_count,
+                   bool is_owner_verified) -> void
 {
   writer.object_begin();
   writer.field("slug", row.slug.view());
@@ -195,6 +195,8 @@ fn write_site_json(JsonWriter &writer, const site &row,
   writer.field("owner_oauth", source_oauth(row.owner.source));
   writer.field("owner_tag", row.owner.name.view());
   writer.field("owner_name", row.owner.name.view());
+  writer.key("owner_is_verified");
+  writer.boolean(is_owner_verified);
 
   if (reactions != nullptr) {
     writer.key("reactions");
@@ -464,8 +466,14 @@ fn App::write_listing_site(JsonWriter &writer, const site &row,
     }
   }
 
+  bool is_owner_verified = false;
+  if (row.owner.source == identity_source::github) {
+    let const member_or = m_store.is_org_member(row.owner.name.view());
+    if (!member_or.is_error()) is_owner_verified = member_or.value();
+  }
+
   write_site_json(writer, row, &counts, who.has_value() ? &reacted : nullptr,
-                  has_click_count ? &click_count : nullptr);
+                  has_click_count ? &click_count : nullptr, is_owner_verified);
 }
 
 fn App::handle_sites(HttpServerEvent &event) -> void
@@ -507,6 +515,13 @@ fn App::handle_sites(HttpServerEvent &event) -> void
     }
   }
 
+  let verified_or = m_store.get_verified_members();
+  StringMap<bool> verified{event.request_allocator()};
+  if (!verified_or.is_error())
+    verified = steal(verified_or.value());
+  else
+    LOG(Info, "site listing org membership unavailable");
+
   const ArrayList<reaction_count> empty_counts{event.request_allocator()};
   const ArrayList<String> empty_reacted{event.request_allocator()};
 
@@ -528,8 +543,14 @@ fn App::handle_sites(HttpServerEvent &event) -> void
     if (let const *found = click_counts.find(slug); found != nullptr)
       click_count = *found;
 
+    let const &owner = sites[i].owner;
+    let const is_owner_verified =
+        owner.source == identity_source::github &&
+        verified.find(owner.name.view()) != nullptr;
+
     write_site_json(writer, sites[i], counts_or_empty, reacted_or_null,
-                    m_config.is_metrics_enabled ? &click_count : nullptr);
+                    m_config.is_metrics_enabled ? &click_count : nullptr,
+                    is_owner_verified);
   }
 
   writer.array_end();
@@ -617,9 +638,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   let const count = sites.count();
   usize target = current;
-  bool did_hop = false;
   if (let const stepped = NAV_STEPS.find(step); stepped != nullptr) {
-    did_hop = true;
     switch (*stepped) {
     case nav_step::next: target = (current + 1) % count; break;
     case nav_step::previous: target = (current + count - 1) % count; break;
@@ -634,7 +653,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   if (!wants_data) {
     let const target_slug = sites[target].slug.view();
-    if (did_hop && m_config.is_metrics_enabled &&
+    if (m_config.is_metrics_enabled &&
         m_store.record_hop(target_slug).is_error())
     {
       LOG(Info, "hop record dropped for %.*s",
