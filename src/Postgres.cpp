@@ -10,8 +10,8 @@ namespace wr {
 
 Postgres::~Postgres()
 {
-  for (let const &entry : m_statement_cache)
-    destroy_statement(entry.handle);
+  m_statement_cache.clear(
+      [this](pq_statement *handle) noexcept { destroy_statement(handle); });
 
   if (m_connection != nullptr) PQfinish(m_connection);
 }
@@ -67,16 +67,20 @@ fn Postgres::execute(StringView sql) -> ErrorOr<Ok>
 
 fn Postgres::prepare(StringView sql) -> ErrorOr<SqlStatement>
 {
-  let const handle = TRY(acquire_statement(sql));
+  let const handle = TRY(m_statement_cache.acquire(
+      sql,
+      [this](StringView statement_sql) -> ErrorOr<pq_statement *> {
+        return create_statement(statement_sql);
+      },
+      [this](pq_statement *handle) noexcept { destroy_statement(handle); }));
+
   return SqlStatement{*this, handle, m_allocator, true};
 }
 
 fn Postgres::clear_statement_cache() noexcept -> void
 {
-  for (let const &entry : m_statement_cache)
-    destroy_statement(entry.handle);
-
-  m_statement_cache.clear();
+  m_statement_cache.clear(
+      [this](pq_statement *handle) noexcept { destroy_statement(handle); });
   LOG(Debug, "postgresql statement cache cleared");
 }
 
@@ -87,6 +91,7 @@ fn translate_placeholders(Allocator allocator, StringView sql) -> String
   String translated{allocator};
   bool is_inside_literal = false;
   u64 placeholder_count = 0;
+  translated.reserve(sql.count());
 
   for (usize i = 0; i < sql.count(); i++) {
     let const character = sql[i];
@@ -125,36 +130,6 @@ fn Postgres::create_statement(StringView sql) -> ErrorOr<pq_statement *>
   let const memory = m_allocator.alloc_array<pq_statement>(1);
   return new (memory) pq_statement{steal(name), ArrayList<String>{m_allocator},
                                    nullptr, 0, 0, false};
-}
-
-fn Postgres::acquire_statement(StringView sql) -> ErrorOr<pq_statement *>
-{
-  m_use_count++;
-
-  for (cached_statement &entry : m_statement_cache)
-    if (entry.sql.view() == sql) {
-      entry.last_used_count = m_use_count;
-      return entry.handle;
-    }
-
-  let const handle = TRY(create_statement(sql));
-
-  if (m_statement_cache.count() < STATEMENT_CACHE_CAPACITY) {
-    m_statement_cache.push(
-        cached_statement{String{m_allocator, sql}, handle, m_use_count});
-    return handle;
-  }
-
-  usize evicted_index = 0;
-  for (usize i = 1; i < m_statement_cache.count(); i++)
-    if (m_statement_cache[i].last_used_count <
-        m_statement_cache[evicted_index].last_used_count)
-      evicted_index = i;
-
-  destroy_statement(m_statement_cache[evicted_index].handle);
-  m_statement_cache[evicted_index] =
-      cached_statement{String{m_allocator, sql}, handle, m_use_count};
-  return handle;
 }
 
 fn Postgres::destroy_statement(pq_statement *statement) noexcept -> void
@@ -227,6 +202,7 @@ fn Postgres::step(opaque *handle) -> ErrorOr<bool>
 
   let const parameter_count = static_cast<int>(statement->parameters.count());
   const char **values = nullptr;
+
   if (parameter_count > 0) {
     values = m_allocator.alloc_array<const char *>(statement->parameters.count());
     for (usize i = 0; i < statement->parameters.count(); i++)

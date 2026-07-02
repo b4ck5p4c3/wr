@@ -7,8 +7,8 @@ namespace wr {
 
 Sqlite::~Sqlite()
 {
-  for (let const &entry : m_statement_cache)
-    sqlite3_finalize(entry.handle);
+  m_statement_cache.clear(
+      [](sqlite3_stmt *handle) noexcept { sqlite3_finalize(handle); });
 
   if (m_connection != nullptr) sqlite3_close(m_connection);
 }
@@ -55,49 +55,31 @@ fn Sqlite::execute(StringView sql) -> ErrorOr<Ok>
 
 fn Sqlite::prepare(StringView sql) -> ErrorOr<SqlStatement>
 {
-  let const handle = TRY(acquire_statement(sql));
+  let const handle = TRY(m_statement_cache.acquire(
+      sql,
+      [this](StringView statement_sql) -> ErrorOr<sqlite3_stmt *> {
+        return compile(statement_sql);
+      },
+      [](sqlite3_stmt *handle) noexcept { sqlite3_finalize(handle); }));
+
   return SqlStatement{*this, handle, m_allocator, true};
 }
 
 fn Sqlite::clear_statement_cache() noexcept -> void
 {
-  for (let const &entry : m_statement_cache)
-    sqlite3_finalize(entry.handle);
-
-  m_statement_cache.clear();
+  m_statement_cache.clear(
+      [](sqlite3_stmt *handle) noexcept { sqlite3_finalize(handle); });
   LOG(Debug, "sqlite statement cache cleared");
 }
 
-fn Sqlite::acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>
+fn Sqlite::compile(StringView sql) -> ErrorOr<sqlite3_stmt *>
 {
-  m_use_count++;
-
-  for (cached_statement &entry : m_statement_cache)
-    if (entry.sql.view() == sql) {
-      entry.last_used_count = m_use_count;
-      return entry.handle;
-    }
-
-  let text = String{m_allocator, sql};
+  let const text = String{m_allocator, sql};
   sqlite3_stmt *handle = nullptr;
   if (sqlite3_prepare_v2(m_connection, text.c_str(), -1, &handle, nullptr) !=
       SQLITE_OK)
     return make_error("Unable to prepare the statement");
 
-  if (m_statement_cache.count() < STATEMENT_CACHE_CAPACITY) {
-    m_statement_cache.push(cached_statement{steal(text), handle, m_use_count});
-    return handle;
-  }
-
-  usize evicted_index = 0;
-  for (usize i = 1; i < m_statement_cache.count(); i++)
-    if (m_statement_cache[i].last_used_count <
-        m_statement_cache[evicted_index].last_used_count)
-      evicted_index = i;
-
-  sqlite3_finalize(m_statement_cache[evicted_index].handle);
-  m_statement_cache[evicted_index] =
-      cached_statement{steal(text), handle, m_use_count};
   return handle;
 }
 

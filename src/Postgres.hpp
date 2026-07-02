@@ -6,6 +6,7 @@
 #include "ErrorOr.hpp"
 #include "Errors.hpp"
 #include "Sql.hpp"
+#include "StatementCache.hpp"
 #include "String.hpp"
 #include "StringView.hpp"
 
@@ -49,28 +50,17 @@ private:
     bool was_executed;
   };
 
-  struct cached_statement
-  {
-    String sql;
-    pq_statement *handle;
-    u64 last_used_count;
-  };
-
-  static constexpr usize STATEMENT_CACHE_CAPACITY = 32;
-
   mustuse fn make_error(StringView context,
                         ErrorBase::Severity severity =
                             ErrorBase::Severity::Recoverable) const -> Error;
   mustuse fn make_result_error(opaque *result, StringView context) const
       -> Error;
-  mustuse fn acquire_statement(StringView sql) -> ErrorOr<pq_statement *>;
   mustuse fn create_statement(StringView sql) -> ErrorOr<pq_statement *>;
   fn destroy_statement(pq_statement *statement) noexcept -> void;
 
   Allocator m_allocator;
   pg_conn *m_connection{nullptr};
-  ArrayList<cached_statement> m_statement_cache{m_allocator};
-  u64 m_use_count{0};
+  StatementCache<pq_statement *> m_statement_cache{m_allocator};
   u64 m_prepared_count{0};
 };
 

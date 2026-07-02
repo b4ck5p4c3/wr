@@ -1,11 +1,11 @@
 #pragma once
 
 #include "Allocator.hpp"
-#include "ArrayList.hpp"
 #include "Common.hpp"
 #include "ErrorOr.hpp"
 #include "Errors.hpp"
 #include "Sql.hpp"
+#include "StatementCache.hpp"
 #include "String.hpp"
 #include "StringView.hpp"
 
@@ -41,27 +41,14 @@ protected:
   mustuse fn column_int(opaque *handle, int column) const -> i64 override;
 
 private:
-  /* A prepared statement is compiled once and kept here, keyed by its sql, so a
-     repeated query is reset instead of recompiled. The least recently used
-     entry is finalized once the cache is full. */
-  struct cached_statement
-  {
-    String sql;
-    sqlite3_stmt *handle;
-    u64 last_used_count;
-  };
-
-  static constexpr usize STATEMENT_CACHE_CAPACITY = 32;
-
   mustuse fn make_error(StringView context,
                         ErrorBase::Severity severity =
                             ErrorBase::Severity::Recoverable) const -> Error;
-  mustuse fn acquire_statement(StringView sql) -> ErrorOr<sqlite3_stmt *>;
+  mustuse fn compile(StringView sql) -> ErrorOr<sqlite3_stmt *>;
 
   Allocator m_allocator;
   sqlite3 *m_connection{nullptr};
-  ArrayList<cached_statement> m_statement_cache{m_allocator};
-  u64 m_use_count{0};
+  StatementCache<sqlite3_stmt *> m_statement_cache{m_allocator};
 };
 
 } // namespace wr
