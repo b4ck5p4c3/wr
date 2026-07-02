@@ -1,15 +1,15 @@
 [submodule "vendor/mongoose"]
 	path = vendor/mongoose
-	url = https://github.com/cesanta/mongoose/
+	url = https://github.com/cesanta/mongoose.git
 [submodule "vendor/curl"]
 	path = vendor/curl
-	url = https://github.com/curl/curl
+	url = https://github.com/curl/curl.git
 [submodule "vendor/rapidjson"]
 	path = vendor/rapidjson
-	url = https://github.com/Tencent/rapidjson
+	url = https://github.com/Tencent/rapidjson.git
 [submodule "vendor/openssl"]
 	path = vendor/openssl
-	url = https://github.com/openssl/openssl
+	url = https://github.com/openssl/openssl.git
 [submodule "vendor/postgres"]
 	path = vendor/postgres
-	url = https://github.com/postgres/postgres
+	url = https://github.com/postgres/postgres.git

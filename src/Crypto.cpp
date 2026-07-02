@@ -3,8 +3,11 @@
 #include "Errors.hpp"
 #include "String.hpp"
 
+#pragma push_macro("fn")
+#undef fn
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#pragma pop_macro("fn")
 
 namespace wr {
 

@@ -5,7 +5,8 @@ See [original issue](https://t.me/b4cksp4ce_issues/762).
 
 ## Quickstart
 
-Only Linux is supported.
+Only Linux is supported. Don't forget to clone this repository `--recursive`ly.
+It contains several vendored submodules to compile a fully static binary.
 
 Build from source:
 ```bash
