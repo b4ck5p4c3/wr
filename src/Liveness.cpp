@@ -119,11 +119,18 @@ fn Liveness::refresh_org_membership(i64 now) -> void
   if (handles.is_empty()) return;
 
   let const has_token = !m_config.github_org_token.view().is_empty();
-  usize checked_count = 0;
+
+  String authorization{m_allocator};
+  if (has_token) {
+    authorization.append("token ");
+    authorization.append(m_config.github_org_token.view());
+  }
+
+  usize attempted_count = 0;
   for (usize i = 0; i < handles.count(); i++) {
     if (__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST)) return;
 
-    if (checked_count >= ORG_REFRESH_MAX_PER_SWEEP) {
+    if (attempted_count >= ORG_REFRESH_MAX_PER_SWEEP) {
       LOG(Info, "org membership refresh capped at %zu handles this sweep",
           ORG_REFRESH_MAX_PER_SWEEP);
       break;
@@ -141,23 +148,13 @@ fn Liveness::refresh_org_membership(i64 now) -> void
     builder.set_method(HttpMethod::Get);
     builder.set_url(url.view());
     builder.add_auxiliary_headers(GITHUB_API_USER_AGENT, "application/json");
-    if (has_token) {
-      String authorization{m_allocator};
-      authorization.append("token ");
-      authorization.append(m_config.github_org_token.view());
-      builder.add_header("Authorization", authorization.view());
-    }
+    if (has_token) builder.add_header("Authorization", authorization.view());
 
+    attempted_count++;
     let const response = m_client.send(builder.build());
     if (response.is_error()) continue;
 
-    let const status = response.value().status();
-    if (status != 204 && status != 404) {
-      continue;
-    }
-
-    checked_count++;
-    let const is_member = status == 204;
+    let const is_member = response.value().status() == 204;
     if (m_store.set_org_membership(handle.view(), is_member, now).is_error())
       LOG(Info, "org membership write dropped for %s", handle.c_str());
   }
