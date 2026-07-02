@@ -32,18 +32,24 @@ public:
     let const handle = TRY(do_create(sql));
 
     if (m_entries.count() < CAPACITY) {
-      m_entries.push(entry{String{m_allocator, sql}, handle, m_use_count});
+      m_entries.push(entry{
+          String{m_allocator, sql},
+          handle, m_use_count
+      });
       return handle;
     }
 
     usize evicted_index = 0;
     for (usize i = 1; i < m_entries.count(); i++)
-      if (m_entries[i].last_used_count < m_entries[evicted_index].last_used_count)
+      if (m_entries[i].last_used_count <
+          m_entries[evicted_index].last_used_count)
         evicted_index = i;
 
     do_destroy(m_entries[evicted_index].handle);
-    m_entries[evicted_index] =
-        entry{String{m_allocator, sql}, handle, m_use_count};
+    m_entries[evicted_index] = entry{
+        String{m_allocator, sql},
+        handle, m_use_count
+    };
     return handle;
   }
 

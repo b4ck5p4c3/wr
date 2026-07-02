@@ -83,79 +83,79 @@ fn read_comment(SqlStatement &statement) -> comment
    EXISTS, so a boot against a database that already holds it does nothing. */
 #define WR_SCHEMA(INT, ID)                                                     \
   "CREATE TABLE IF NOT EXISTS sites ("                                         \
-  "  slug TEXT PRIMARY KEY,"                                                    \
-  "  name TEXT NOT NULL,"                                                       \
-  "  url TEXT NOT NULL,"                                                        \
-  "  is_reachable " INT " NOT NULL DEFAULT 1,"                                  \
-  "  last_seen_at " INT " NOT NULL DEFAULT 0,"                                  \
-  "  owner_source " INT " NOT NULL DEFAULT 0,"                                  \
-  "  owner_name TEXT NOT NULL DEFAULT '',"                                      \
-  "  created_at " INT " NOT NULL DEFAULT 0,"                                    \
-  "  is_deleted " INT " NOT NULL DEFAULT 0,"                                    \
-  "  description TEXT NOT NULL DEFAULT '');"                                    \
+  "  slug TEXT PRIMARY KEY,"                                                   \
+  "  name TEXT NOT NULL,"                                                      \
+  "  url TEXT NOT NULL,"                                                       \
+  "  is_reachable " INT " NOT NULL DEFAULT 1,"                                 \
+  "  last_seen_at " INT " NOT NULL DEFAULT 0,"                                 \
+  "  owner_source " INT " NOT NULL DEFAULT 0,"                                 \
+  "  owner_name TEXT NOT NULL DEFAULT '',"                                     \
+  "  created_at " INT " NOT NULL DEFAULT 0,"                                   \
+  "  is_deleted " INT " NOT NULL DEFAULT 0,"                                   \
+  "  description TEXT NOT NULL DEFAULT '');"                                   \
   "CREATE TABLE IF NOT EXISTS accounts ("                                      \
-  "  source " INT " NOT NULL,"                                                  \
-  "  name TEXT NOT NULL,"                                                       \
-  "  is_admin " INT " NOT NULL DEFAULT 0,"                                      \
+  "  source " INT " NOT NULL,"                                                 \
+  "  name TEXT NOT NULL,"                                                      \
+  "  is_admin " INT " NOT NULL DEFAULT 0,"                                     \
   "  PRIMARY KEY (source, name));"                                             \
   "CREATE TABLE IF NOT EXISTS oauth_sources ("                                 \
   "  source " INT " PRIMARY KEY,"                                              \
-  "  name TEXT NOT NULL);"                                                      \
+  "  name TEXT NOT NULL);"                                                     \
   "INSERT INTO oauth_sources (source, name) VALUES "                           \
   "  (0, 'github'), (1, 'telegram'), (2, 'dev')"                               \
   "  ON CONFLICT (source) DO NOTHING;"                                         \
   "CREATE TABLE IF NOT EXISTS wr ("                                            \
-  "  key TEXT PRIMARY KEY,"                                                     \
-  "  value TEXT NOT NULL);"                                                     \
+  "  key TEXT PRIMARY KEY,"                                                    \
+  "  value TEXT NOT NULL);"                                                    \
   "CREATE TABLE IF NOT EXISTS sessions ("                                      \
-  "  token TEXT PRIMARY KEY,"                                                   \
-  "  source " INT " NOT NULL,"                                                  \
-  "  name TEXT NOT NULL,"                                                       \
+  "  token TEXT PRIMARY KEY,"                                                  \
+  "  source " INT " NOT NULL,"                                                 \
+  "  name TEXT NOT NULL,"                                                      \
   "  expires_at " INT " NOT NULL);"                                            \
   "CREATE TABLE IF NOT EXISTS pending_actions ("                               \
   "  id " ID ","                                                               \
-  "  kind TEXT NOT NULL,"                                                       \
-  "  owner_source " INT " NOT NULL DEFAULT 0,"                                  \
-  "  owner_name TEXT NOT NULL DEFAULT '',"                                      \
-  "  target_slug TEXT NOT NULL DEFAULT '',"                                     \
-  "  payload TEXT NOT NULL DEFAULT '',"                                         \
+  "  kind TEXT NOT NULL,"                                                      \
+  "  owner_source " INT " NOT NULL DEFAULT 0,"                                 \
+  "  owner_name TEXT NOT NULL DEFAULT '',"                                     \
+  "  target_slug TEXT NOT NULL DEFAULT '',"                                    \
+  "  payload TEXT NOT NULL DEFAULT '',"                                        \
   "  created_at " INT " NOT NULL,"                                             \
   "  status TEXT NOT NULL DEFAULT 'pending');"                                 \
   "CREATE TABLE IF NOT EXISTS liveness_buckets ("                              \
-  "  slug TEXT NOT NULL,"                                                       \
+  "  slug TEXT NOT NULL,"                                                      \
   "  hour_bucket " INT " NOT NULL,"                                            \
-  "  up_count " INT " NOT NULL DEFAULT 0,"                                      \
-  "  probe_count " INT " NOT NULL DEFAULT 0,"                                   \
+  "  up_count " INT " NOT NULL DEFAULT 0,"                                     \
+  "  probe_count " INT " NOT NULL DEFAULT 0,"                                  \
   "  PRIMARY KEY (slug, hour_bucket));"                                        \
   "CREATE TABLE IF NOT EXISTS reactions ("                                     \
-  "  slug TEXT NOT NULL,"                                                       \
-  "  emoji TEXT NOT NULL,"                                                      \
-  "  source " INT " NOT NULL,"                                                  \
-  "  name TEXT NOT NULL,"                                                       \
+  "  slug TEXT NOT NULL,"                                                      \
+  "  emoji TEXT NOT NULL,"                                                     \
+  "  source " INT " NOT NULL,"                                                 \
+  "  name TEXT NOT NULL,"                                                      \
   "  PRIMARY KEY (slug, emoji, source, name));"                                \
   "CREATE TABLE IF NOT EXISTS audit_log ("                                     \
   "  id " ID ","                                                               \
-  "  actor_source " INT " NOT NULL DEFAULT 0,"                                  \
-  "  actor_name TEXT NOT NULL DEFAULT '',"                                      \
-  "  action TEXT NOT NULL,"                                                     \
-  "  target TEXT NOT NULL DEFAULT '',"                                          \
-  "  detail TEXT NOT NULL DEFAULT '',"                                          \
+  "  actor_source " INT " NOT NULL DEFAULT 0,"                                 \
+  "  actor_name TEXT NOT NULL DEFAULT '',"                                     \
+  "  action TEXT NOT NULL,"                                                    \
+  "  target TEXT NOT NULL DEFAULT '',"                                         \
+  "  detail TEXT NOT NULL DEFAULT '',"                                         \
   "  created_at " INT " NOT NULL,"                                             \
   "  actor_ip TEXT NOT NULL DEFAULT '');"                                      \
   "CREATE TABLE IF NOT EXISTS comments ("                                      \
   "  id " ID ","                                                               \
-  "  author_source " INT " NOT NULL DEFAULT 0,"                                 \
-  "  author_name TEXT NOT NULL DEFAULT '',"                                     \
-  "  body TEXT NOT NULL,"                                                       \
+  "  author_source " INT " NOT NULL DEFAULT 0,"                                \
+  "  author_name TEXT NOT NULL DEFAULT '',"                                    \
+  "  body TEXT NOT NULL,"                                                      \
   "  created_at " INT " NOT NULL,"                                             \
-  "  is_approved " INT " NOT NULL DEFAULT 0);"                                  \
+  "  is_approved " INT " NOT NULL DEFAULT 0);"                                 \
   "CREATE TABLE IF NOT EXISTS site_metrics ("                                  \
-  "  slug TEXT PRIMARY KEY,"                                                    \
-  "  click_count " INT " NOT NULL DEFAULT 0,"                                   \
-  "  hop_count " INT " NOT NULL DEFAULT 0);"                                    \
+  "  slug TEXT PRIMARY KEY,"                                                   \
+  "  click_count " INT " NOT NULL DEFAULT 0,"                                  \
+  "  hop_count " INT " NOT NULL DEFAULT 0);"                                   \
   "CREATE TABLE IF NOT EXISTS org_membership ("                                \
-  "  name TEXT PRIMARY KEY,"                                                    \
-  "  is_member " INT " NOT NULL DEFAULT 0,"                                     \
+  "  name TEXT PRIMARY KEY,"                                                   \
+  "  is_member " INT " NOT NULL DEFAULT 0,"                                    \
   "  last_checked_at " INT " NOT NULL DEFAULT 0);"                             \
   "CREATE INDEX IF NOT EXISTS index_sites_owner ON "                           \
   "sites(owner_source, owner_name);"                                           \
@@ -694,8 +694,8 @@ fn Store::list_org_handles_due(i64 cutoff) const -> ErrorOr<ArrayList<String>>
 fn Store::get_verified_members() const -> ErrorOr<StringMap<bool>>
 {
   StringMap<bool> members{m_allocator};
-  let statement = TRY(
-      m_database.prepare("SELECT name FROM org_membership WHERE is_member = 1;"));
+  let statement = TRY(m_database.prepare(
+      "SELECT name FROM org_membership WHERE is_member = 1;"));
   while (TRY(statement.step())) {
     let const name = statement.get<String>();
     members.set(name.view(), true);

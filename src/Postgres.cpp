@@ -1,10 +1,9 @@
-#include <libpq-fe.h>
-
-#include <stdlib.h>
-
 #include "Postgres.hpp"
 
 #include "Trace.hpp"
+
+#include <libpq-fe.h>
+#include <stdlib.h>
 
 namespace wr {
 
@@ -29,7 +28,8 @@ fn Postgres::make_error(StringView context, ErrorBase::Severity severity) const
   return error;
 }
 
-fn Postgres::make_result_error(opaque *result, StringView context) const -> Error
+fn Postgres::make_result_error(opaque *result, StringView context) const
+    -> Error
 {
   String message{m_allocator};
   message.append(context);
@@ -128,8 +128,8 @@ fn Postgres::create_statement(StringView sql) -> ErrorOr<pq_statement *>
   PQclear(prepared);
 
   let const memory = m_allocator.alloc_array<pq_statement>(1);
-  return new (memory) pq_statement{steal(name), ArrayList<String>{m_allocator},
-                                   nullptr, 0, 0, false};
+  return new (memory) pq_statement{
+      steal(name), ArrayList<String>{m_allocator}, nullptr, 0, 0, false};
 }
 
 fn Postgres::destroy_statement(pq_statement *statement) noexcept -> void
@@ -204,13 +204,15 @@ fn Postgres::step(opaque *handle) -> ErrorOr<bool>
   const char **values = nullptr;
 
   if (parameter_count > 0) {
-    values = m_allocator.alloc_array<const char *>(statement->parameters.count());
+    values =
+        m_allocator.alloc_array<const char *>(statement->parameters.count());
     for (usize i = 0; i < statement->parameters.count(); i++)
       values[i] = statement->parameters[i].c_str();
   }
 
-  let const result = PQexecPrepared(m_connection, statement->name.c_str(),
-                                    parameter_count, values, nullptr, nullptr, 0);
+  let const result =
+      PQexecPrepared(m_connection, statement->name.c_str(), parameter_count,
+                     values, nullptr, nullptr, 0);
   if (values != nullptr)
     m_allocator.free_array(values, statement->parameters.count());
 
@@ -236,8 +238,8 @@ fn Postgres::column_text(opaque *handle, int column, Allocator allocator) const
   if (PQgetisnull(result, statement->row_position, column))
     return String{allocator};
 
-  let const length = static_cast<usize>(
-      PQgetlength(result, statement->row_position, column));
+  let const length =
+      static_cast<usize>(PQgetlength(result, statement->row_position, column));
   return String{
       allocator,
       StringView{PQgetvalue(result, statement->row_position, column), length}

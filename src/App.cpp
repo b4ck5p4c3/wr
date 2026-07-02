@@ -544,9 +544,8 @@ fn App::handle_sites(HttpServerEvent &event) -> void
       click_count = *found;
 
     let const &owner = sites[i].owner;
-    let const is_owner_verified =
-        owner.source == identity_source::github &&
-        verified.find(owner.name.view()) != nullptr;
+    let const is_owner_verified = owner.source == identity_source::github &&
+                                  verified.find(owner.name.view()) != nullptr;
 
     write_site_json(writer, sites[i], counts_or_empty, reacted_or_null,
                     m_config.is_metrics_enabled ? &click_count : nullptr,

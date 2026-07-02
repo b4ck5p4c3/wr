@@ -1,10 +1,10 @@
-#include <openssl/err.h>
-#include <openssl/evp.h>
-
 #include "Crypto.hpp"
 
 #include "Errors.hpp"
 #include "String.hpp"
+
+#include <openssl/err.h>
+#include <openssl/evp.h>
 
 namespace wr {
 
