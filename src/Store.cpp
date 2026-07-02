@@ -81,187 +81,103 @@ fn read_comment(SqlStatement &statement) -> comment
 
 /* The schema is one idempotent baseline. Every statement is a CREATE IF NOT
    EXISTS, so a boot against a database that already holds it does nothing. */
-static const char *const SCHEMA_SQLITE =
-    "CREATE TABLE IF NOT EXISTS sites ("
-    "  slug TEXT PRIMARY KEY,"
-    "  name TEXT NOT NULL,"
-    "  url TEXT NOT NULL,"
-    "  is_reachable INTEGER NOT NULL DEFAULT 1,"
-    "  last_seen_at INTEGER NOT NULL DEFAULT 0,"
-    "  owner_source INTEGER NOT NULL DEFAULT 0,"
-    "  owner_name TEXT NOT NULL DEFAULT '',"
-    "  created_at INTEGER NOT NULL DEFAULT 0,"
-    "  is_deleted INTEGER NOT NULL DEFAULT 0,"
-    "  description TEXT NOT NULL DEFAULT '');"
-    "CREATE TABLE IF NOT EXISTS accounts ("
-    "  source INTEGER NOT NULL,"
-    "  name TEXT NOT NULL,"
-    "  is_admin INTEGER NOT NULL DEFAULT 0,"
-    "  PRIMARY KEY (source, name));"
-    "CREATE TABLE IF NOT EXISTS oauth_sources ("
-    "  source INTEGER PRIMARY KEY,"
-    "  name TEXT NOT NULL);"
-    "INSERT INTO oauth_sources (source, name) VALUES "
-    "  (0, 'github'), (1, 'telegram'), (2, 'dev')"
-    "  ON CONFLICT (source) DO NOTHING;"
-    "CREATE TABLE IF NOT EXISTS wr ("
-    "  key TEXT PRIMARY KEY,"
-    "  value TEXT NOT NULL);"
-    "CREATE TABLE IF NOT EXISTS sessions ("
-    "  token TEXT PRIMARY KEY,"
-    "  source INTEGER NOT NULL,"
-    "  name TEXT NOT NULL,"
-    "  expires_at INTEGER NOT NULL);"
-    "CREATE TABLE IF NOT EXISTS pending_actions ("
-    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "  kind TEXT NOT NULL,"
-    "  owner_source INTEGER NOT NULL DEFAULT 0,"
-    "  owner_name TEXT NOT NULL DEFAULT '',"
-    "  target_slug TEXT NOT NULL DEFAULT '',"
-    "  payload TEXT NOT NULL DEFAULT '',"
-    "  created_at INTEGER NOT NULL,"
-    "  status TEXT NOT NULL DEFAULT 'pending');"
-    "CREATE TABLE IF NOT EXISTS liveness_buckets ("
-    "  slug TEXT NOT NULL,"
-    "  hour_bucket INTEGER NOT NULL,"
-    "  up_count INTEGER NOT NULL DEFAULT 0,"
-    "  probe_count INTEGER NOT NULL DEFAULT 0,"
-    "  PRIMARY KEY (slug, hour_bucket));"
-    "CREATE TABLE IF NOT EXISTS reactions ("
-    "  slug TEXT NOT NULL,"
-    "  emoji TEXT NOT NULL,"
-    "  source INTEGER NOT NULL,"
-    "  name TEXT NOT NULL,"
-    "  PRIMARY KEY (slug, emoji, source, name));"
-    "CREATE TABLE IF NOT EXISTS audit_log ("
-    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "  actor_source INTEGER NOT NULL DEFAULT 0,"
-    "  actor_name TEXT NOT NULL DEFAULT '',"
-    "  action TEXT NOT NULL,"
-    "  target TEXT NOT NULL DEFAULT '',"
-    "  detail TEXT NOT NULL DEFAULT '',"
-    "  created_at INTEGER NOT NULL,"
-    "  actor_ip TEXT NOT NULL DEFAULT '');"
-    "CREATE TABLE IF NOT EXISTS comments ("
-    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "  author_source INTEGER NOT NULL DEFAULT 0,"
-    "  author_name TEXT NOT NULL DEFAULT '',"
-    "  body TEXT NOT NULL,"
-    "  created_at INTEGER NOT NULL,"
-    "  is_approved INTEGER NOT NULL DEFAULT 0);"
-    "CREATE TABLE IF NOT EXISTS site_metrics ("
-    "  slug TEXT PRIMARY KEY,"
-    "  click_count INTEGER NOT NULL DEFAULT 0,"
-    "  hop_count INTEGER NOT NULL DEFAULT 0);"
-    "CREATE TABLE IF NOT EXISTS org_membership ("
-    "  name TEXT PRIMARY KEY,"
-    "  is_member INTEGER NOT NULL DEFAULT 0,"
-    "  last_checked_at INTEGER NOT NULL DEFAULT 0);"
-    "CREATE INDEX IF NOT EXISTS index_sites_owner ON "
-    "sites(owner_source, owner_name);"
-    "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
-    "CREATE INDEX IF NOT EXISTS index_pending_owner ON "
-    "pending_actions(owner_source, owner_name);"
-    "CREATE INDEX IF NOT EXISTS index_pending_status ON "
-    "pending_actions(status);"
-    "CREATE INDEX IF NOT EXISTS index_sessions_expires ON sessions(expires_at);"
-    "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "
-    "liveness_buckets(hour_bucket);"
-    "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"
-    "CREATE INDEX IF NOT EXISTS index_audit_created ON audit_log(created_at);"
-    "CREATE INDEX IF NOT EXISTS index_comments_created ON "
-    "comments(created_at);";
+#define WR_SCHEMA(INT, ID)                                                     \
+  "CREATE TABLE IF NOT EXISTS sites ("                                         \
+  "  slug TEXT PRIMARY KEY,"                                                    \
+  "  name TEXT NOT NULL,"                                                       \
+  "  url TEXT NOT NULL,"                                                        \
+  "  is_reachable " INT " NOT NULL DEFAULT 1,"                                  \
+  "  last_seen_at " INT " NOT NULL DEFAULT 0,"                                  \
+  "  owner_source " INT " NOT NULL DEFAULT 0,"                                  \
+  "  owner_name TEXT NOT NULL DEFAULT '',"                                      \
+  "  created_at " INT " NOT NULL DEFAULT 0,"                                    \
+  "  is_deleted " INT " NOT NULL DEFAULT 0,"                                    \
+  "  description TEXT NOT NULL DEFAULT '');"                                    \
+  "CREATE TABLE IF NOT EXISTS accounts ("                                      \
+  "  source " INT " NOT NULL,"                                                  \
+  "  name TEXT NOT NULL,"                                                       \
+  "  is_admin " INT " NOT NULL DEFAULT 0,"                                      \
+  "  PRIMARY KEY (source, name));"                                             \
+  "CREATE TABLE IF NOT EXISTS oauth_sources ("                                 \
+  "  source " INT " PRIMARY KEY,"                                              \
+  "  name TEXT NOT NULL);"                                                      \
+  "INSERT INTO oauth_sources (source, name) VALUES "                           \
+  "  (0, 'github'), (1, 'telegram'), (2, 'dev')"                               \
+  "  ON CONFLICT (source) DO NOTHING;"                                         \
+  "CREATE TABLE IF NOT EXISTS wr ("                                            \
+  "  key TEXT PRIMARY KEY,"                                                     \
+  "  value TEXT NOT NULL);"                                                     \
+  "CREATE TABLE IF NOT EXISTS sessions ("                                      \
+  "  token TEXT PRIMARY KEY,"                                                   \
+  "  source " INT " NOT NULL,"                                                  \
+  "  name TEXT NOT NULL,"                                                       \
+  "  expires_at " INT " NOT NULL);"                                            \
+  "CREATE TABLE IF NOT EXISTS pending_actions ("                               \
+  "  id " ID ","                                                               \
+  "  kind TEXT NOT NULL,"                                                       \
+  "  owner_source " INT " NOT NULL DEFAULT 0,"                                  \
+  "  owner_name TEXT NOT NULL DEFAULT '',"                                      \
+  "  target_slug TEXT NOT NULL DEFAULT '',"                                     \
+  "  payload TEXT NOT NULL DEFAULT '',"                                         \
+  "  created_at " INT " NOT NULL,"                                             \
+  "  status TEXT NOT NULL DEFAULT 'pending');"                                 \
+  "CREATE TABLE IF NOT EXISTS liveness_buckets ("                              \
+  "  slug TEXT NOT NULL,"                                                       \
+  "  hour_bucket " INT " NOT NULL,"                                            \
+  "  up_count " INT " NOT NULL DEFAULT 0,"                                      \
+  "  probe_count " INT " NOT NULL DEFAULT 0,"                                   \
+  "  PRIMARY KEY (slug, hour_bucket));"                                        \
+  "CREATE TABLE IF NOT EXISTS reactions ("                                     \
+  "  slug TEXT NOT NULL,"                                                       \
+  "  emoji TEXT NOT NULL,"                                                      \
+  "  source " INT " NOT NULL,"                                                  \
+  "  name TEXT NOT NULL,"                                                       \
+  "  PRIMARY KEY (slug, emoji, source, name));"                                \
+  "CREATE TABLE IF NOT EXISTS audit_log ("                                     \
+  "  id " ID ","                                                               \
+  "  actor_source " INT " NOT NULL DEFAULT 0,"                                  \
+  "  actor_name TEXT NOT NULL DEFAULT '',"                                      \
+  "  action TEXT NOT NULL,"                                                     \
+  "  target TEXT NOT NULL DEFAULT '',"                                          \
+  "  detail TEXT NOT NULL DEFAULT '',"                                          \
+  "  created_at " INT " NOT NULL,"                                             \
+  "  actor_ip TEXT NOT NULL DEFAULT '');"                                      \
+  "CREATE TABLE IF NOT EXISTS comments ("                                      \
+  "  id " ID ","                                                               \
+  "  author_source " INT " NOT NULL DEFAULT 0,"                                 \
+  "  author_name TEXT NOT NULL DEFAULT '',"                                     \
+  "  body TEXT NOT NULL,"                                                       \
+  "  created_at " INT " NOT NULL,"                                             \
+  "  is_approved " INT " NOT NULL DEFAULT 0);"                                  \
+  "CREATE TABLE IF NOT EXISTS site_metrics ("                                  \
+  "  slug TEXT PRIMARY KEY,"                                                    \
+  "  click_count " INT " NOT NULL DEFAULT 0,"                                   \
+  "  hop_count " INT " NOT NULL DEFAULT 0);"                                    \
+  "CREATE TABLE IF NOT EXISTS org_membership ("                                \
+  "  name TEXT PRIMARY KEY,"                                                    \
+  "  is_member " INT " NOT NULL DEFAULT 0,"                                     \
+  "  last_checked_at " INT " NOT NULL DEFAULT 0);"                             \
+  "CREATE INDEX IF NOT EXISTS index_sites_owner ON "                           \
+  "sites(owner_source, owner_name);"                                           \
+  "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"   \
+  "CREATE INDEX IF NOT EXISTS index_pending_owner ON "                         \
+  "pending_actions(owner_source, owner_name);"                                 \
+  "CREATE INDEX IF NOT EXISTS index_pending_status ON "                        \
+  "pending_actions(status);"                                                   \
+  "CREATE INDEX IF NOT EXISTS index_sessions_expires ON sessions(expires_at);" \
+  "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "                 \
+  "liveness_buckets(hour_bucket);"                                             \
+  "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"        \
+  "CREATE INDEX IF NOT EXISTS index_audit_created ON audit_log(created_at);"   \
+  "CREATE INDEX IF NOT EXISTS index_comments_created ON "                      \
+  "comments(created_at);"
 
+static const char *const SCHEMA_SQLITE =
+    WR_SCHEMA("INTEGER", "INTEGER PRIMARY KEY AUTOINCREMENT");
 static const char *const SCHEMA_POSTGRES =
-    "CREATE TABLE IF NOT EXISTS sites ("
-    "  slug TEXT PRIMARY KEY,"
-    "  name TEXT NOT NULL,"
-    "  url TEXT NOT NULL,"
-    "  is_reachable BIGINT NOT NULL DEFAULT 1,"
-    "  last_seen_at BIGINT NOT NULL DEFAULT 0,"
-    "  owner_source BIGINT NOT NULL DEFAULT 0,"
-    "  owner_name TEXT NOT NULL DEFAULT '',"
-    "  created_at BIGINT NOT NULL DEFAULT 0,"
-    "  is_deleted BIGINT NOT NULL DEFAULT 0,"
-    "  description TEXT NOT NULL DEFAULT '');"
-    "CREATE TABLE IF NOT EXISTS accounts ("
-    "  source BIGINT NOT NULL,"
-    "  name TEXT NOT NULL,"
-    "  is_admin BIGINT NOT NULL DEFAULT 0,"
-    "  PRIMARY KEY (source, name));"
-    "CREATE TABLE IF NOT EXISTS oauth_sources ("
-    "  source BIGINT PRIMARY KEY,"
-    "  name TEXT NOT NULL);"
-    "INSERT INTO oauth_sources (source, name) VALUES "
-    "  (0, 'github'), (1, 'telegram'), (2, 'dev')"
-    "  ON CONFLICT (source) DO NOTHING;"
-    "CREATE TABLE IF NOT EXISTS wr ("
-    "  key TEXT PRIMARY KEY,"
-    "  value TEXT NOT NULL);"
-    "CREATE TABLE IF NOT EXISTS sessions ("
-    "  token TEXT PRIMARY KEY,"
-    "  source BIGINT NOT NULL,"
-    "  name TEXT NOT NULL,"
-    "  expires_at BIGINT NOT NULL);"
-    "CREATE TABLE IF NOT EXISTS pending_actions ("
-    "  id BIGSERIAL PRIMARY KEY,"
-    "  kind TEXT NOT NULL,"
-    "  owner_source BIGINT NOT NULL DEFAULT 0,"
-    "  owner_name TEXT NOT NULL DEFAULT '',"
-    "  target_slug TEXT NOT NULL DEFAULT '',"
-    "  payload TEXT NOT NULL DEFAULT '',"
-    "  created_at BIGINT NOT NULL,"
-    "  status TEXT NOT NULL DEFAULT 'pending');"
-    "CREATE TABLE IF NOT EXISTS liveness_buckets ("
-    "  slug TEXT NOT NULL,"
-    "  hour_bucket BIGINT NOT NULL,"
-    "  up_count BIGINT NOT NULL DEFAULT 0,"
-    "  probe_count BIGINT NOT NULL DEFAULT 0,"
-    "  PRIMARY KEY (slug, hour_bucket));"
-    "CREATE TABLE IF NOT EXISTS reactions ("
-    "  slug TEXT NOT NULL,"
-    "  emoji TEXT NOT NULL,"
-    "  source BIGINT NOT NULL,"
-    "  name TEXT NOT NULL,"
-    "  PRIMARY KEY (slug, emoji, source, name));"
-    "CREATE TABLE IF NOT EXISTS audit_log ("
-    "  id BIGSERIAL PRIMARY KEY,"
-    "  actor_source BIGINT NOT NULL DEFAULT 0,"
-    "  actor_name TEXT NOT NULL DEFAULT '',"
-    "  action TEXT NOT NULL,"
-    "  target TEXT NOT NULL DEFAULT '',"
-    "  detail TEXT NOT NULL DEFAULT '',"
-    "  created_at BIGINT NOT NULL,"
-    "  actor_ip TEXT NOT NULL DEFAULT '');"
-    "CREATE TABLE IF NOT EXISTS comments ("
-    "  id BIGSERIAL PRIMARY KEY,"
-    "  author_source BIGINT NOT NULL DEFAULT 0,"
-    "  author_name TEXT NOT NULL DEFAULT '',"
-    "  body TEXT NOT NULL,"
-    "  created_at BIGINT NOT NULL,"
-    "  is_approved BIGINT NOT NULL DEFAULT 0);"
-    "CREATE TABLE IF NOT EXISTS site_metrics ("
-    "  slug TEXT PRIMARY KEY,"
-    "  click_count BIGINT NOT NULL DEFAULT 0,"
-    "  hop_count BIGINT NOT NULL DEFAULT 0);"
-    "CREATE TABLE IF NOT EXISTS org_membership ("
-    "  name TEXT PRIMARY KEY,"
-    "  is_member BIGINT NOT NULL DEFAULT 0,"
-    "  last_checked_at BIGINT NOT NULL DEFAULT 0);"
-    "CREATE INDEX IF NOT EXISTS index_sites_owner ON "
-    "sites(owner_source, owner_name);"
-    "CREATE INDEX IF NOT EXISTS index_sites_reachable ON sites(is_reachable);"
-    "CREATE INDEX IF NOT EXISTS index_pending_owner ON "
-    "pending_actions(owner_source, owner_name);"
-    "CREATE INDEX IF NOT EXISTS index_pending_status ON "
-    "pending_actions(status);"
-    "CREATE INDEX IF NOT EXISTS index_sessions_expires ON sessions(expires_at);"
-    "CREATE INDEX IF NOT EXISTS index_liveness_buckets_hour ON "
-    "liveness_buckets(hour_bucket);"
-    "CREATE INDEX IF NOT EXISTS index_reactions_slug ON reactions(slug);"
-    "CREATE INDEX IF NOT EXISTS index_audit_created ON audit_log(created_at);"
-    "CREATE INDEX IF NOT EXISTS index_comments_created ON "
-    "comments(created_at);";
+    WR_SCHEMA("BIGINT", "BIGSERIAL PRIMARY KEY");
+
+#undef WR_SCHEMA
 
 /* A probe is bucketed by the hour, and seven days of buckets are kept. */
 static constexpr i64 LIVENESS_WINDOW_HOURS = 168;
