@@ -146,9 +146,9 @@ CFLAGS := \
 LINK_LIBS := # nothing
 
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
-ifneq ($(shell which mold > /dev/null 2>&1),)
+ifneq ($(shell which mold 2>/dev/null),)
 USE_LD := -fuse-ld=mold
-else ifneq ($(shell which lld > /dev/null 2>&1),)
+else ifneq ($(shell which lld 2>/dev/null),)
 USE_LD := -fuse-ld=lld
 else
 USE_LD :=
