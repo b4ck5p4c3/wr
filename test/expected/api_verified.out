@@ -1,0 +1,2 @@
+sites: [{"slug":"v","name":"V","url":"https://v.example","description":"a verified test","created_at":0,"owner_oauth":"github","owner_tag":"radi0dev","owner_name":"radi0dev","owner_is_verified":false,"reactions":{}}]
+has-verified-field: 1
