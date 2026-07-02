@@ -10,6 +10,6 @@
 [submodule "vendor/openssl"]
 	path = vendor/openssl
 	url = https://github.com/openssl/openssl
-[submodule "vendor/libpq"]
-	path = vendor/libpq
+[submodule "vendor/postgres"]
+	path = vendor/postgres
 	url = https://github.com/postgres/postgres

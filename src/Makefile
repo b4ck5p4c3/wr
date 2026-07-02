@@ -29,7 +29,7 @@ VENDOR_OBJECTS := \
 VENDOR_DEPS := $(VENDOR_OBJECTS:.o=.d)
 
 OPENSSL_DIR := $(VENDOR_DIR)/openssl
-LIBPQ_DIR := $(VENDOR_DIR)/libpq
+LIBPQ_DIR := $(VENDOR_DIR)/postgres
 
 ifeq ($(filter $(MODE),cosmo cosmo_dbg),)
 CURL_SOURCES := \
@@ -298,7 +298,7 @@ $(OBJ_DIR)/vendor/curl/%.o: $(VENDOR_DIR)/curl/%.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(CURL_CFLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/vendor/libpq/%.o: $(VENDOR_DIR)/libpq/%.c Makefile
+$(OBJ_DIR)/vendor/postgres/%.o: $(VENDOR_DIR)/postgres/%.c Makefile
 	printf "\tCompiling %-42s $@... %-12s\r" $< ' '
 	$(CC) $(LIBPQ_CFLAGS) -MMD -MP -c $< -o $@
 
