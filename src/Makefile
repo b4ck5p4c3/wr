@@ -303,7 +303,8 @@ $(OBJ_DIR)/vendor/postgres/%.o: $(VENDOR_DIR)/postgres/%.c Makefile
 	$(CC) $(LIBPQ_CFLAGS) -MMD -MP -c $< -o $@
 
 OPENSSL_CONFIGURE := no-shared no-tests no-docs no-apps no-legacy \
-	no-engine no-comp no-dtls no-ssl3 no-ssl3-method --api=1.1.0 -fPIC --release
+	no-engine no-dso no-comp no-dtls no-ssl3 no-ssl3-method --api=1.1.0 -fPIC \
+	--release
 
 $(OPENSSL_DIR)/libssl.a $(OPENSSL_DIR)/libcrypto.a &: $(OPENSSL_DIR)/Configure
 	printf "\tBuilding OpenSSL static archives... %-24s\n" ' '
