@@ -54,6 +54,10 @@ CompileFlags:
     -I../vendor/mongoose,
     -I../vendor/sqlite,
     -I../vendor/curl/include,
+    -I../vendor/openssl/include,
+    -I../vendor,
+    -I../vendor/libpq/src/interfaces/libpq,
+    -I../vendor/libpq/src/include,
     -DCURL_STATICLIB,
   ]
   Remove: -Wformat*
