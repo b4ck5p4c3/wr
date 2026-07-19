@@ -19,6 +19,7 @@ public:
   struct Options
   {
     u32 timeout_ms{30000};
+    usize response_body_limit_bytes{usize{1} << 20};
     /* The connect phase is bounded separately when this is non-zero, so a host
        that stalls the handshake fails on its own short budget. */
     u32 connect_timeout_ms{0};

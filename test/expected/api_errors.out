@@ -1,5 +1,9 @@
 unknown-endpoint: 404
 mutation-get: 405
+read-post: 405
+navigation-post: 405
+read-head: 200
+read-head-body: 0
 admin-unauth: 403
 me-unauth: 401
 unknown-slug: 404

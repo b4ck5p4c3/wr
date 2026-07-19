@@ -10,7 +10,7 @@ export MODE
 
 all: web wr test
 
-wr:
+wr: web
 	echo Building...
 	$(MAKE) -C src wr
 

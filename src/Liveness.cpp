@@ -90,8 +90,14 @@ fn Liveness::sweep() -> void
     if (is_up != row.is_reachable)
       LOG(Info, "site %s is now %s", row.slug.c_str(), is_up ? "up" : "down");
 
-    if (m_store.set_site_reachability(row.slug.view(), is_up, now).is_error())
+    let const updated = m_store.set_site_reachability(
+        row.slug.view(), row.url.view(), is_up, now);
+    if (updated.is_error()) {
       LOG(Info, "reachability write dropped for %s", row.slug.c_str());
+      continue;
+    }
+    if (!updated.value()) continue;
+
     if (m_store.record_liveness(row.slug.view(), is_up, now).is_error())
       LOG(Info, "liveness record dropped for %s", row.slug.c_str());
   }
@@ -126,17 +132,19 @@ fn Liveness::refresh_org_membership(i64 now) -> void
     authorization.append(m_config.github_org_token.view());
   }
 
+  let const start_position = m_org_handle_position % handles.count();
   usize attempted_count = 0;
-  for (usize i = 0; i < handles.count(); i++) {
+  while (attempted_count < handles.count() &&
+         attempted_count < ORG_REFRESH_MAX_PER_SWEEP)
+  {
     if (__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST)) return;
 
-    if (attempted_count >= ORG_REFRESH_MAX_PER_SWEEP) {
-      LOG(Info, "org membership refresh capped at %zu handles this sweep",
-          ORG_REFRESH_MAX_PER_SWEEP);
-      break;
-    }
-
-    let const &handle = handles[i];
+    let const handle_position =
+        (start_position + attempted_count) % handles.count();
+    let const &handle = handles[handle_position];
+    attempted_count++;
+    m_org_handle_position =
+        (start_position + attempted_count) % handles.count();
 
     String url{m_allocator};
     url.append("https://api.github.com/orgs/");
@@ -150,14 +158,19 @@ fn Liveness::refresh_org_membership(i64 now) -> void
     builder.add_auxiliary_headers(GITHUB_API_USER_AGENT, "application/json");
     if (has_token) builder.add_header("Authorization", authorization.view());
 
-    attempted_count++;
     let const response = m_client.send(builder.build());
     if (response.is_error()) continue;
 
-    let const is_member = response.value().status() == 204;
+    let const status = response.value().status();
+    if (status != 204 && status != 404) continue;
+
+    let const is_member = status == 204;
     if (m_store.set_org_membership(handle.view(), is_member, now).is_error())
       LOG(Info, "org membership write dropped for %s", handle.c_str());
   }
+  if (handles.count() > attempted_count)
+    LOG(Info, "org membership refresh capped at %zu handles this sweep",
+        attempted_count);
 }
 
 } // namespace wr

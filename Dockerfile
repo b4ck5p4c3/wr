@@ -4,7 +4,7 @@ SHELL ["sh", "-eux", "-c"]
 
 RUN apk add --no-cache \
     build-base clang compiler-rt musl-dev linux-headers curl bash git \
-    ca-certificates
+    ca-certificates perl
 RUN curl -fsSL https://bun.com/install | bash && \
     ln -sf /root/.bun/bin/bun /usr/bin/bun
 

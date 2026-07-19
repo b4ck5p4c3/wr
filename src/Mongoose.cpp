@@ -88,7 +88,8 @@ fn MongooseServer::poll(u32 timeout_ms) -> ErrorOr<Ok>
 
 fn MongooseServer::reply(opaque *connection, u16 status,
                          const HttpHeaders &headers, StringView body,
-                         StringView static_headers) -> ErrorOr<Ok>
+                         StringView static_headers, bool should_send_body)
+    -> ErrorOr<Ok>
 {
   let const mongoose_connection = static_cast<mg_connection *>(connection);
 
@@ -127,7 +128,7 @@ fn MongooseServer::reply(opaque *connection, u16 status,
      byte and truncates a binary asset such as a woff2 font or a webp image. The
      head is sent as one buffer and the body is sent as raw bytes. */
   mg_send(mongoose_connection, head.c_str(), head.length());
-  mg_send(mongoose_connection, body.data, body.count());
+  if (should_send_body) mg_send(mongoose_connection, body.data, body.count());
   mongoose_connection->is_resp = 0;
   return Success;
 }

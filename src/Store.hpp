@@ -49,7 +49,7 @@ struct reaction_count
 };
 
 /* The traffic tally for one site. The click count is the outbound follows from
-   the ring, and the hop count is the next, prev, and random traversals that
+   the ring, and the hop count is the next, previous, and random traversals that
    landed on it. */
 struct site_metric
 {
@@ -135,8 +135,9 @@ public:
   fn update_site_details(StringView slug, StringView name, StringView url,
                          StringView description) -> ErrorOr<Ok>;
   fn delete_site(StringView slug) -> ErrorOr<Ok>;
-  fn set_site_reachability(StringView slug, bool is_reachable, i64 last_seen_at)
-      -> ErrorOr<Ok>;
+  mustuse fn set_site_reachability(StringView slug, StringView url,
+                                   bool is_reachable, i64 last_seen_at)
+      -> ErrorOr<bool>;
   fn schedule_recheck(StringView slug) -> ErrorOr<Ok>;
 
   fn record_liveness(StringView slug, bool is_reachable, i64 now)
@@ -182,7 +183,7 @@ public:
   fn add_pending(StringView kind, const identity &owner, StringView target_slug,
                  StringView payload, i64 created_at) -> ErrorOr<Ok>;
   mustuse fn find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>;
-  fn set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>;
+  mustuse fn set_pending_status(i64 id, StringView status) -> ErrorOr<bool>;
 
   fn record_audit(const identity &actor, StringView actor_ip, StringView action,
                   StringView target, StringView detail, i64 created_at)

@@ -31,6 +31,7 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
   cookie.append("wr_oauth_state=");
   cookie.append(state.view());
   cookie.append("; Path=/; HttpOnly; SameSite=Lax; Max-Age=600");
+  if (!m_config.is_dev_mode) cookie.append("; Secure");
 
   HttpHeaders headers{event.request_allocator()};
   headers.set("Location", url.view());
@@ -204,14 +205,44 @@ fn App::handle_logout(HttpServerEvent &event) -> void
   let const account_cookie = event.request_headers().get("cookie");
   if (account_cookie.has_value()) {
     let const token = find_cookie(account_cookie.value(), "wr_session");
-    if (token.has_value() && m_store.delete_session(token.value()).is_error())
-      LOG(Info, "logout session delete dropped");
+    if (token.has_value()) {
+      StringView stored_token = token.value();
+      bool has_valid_signature = true;
+      if (!m_config.session_key.view().is_empty()) {
+        let const separator = token.value().find_character('.');
+        has_valid_signature = separator.has_value();
+        if (has_valid_signature) {
+          stored_token =
+              token.value().substring_of_length(0, separator.value());
+          let const signature = token.value().substring(separator.value() + 1);
+          unsigned char digest[32] = {};
+          has_valid_signature =
+              !hmac_sha256(m_config.session_key.view(), stored_token, digest)
+                   .is_error();
+          if (has_valid_signature) {
+            String expected{event.request_allocator()};
+            append_hex(expected, digest, sizeof(digest));
+            has_valid_signature =
+                constant_time_equal(expected.view(), signature);
+          }
+        }
+      }
+
+      if (has_valid_signature &&
+          m_store.delete_session(stored_token).is_error())
+      {
+        LOG(Info, "logout session delete dropped");
+      }
+    }
   }
+
+  String cookie{event.request_allocator()};
+  cookie.append("wr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+  if (!m_config.is_dev_mode) cookie.append("; Secure");
 
   HttpHeaders headers{event.request_allocator()};
   headers.set("Location", "/");
-  headers.set("Set-Cookie",
-              "wr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+  headers.set("Set-Cookie", cookie.view());
   unused(event.reply(302, headers, "", SECURITY_HEADER_BLOCK).is_error());
 }
 
@@ -242,6 +273,19 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
   }
   let const &token = token_or.value();
 
+  String cookie_token{event.request_allocator(), token.view()};
+  if (!m_config.session_key.view().is_empty()) {
+    unsigned char digest[32] = {};
+    if (hmac_sha256(m_config.session_key.view(), token.view(), digest)
+            .is_error())
+    {
+      reply_message(event, 500, "Unable to sign the session");
+      return;
+    }
+    cookie_token.push('.');
+    append_hex(cookie_token, digest, sizeof(digest));
+  }
+
   let const expires_at = now_seconds() + (i64{30} * 24 * 60 * 60);
   if (m_store.create_session(token.view(), who, expires_at).is_error()) {
     reply_message(event, 500, "Unable to open the session");
@@ -250,8 +294,9 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
 
   String cookie{event.request_allocator()};
   cookie.append("wr_session=");
-  cookie.append(token.view());
+  cookie.append(cookie_token.view());
   cookie.append("; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000");
+  if (!m_config.is_dev_mode) cookie.append("; Secure");
 
   HttpHeaders headers{event.request_allocator()};
   headers.set("Location", is_admin ? "/admin" : "/");
@@ -285,7 +330,26 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
   let const cookie_header = UNWRAP(event.request_headers().get("cookie"));
   let const token = UNWRAP(find_cookie(cookie_header, "wr_session"));
 
-  let const session_row = m_store.find_session(token);
+  StringView stored_token = token;
+  if (!m_config.session_key.view().is_empty()) {
+    let const separator = token.find_character('.');
+    if (!separator.has_value()) return None;
+
+    stored_token = token.substring_of_length(0, separator.value());
+    let const signature = token.substring(separator.value() + 1);
+    unsigned char digest[32] = {};
+    if (hmac_sha256(m_config.session_key.view(), stored_token, digest)
+            .is_error())
+    {
+      return None;
+    }
+
+    String expected{event.request_allocator()};
+    append_hex(expected, digest, sizeof(digest));
+    if (!constant_time_equal(expected.view(), signature)) return None;
+  }
+
+  let const session_row = m_store.find_session(stored_token);
   if (session_row.is_error()) {
     LOG(All, "current account none, session lookup failed, %.*s",
         static_cast<int>(session_row.error().message().view().count()),

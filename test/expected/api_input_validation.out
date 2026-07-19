@@ -4,8 +4,10 @@ add-long-name: {"message":"The name must be 1 to 16 characters"}
 add-empty-name: {"message":"The name must be 1 to 16 characters"}
 add-bad-url: {"message":"The url must start with http:// or https://"}
 add-scheme-only-url: {"message":"The url must start with http:// or https://"}
+add-header-url: {"message":"The url must start with http:// or https://"}
 add-short-desc: {"message":"The description must be at least 8 characters"}
 rename-empty-name: {"message":"The name must be 1 to 16 characters"}
 rename-long-name: {"message":"The name must be 1 to 16 characters"}
 rename-bad-url: {"message":"The url must start with http:// or https://"}
+rename-header-url: {"message":"The url must start with http:// or https://"}
 rename-short-desc: {"message":"The description must be at least 8 characters"}

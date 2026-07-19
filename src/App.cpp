@@ -339,14 +339,15 @@ fn App::dispatch(HttpServerEvent &event) -> void
       return;
     }
 
-    if (target->method != HttpMethod::Get &&
-        event.method() != http_method_name(target->method))
-    {
+    let const expected_method = http_method_name(target->method);
+    let const is_head_for_get =
+        target->method == HttpMethod::Get && event.method() == "HEAD";
+    if (event.method() != expected_method && !is_head_for_get) {
       LOG(Info, "method not allowed, uri=%.*s", static_cast<int>(path.count()),
           path.data);
       String message{event.request_allocator()};
       message.append("This endpoint requires ");
-      message.append(http_method_name(target->method));
+      message.append(expected_method);
       reply_message(event, 405, message.view());
       return;
     }
@@ -409,6 +410,11 @@ fn App::dispatch(HttpServerEvent &event) -> void
     return;
   }
 
+  if (event.method() != "GET" && event.method() != "HEAD") {
+    reply_message(event, 405, "This endpoint requires GET");
+    return;
+  }
+
   if (path.find_character('.').has_value()) {
     serve_static(event);
     return;
@@ -433,7 +439,13 @@ fn App::dispatch(HttpServerEvent &event) -> void
     StringView remainder{};
     let const first = split_first_segment(rest, remainder);
     let const is_first_data = first == "data";
-    let const wants_data = is_first_data || remainder == "data";
+    let const has_data_suffix = !first.is_empty() && remainder == "data";
+    if (!remainder.is_empty() && !has_data_suffix) {
+      handle_navigation(event, slug, remainder, false);
+      return;
+    }
+
+    let const wants_data = is_first_data || has_data_suffix;
     let const step = is_first_data || first.is_empty() ? StringView{} : first;
     handle_navigation(event, slug, step, wants_data);
     return;
@@ -631,13 +643,23 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
   };
   static constexpr StaticStringMap<nav_step, 3> NAV_STEPS{
       {{"next", nav_step::next},
-       {"prev", nav_step::previous},
+       {"previous", nav_step::previous},
        {"random", nav_step::random}}
   };
 
   let const count = sites.count();
   usize target = current;
-  if (let const stepped = NAV_STEPS.find(step); stepped != nullptr) {
+  let const stepped = NAV_STEPS.find(step);
+  if (!step.is_empty() && stepped == nullptr) {
+    if (wants_page) {
+      serve_static(event);
+      return;
+    }
+    reply_message(event, 404, "No such navigation step");
+    return;
+  }
+
+  if (stepped != nullptr) {
     switch (*stepped) {
     case nav_step::next: target = (current + 1) % count; break;
     case nav_step::previous: target = (current + count - 1) % count; break;

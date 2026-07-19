@@ -128,19 +128,24 @@ export function useButtonParticles() {
 function usePolling(fetcher, onData, onError, intervalMs) {
   useEffect(() => {
     let isStopped = false;
-    const poll = () =>
+    let timer;
+    const poll = () => {
+      if (isStopped) return;
       fetcher()
         .then((next) => {
           if (!isStopped) onData(next);
         })
         .catch((error) => {
           if (!isStopped) onError(error);
+        })
+        .finally(() => {
+          if (!isStopped) timer = setTimeout(poll, intervalMs);
         });
+    };
     poll();
-    const timer = setInterval(poll, intervalMs);
     return () => {
       isStopped = true;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, []);
 }
@@ -390,6 +395,9 @@ function Favicon({ url }) {
   const [src, setSrc] = useState(
     () => readFaviconCache(host) || candidates[0] || null,
   );
+  useEffect(() => {
+    setSrc(readFaviconCache(host) || candidates[0] || null);
+  }, [host]);
   if (!src) return null;
   return (
     <img
@@ -883,7 +891,9 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
             }}
           >
             <div class="tui-face">{cardBody(site, ctx)}</div>
-            <div class="tui-face tui-back">{cardBody(site, ctx)}</div>
+            <div class="tui-face tui-back" aria-hidden="true" inert>
+              {cardBody(site, ctx)}
+            </div>
           </article>
         ))}
         {sites.map((_, i) => (
@@ -928,6 +938,10 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
   useEffect(() => {
     loadSites();
   }, []);
+  const reloadLanding = () => {
+    reload();
+    loadSites();
+  };
 
   return (
     <main id="main">
@@ -969,7 +983,11 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
           ) : (
             <ul class="sites">
               {me.sites.map((site) => (
-                <OwnedSite key={site.slug} site={site} onRenamed={reload} />
+                <OwnedSite
+                  key={site.slug}
+                  site={site}
+                  onRenamed={reloadLanding}
+                />
               ))}
             </ul>
           )}
@@ -998,7 +1016,7 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
             >
               <AddSiteForm
                 onAdded={() => {
-                  reload();
+                  reloadLanding();
                   setShowAddSite(false);
                 }}
               />
@@ -1846,24 +1864,37 @@ export function CommentsSection({ me }) {
   const [removingId, setRemovingId] = useState(null);
   const [leavingId, setLeavingId] = useState(null);
   const loadGenRef = useRef(0);
+  const isLoadingRef = useRef(false);
   const leaveTimerRef = useRef(0);
 
   // A post or a delete fires a fresh page-zero load while a load-more may still
   // be in flight. The stale response is dropped so the rows are never doubled.
-  const loadPage = (offset) => {
+  const loadPage = (offset, shouldSupersede = false) => {
+    if (isLoadingRef.current && !shouldSupersede) return Promise.resolve();
+    isLoadingRef.current = true;
     const generation = ++loadGenRef.current;
     return api
       .listComments(offset, COMMENT_PAGE_SIZE)
       .then((page) => {
         if (generation !== loadGenRef.current) return;
         setComments((prev) =>
-          offset === 0 ? page : (prev ?? []).concat(page),
+          offset === 0
+            ? page
+            : (prev ?? []).concat(
+                page.filter(
+                  (row) =>
+                    !(prev ?? []).some((existing) => existing.id === row.id),
+                ),
+              ),
         );
         setHasMore(page.length === COMMENT_PAGE_SIZE);
       })
       .catch((e) => {
         if (generation !== loadGenRef.current) return;
         setError(e.message);
+      })
+      .finally(() => {
+        if (generation === loadGenRef.current) isLoadingRef.current = false;
       });
   };
 
@@ -1898,7 +1929,7 @@ export function CommentsSection({ me }) {
       setPostError(null);
       if (isAdmin) {
         setNotice("Your comment is posted.");
-        loadPage(0);
+        loadPage(0, true);
       } else {
         setNotice("Your comment was sent and is waiting for approval.");
       }
@@ -1920,6 +1951,7 @@ export function CommentsSection({ me }) {
       // A load-more in flight is superseded here, since the delete shifts the
       // server offset out from under its request.
       loadGenRef.current++;
+      isLoadingRef.current = false;
       setLeavingId(id);
       leaveTimerRef.current = setTimeout(() => {
         setComments((prev) =>

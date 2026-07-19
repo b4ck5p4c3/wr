@@ -3,3 +3,10 @@ sites-before: []
 me-pending: {"oauth":"github","tag":"radi0dev","display_name":"radi0dev","is_admin":false,"sites":[],"pending":[{"id":1,"kind":"add","target_slug":"mine","payload":"{\"name\":\"My Site\",\"url\":\"https://mine.example\",\"description\":\"a personal site\"}"}]}
 approve: {"message":"Approved"}
 sites-after: [{"slug":"mine","name":"My Site","url":"https://mine.example","description":"a personal site","created_at":0,"owner_oauth":"github","owner_tag":"radi0dev","owner_name":"radi0dev","owner_is_verified":false,"reactions":{}}]
+approve-again: 404
+reject-approved: 404
+rename: {"message":"Your edit was submitted for review"}
+delete-for-reassign: {"message":"Site removed"}
+add-reassigned: {"message":"Site added"}
+approve-stale-rename: 409
+site-after-stale-rename: [{"slug":"mine","name":"Admin Site","url":"https://admin.example","description":"an admin site","created_at":0,"owner_oauth":"github","owner_tag":"toiletbril","owner_name":"toiletbril","owner_is_verified":false,"reactions":{}}]

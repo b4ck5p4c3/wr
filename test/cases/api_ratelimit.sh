@@ -16,6 +16,8 @@ curl -s --retry 60 --retry-connrefused --retry-delay 0 -o /dev/null "http://127.
 
 api="http://127.0.0.1:$PORT/api/v1"
 ct='Content-Type: application/json'
+echo "oauth-cookie-secure: $(curl -s -D - -o /dev/null "http://127.0.0.1:$PORT/auth/github" | grep -ci '^set-cookie:.*Secure')"
+echo "logout-cookie-secure: $(curl -s -X POST -D - -o /dev/null "http://127.0.0.1:$PORT/auth/logout" | grep -ci '^set-cookie:.*Secure')"
 for i in 1 2 3 4 5; do
   echo "post-$i: $(curl -s -o /dev/null -w '%{http_code}' -X POST -H "$ct" -d '{"body":"hi"}' "$api/comments/add")"
 done

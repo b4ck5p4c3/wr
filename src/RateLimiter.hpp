@@ -37,17 +37,16 @@ private:
   struct entry
   {
     i64 window_start{0};
+    i64 window_expires_at{0};
     i64 request_count{0};
     i64 strike_count{0};
     i64 blocked_until{0};
   };
 
-  /* The table is one entry per distinct address, so a flood of fresh addresses
-     grows it without bound. An idle entry is dropped once it carries no live
-     block and its window has long lapsed. */
   fn sweep_expired(i64 now) -> void;
 
   StringMap<entry> m_entries;
+  i64 m_next_sweep_at{0};
 };
 
 } // namespace wr

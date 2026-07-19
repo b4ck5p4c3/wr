@@ -358,19 +358,23 @@ fn Store::delete_site(StringView slug) -> ErrorOr<Ok>
   return Success;
 }
 
-fn Store::set_site_reachability(StringView slug, bool is_reachable,
-                                i64 last_seen_at) -> ErrorOr<Ok>
+fn Store::set_site_reachability(StringView slug, StringView url,
+                                bool is_reachable, i64 last_seen_at)
+    -> ErrorOr<bool>
 {
-  let statement = TRY(m_database.prepare(
-      "UPDATE sites SET is_reachable = ?, last_seen_at = ? WHERE slug = ?;"));
+  let statement = TRY(
+      m_database.prepare("UPDATE sites SET is_reachable = ?, last_seen_at = ? "
+                         "WHERE slug = ? AND url = ? RETURNING slug;"));
   statement.bind(is_reachable);
   statement.bind(last_seen_at);
   statement.bind(slug);
-  unused(TRY(statement.step()));
+  statement.bind(url);
+  let const was_updated = TRY(statement.step());
 
-  LOG(Debug, "site reachability set, slug=%.*s is_reachable=%d",
-      static_cast<int>(slug.count()), slug.data, is_reachable ? 1 : 0);
-  return Success;
+  LOG(Debug, "site reachability set, slug=%.*s is_reachable=%d updated=%d",
+      static_cast<int>(slug.count()), slug.data, is_reachable ? 1 : 0,
+      was_updated ? 1 : 0);
+  return was_updated;
 }
 
 fn Store::schedule_recheck(StringView slug) -> ErrorOr<Ok>
@@ -683,7 +687,8 @@ fn Store::list_org_handles_due(i64 cutoff) const -> ErrorOr<ArrayList<String>>
       "SELECT DISTINCT s.owner_name FROM sites s "
       "LEFT JOIN org_membership m ON m.name = s.owner_name "
       "WHERE s.owner_source = 0 AND s.is_deleted = 0 AND s.owner_name <> '' "
-      "AND (m.last_checked_at IS NULL OR m.last_checked_at < ?);"));
+      "AND (m.last_checked_at IS NULL OR m.last_checked_at < ?) "
+      "ORDER BY s.owner_name;"));
   statement.bind(cutoff);
   while (TRY(statement.step()))
     handles.push(statement.get<String>());
@@ -811,24 +816,26 @@ fn Store::find_pending(i64 id) const -> ErrorOr<Maybe<pending_action>>
   let statement = TRY(m_database.prepare(
       "SELECT id, kind, owner_source, owner_name, target_slug, payload, "
       "created_at, status "
-      "FROM pending_actions WHERE id = ?;"));
+      "FROM pending_actions WHERE id = ? AND status = 'pending';"));
   statement.bind(id);
   if (TRY(statement.step()))
     return Maybe<pending_action>{read_pending_action(statement)};
   return Maybe<pending_action>{None};
 }
 
-fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<Ok>
+fn Store::set_pending_status(i64 id, StringView status) -> ErrorOr<bool>
 {
-  let statement = TRY(m_database.prepare(
-      "UPDATE pending_actions SET status = ? WHERE id = ?;"));
+  let statement = TRY(
+      m_database.prepare("UPDATE pending_actions SET status = ? "
+                         "WHERE id = ? AND status = 'pending' RETURNING id;"));
   statement.bind(status);
   statement.bind(id);
-  unused(TRY(statement.step()));
+  let const was_updated = TRY(statement.step());
 
-  LOG(Info, "pending action %lld set to %.*s", static_cast<long long>(id),
-      static_cast<int>(status.count()), status.data);
-  return Success;
+  LOG(Info, "pending action %lld set to %.*s updated=%d",
+      static_cast<long long>(id), static_cast<int>(status.count()), status.data,
+      was_updated ? 1 : 0);
+  return was_updated;
 }
 
 fn Store::record_audit(const identity &actor, StringView actor_ip,

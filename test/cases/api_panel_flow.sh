@@ -22,6 +22,16 @@ id=$(curl -s -b "$AJAR" "http://127.0.0.1:$PORT/api/v1/admin/pending" | grep -o 
 payload='{"id":'$id'}'
 echo "approve: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d "$payload" "http://127.0.0.1:$PORT/api/v1/admin/pending/approve")"
 echo "sites-after: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
+echo "approve-again: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d "$payload" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/admin/pending/approve")"
+echo "reject-approved: $(curl -s -b "$AJAR" -X DELETE -H 'Content-Type: application/json' -d "$payload" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/admin/pending/reject")"
+
+echo "rename: $(curl -s -b "$UJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"mine","name":"Stale","url":"https://stale.example","description":"a stale edit"}' "http://127.0.0.1:$PORT/api/v1/sites/rename")"
+rename_id=$(curl -s -b "$AJAR" "http://127.0.0.1:$PORT/api/v1/admin/pending" | grep -o '"id":[0-9]*' | head -1 | grep -o '[0-9]*')
+rename_payload='{"id":'$rename_id'}'
+echo "delete-for-reassign: $(curl -s -b "$AJAR" -X DELETE -H 'Content-Type: application/json' -d '{"slug":"mine"}' "http://127.0.0.1:$PORT/api/v1/admin/site/delete")"
+echo "add-reassigned: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d '{"slug":"mine","name":"Admin Site","url":"https://admin.example","description":"an admin site"}' "http://127.0.0.1:$PORT/api/v1/admin/site/add")"
+echo "approve-stale-rename: $(curl -s -b "$AJAR" -X POST -H 'Content-Type: application/json' -d "$rename_payload" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/v1/admin/pending/approve")"
+echo "site-after-stale-rename: $(curl -s "http://127.0.0.1:$PORT/sites" | sed 's/"created_at":[0-9]*/"created_at":0/g')"
 
 kill "$server" 2>/dev/null
 rm -rf "$DB" "$UJAR" "$AJAR"

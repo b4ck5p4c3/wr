@@ -32,8 +32,8 @@ public:
       -> ErrorOr<Ok> override;
   mustuse fn poll(u32 timeout_ms) -> ErrorOr<Ok> override;
   mustuse fn reply(opaque *connection, u16 status, const HttpHeaders &headers,
-                   StringView body, StringView static_headers)
-      -> ErrorOr<Ok> override;
+                   StringView body, StringView static_headers,
+                   bool should_send_body) -> ErrorOr<Ok> override;
 
 private:
   static fn handle_event(mg_connection *connection, int event,

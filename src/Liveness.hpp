@@ -26,6 +26,7 @@ public:
         m_database(select_backend(cfg, m_sqlite_database, m_postgres_database)),
         m_store(allocator, m_database), m_client(client)
   {}
+  ~Liveness() { stop(); }
 
   Liveness(const Liveness &) = delete;
   Liveness &operator=(const Liveness &) = delete;
@@ -60,6 +61,7 @@ private:
   HttpClient &m_client;
   PthreadThread m_thread{};
   bool m_is_running{false};
+  usize m_org_handle_position{0};
   /* The worker polls the flag and the server sets it, so it is read and written
      through the atomic builtins. */
   bool m_should_stop{false};

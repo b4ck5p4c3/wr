@@ -39,6 +39,12 @@ fn is_valid_slug(StringView slug) -> bool
    an http or https scheme is accepted. A javascript or data url is refused. */
 fn is_valid_site_url(StringView url) -> bool
 {
+  for (usize i = 0; i < url.count(); i++) {
+    if (url[i] == '\r' || url[i] == '\n') {
+      return false;
+    }
+  }
+
   if (url.starts_with("https://")) return url.count() > 8;
   if (url.starts_with("http://")) return url.count() > 7;
   return false;
@@ -852,6 +858,18 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
         break;
       }
       case pending_kind::rename: {
+        let const current = m_store.find_site(action.target_slug.view());
+        if (current.is_error()) {
+          reply_message(event, 500, current.error().message().view());
+          return;
+        }
+        if (!current.value().has_value() ||
+            current.value().value().owner != action.owner)
+        {
+          reply_message(event, 409, "The site ownership changed");
+          return;
+        }
+
         let const payload =
             Json::from(event.request_allocator(), action.payload.view());
         let const name = payload["name"].to<StringView>().value_or({});
@@ -885,6 +903,10 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
       m_store.set_pending_status(id, should_approve ? "approved" : "rejected");
   if (resolved.is_error()) {
     reply_message(event, 500, resolved.error().message().view());
+    return;
+  }
+  if (!resolved.value()) {
+    reply_message(event, 404, "No such action");
     return;
   }
 

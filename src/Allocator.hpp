@@ -159,7 +159,7 @@ struct heap_pool
 
 hot inline fn heap_pool_instance() noexcept -> heap_pool &
 {
-  static heap_pool pool;
+  thread_local heap_pool pool;
   return pool;
 }
 

@@ -308,7 +308,7 @@ OPENSSL_CONFIGURE := no-shared no-tests no-docs no-apps no-legacy \
 
 $(OPENSSL_DIR)/libssl.a $(OPENSSL_DIR)/libcrypto.a &: $(OPENSSL_DIR)/Configure
 	printf "\tBuilding OpenSSL static archives... %-24s\n" ' '
-	cd $(OPENSSL_DIR) && perl ./Configure linux-x86_64 $(OPENSSL_CONFIGURE)
+	cd $(OPENSSL_DIR) && perl ./Configure $(OPENSSL_CONFIGURE)
 	cd $(OPENSSL_DIR) && $(MAKE) build_generated
 	cd $(OPENSSL_DIR) && $(MAKE) libssl.a libcrypto.a
 

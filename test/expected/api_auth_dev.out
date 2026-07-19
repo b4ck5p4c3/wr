@@ -1,4 +1,8 @@
 admin-login: 302
+session-signed: 1
 admin-me: {"oauth":"github","tag":"toiletbril","display_name":"toiletbril","is_admin":true,"sites":[],"pending":[]}
+tampered-me: 401
+rotated-me: 401
+rotated-login: 302
 logout: 302
 after-logout-me: 401

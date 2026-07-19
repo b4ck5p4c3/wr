@@ -15,19 +15,26 @@ NAMES := $(CASES:cases/%.sh=%)
 %: expected/%.out
 	@out=$$(mktemp); \
 	bash cases/$@.sh > $$out 2>&1; \
-	if diff $(DIFF_FLAGS) $< $$out >/dev/null 2>&1; then \
+	case_status=$$?; \
+	if [ $$case_status -eq 0 ] && diff $(DIFF_FLAGS) $< $$out >/dev/null 2>&1; then \
 		printf "\t%-50s ok\r" $@; \
 	else \
-		{ echo "### $@"; diff $(DIFF_FLAGS) $< $$out; } >> $(FAILED); \
+		{ echo "### $@"; \
+		  if [ $$case_status -ne 0 ]; then echo "case exited $$case_status"; fi; \
+		  diff $(DIFF_FLAGS) $< $$out || true; } >> $(FAILED); \
 		printf "\t%-50s FAILED\n" $@; \
+		result=1; \
 	fi; \
-	rm -f $$out
+	rm -f $$out; \
+	exit $${result:-0}
 
 test: $(BIN)
 	@rm -f $(FAILED)
-	@$(MAKE) -s run
-	@touch $(FAILED)
-	@cat $(FAILED)
+	@status=0; \
+	$(MAKE) -s run || status=$$?; \
+	touch $(FAILED); \
+	cat $(FAILED); \
+	exit $$status
 
 run: $(NAMES)
 

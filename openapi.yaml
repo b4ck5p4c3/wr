@@ -708,7 +708,7 @@ components:
       description: The navigation step.
       schema:
         type: string
-        enum: [next, prev, random]
+        enum: [next, previous, random]
   responses:
     Message:
       description: 'A JSON body, {"message": string}.'
@@ -1127,7 +1127,7 @@ components:
         total_hops:
           type: integer
           format: int64
-          description: The sum of the next, prev, and random hops across the ring.
+          description: The sum of the next, previous, and random hops across the ring.
         sites:
           type: array
           items:

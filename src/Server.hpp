@@ -131,7 +131,8 @@ public:
   /* Write a response on the event's connection, serialized by the backend. */
   mustuse virtual fn reply(opaque *connection, u16 status,
                            const HttpHeaders &headers, StringView body,
-                           StringView static_headers) -> ErrorOr<Ok> = 0;
+                           StringView static_headers, bool should_send_body)
+      -> ErrorOr<Ok> = 0;
 
 protected:
   HttpServer() = default;

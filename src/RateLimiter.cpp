@@ -16,6 +16,7 @@ constexpr i64 RATE_BAN_STRIKES = 5;
 /* The strikes reset after an hour without a fresh block, so a brief burst does
    not hold an address near a ban forever. */
 constexpr i64 RATE_DECAY_SECONDS = 3600;
+constexpr i64 RATE_SWEEP_INTERVAL_SECONDS = 60;
 
 /* A sweep of idle entries runs once the table crosses this many addresses, so a
    flood of one-shot addresses cannot grow it without bound. */
@@ -28,9 +29,11 @@ fn RateLimiter::sweep_expired(i64 now) -> void
   let allocator = m_entries.allocator();
   ArrayList<String> stale_keys{allocator};
   m_entries.for_each([&](StringView key, const entry &record) {
-    if (now >= record.blocked_until &&
-        now - record.window_start >= RATE_DECAY_SECONDS)
-    {
+    let const has_expired_window = now >= record.window_expires_at;
+    let const has_expired_block =
+        record.blocked_until == 0 ||
+        now - record.blocked_until >= RATE_DECAY_SECONDS;
+    if (has_expired_window && has_expired_block) {
       stale_keys.push(String{allocator, key});
     }
   });
@@ -47,15 +50,23 @@ fn RateLimiter::allow(StringView address, u8 bucket, rate_rule rule, i64 now)
 {
   if (rule.max_count <= 0) return true;
 
-  if (m_entries.count() >= RATE_MAX_ENTRIES) sweep_expired(now);
-
   char key[64];
   usize key_length = 0;
   key[key_length++] = static_cast<char>(bucket);
   for (usize i = 0; i < address.count() && key_length < sizeof(key); i++)
     key[key_length++] = address[i];
 
-  let record = &m_entries.get_or_create(StringView{key, key_length}, entry{});
+  let const key_view = StringView{key, key_length};
+  entry *record = m_entries.find(key_view);
+  if (record == nullptr) {
+    if (m_entries.count() >= RATE_MAX_ENTRIES && now >= m_next_sweep_at) {
+      sweep_expired(now);
+      m_next_sweep_at = now + RATE_SWEEP_INTERVAL_SECONDS;
+    }
+    if (m_entries.count() >= RATE_MAX_ENTRIES) return false;
+
+    record = &m_entries.get_or_create(key_view, entry{});
+  }
 
   if (now < record->blocked_until) return false;
 
@@ -66,8 +77,9 @@ fn RateLimiter::allow(StringView address, u8 bucket, rate_rule rule, i64 now)
     record->blocked_until = 0;
   }
 
-  if (now - record->window_start >= rule.window_seconds) {
+  if (record->window_expires_at == 0 || now >= record->window_expires_at) {
     record->window_start = now;
+    record->window_expires_at = now + rule.window_seconds;
     record->request_count = 0;
   }
 
@@ -83,6 +95,7 @@ fn RateLimiter::allow(StringView address, u8 bucket, rate_rule rule, i64 now)
   }
   record->blocked_until = now + block_seconds;
   record->window_start = now;
+  record->window_expires_at = now + rule.window_seconds;
   record->request_count = 0;
 
   LOG(Info, "rate limit hit, addr=%.*s bucket=%d strike=%lld block=%llds",

@@ -19,6 +19,7 @@ export function App() {
   useButtonParticles();
   const [showLogin, setShowLogin] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [logoutError, setLogoutError] = useState(null);
   const [me, setMe] = useState(undefined);
   const [config, setConfig] = useState({});
   const [isLowDetail, setIsLowDetail] = useState(() =>
@@ -28,8 +29,10 @@ export function App() {
   const toggleLowDetail = () => {
     const next = !isLowDetail;
     document.documentElement.classList.toggle("low-detail", next);
-    if (next) localStorage.setItem("low-detail", "1");
-    else localStorage.removeItem("low-detail");
+    try {
+      if (next) localStorage.setItem("low-detail", "1");
+      else localStorage.removeItem("low-detail");
+    } catch (_) {}
     setIsLowDetail(next);
   };
 
@@ -55,8 +58,9 @@ export function App() {
     setShowLogoutConfirm(false);
     try {
       await api.logout();
-    } catch (_) {
-      // The logout redirect runs even when the server call fails.
+    } catch (error) {
+      setLogoutError(error.message);
+      return;
     }
     setMe(null);
     navigate("/");
@@ -118,6 +122,15 @@ export function App() {
             </button>
             <button class="close" onClick={() => setShowLogoutConfirm(false)}>
               cancel..
+            </button>
+          </Modal>
+        ) : null}
+        {logoutError ? (
+          <Modal label="logout failed" onClose={() => setLogoutError(null)}>
+            <h2 class="error">logout failed</h2>
+            <p class="error">{logoutError}</p>
+            <button class="close" onClick={() => setLogoutError(null)}>
+              close..
             </button>
           </Modal>
         ) : null}

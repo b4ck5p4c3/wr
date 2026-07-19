@@ -315,7 +315,7 @@ function render(spec) {
   const heading = "wr API documentation";
 
   return `<!doctype html>
-<html lang="en">
+<html class="low-detail" lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

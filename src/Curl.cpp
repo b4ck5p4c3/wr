@@ -11,6 +11,12 @@ namespace wr {
 
 namespace {
 
+struct response_body_sink
+{
+  HttpResponse &response;
+  usize limit_bytes;
+};
+
 fn ensure_curl_is_initialized() noexcept -> void
 {
   static const CURLcode init_result = curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -20,9 +26,20 @@ fn ensure_curl_is_initialized() noexcept -> void
 fn append_response_body(char *pointer, size_t size, size_t count,
                         opaque *user_data) -> size_t
 {
-  let const total_length = size * count;
-  let response = static_cast<HttpResponse *>(user_data);
-  response->append_body(StringView{pointer, total_length});
+  size_t total_length = 0;
+  if (__builtin_mul_overflow(size, count, &total_length)) return 0;
+
+  let sink = static_cast<response_body_sink *>(user_data);
+  if (sink->limit_bytes == 0) return total_length;
+
+  let const current_length = sink->response.body().count();
+  if (current_length > sink->limit_bytes ||
+      total_length > sink->limit_bytes - current_length)
+  {
+    return 0;
+  }
+
+  sink->response.append_body(StringView{pointer, total_length});
   return total_length;
 }
 
@@ -85,6 +102,7 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
   ensure_curl_is_initialized();
 
   HttpResponse response{m_allocator};
+  response_body_sink body_sink{response, m_options.response_body_limit_bytes};
 
   CURL *handle = curl_easy_init();
   if (handle == nullptr) return Error{"Failed to create a curl handle"};
@@ -127,7 +145,7 @@ fn CurlClient::send(const HttpRequest &request) -> ErrorOr<HttpResponse>
   }
 
   curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, &append_response_body);
-  curl_easy_setopt(handle, CURLOPT_WRITEDATA, &response);
+  curl_easy_setopt(handle, CURLOPT_WRITEDATA, &body_sink);
   curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, &collect_response_header);
   curl_easy_setopt(handle, CURLOPT_HEADERDATA, &response);
 
