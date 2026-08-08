@@ -1193,7 +1193,16 @@ export function About() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          See original issue
+          See the original issue
+        </a>
+      </p>
+      <p>
+        <a
+          href="https://t.me/b4cksp4ce_issues/785"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          See the webring RFC and acceptance rules
         </a>
       </p>
       <p>
@@ -1209,7 +1218,7 @@ export function About() {
         >
           contact the fennec
         </a>{" "}
-        to be added to the webring.
+        or visit the hackerspace to be added to the webring.
       </p>
     </main>
   );
