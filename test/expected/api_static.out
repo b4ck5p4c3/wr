@@ -6,6 +6,7 @@ docs-low-detail: 1
 openapi: 200 application/octet-stream
 openapi-body: 1
 emoji: 200 image/png
+font-cors: 1
 favicon: 200 image/x-icon
 unknown: 404 application/json
 traversal: 400

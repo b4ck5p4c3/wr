@@ -8,7 +8,8 @@
     "docs": "bun gen-docs.js",
     "build": "bun gen-docs.js && vite build",
     "preview": "vite preview",
-    "format": "prettier --write src"
+    "format": "prettier --write src",
+    "test": "bun test"
   },
   "dependencies": {
     "preact": "^10.24.0"

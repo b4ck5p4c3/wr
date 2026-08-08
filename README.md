@@ -101,5 +101,4 @@ route of the running server.
 
 ## TODO
 
-- A cute widget;
 - An 88x31 button store.

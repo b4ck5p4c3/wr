@@ -781,8 +781,10 @@ fn App::reply_text(HttpServerEvent &event, u16 status, StringView content_type,
                    StringView body) -> void
 {
   HttpHeaders headers{event.request_allocator()};
-  headers.reserve(1);
+  headers.reserve(2);
   headers.set("Content-Type", content_type);
+  if (content_type == "font/woff2")
+    headers.set("Access-Control-Allow-Origin", "*");
   emit(event, status, headers, body);
 }
 

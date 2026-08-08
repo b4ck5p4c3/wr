@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { api } from "./api.js";
+import {
+  copyWidgetCode,
+  createWidgetCode,
+  getOwnedActiveSites,
+} from "./widgets.js";
 
 // A visitor who asks the system for reduced motion gets the continuous and the
 // decorative motion dropped. The CSS gates the keyframes and the transitions,
@@ -269,6 +274,118 @@ function SearchModal({
       <button class="close" onClick={onClose}>
         close..
       </button>
+    </Modal>
+  );
+}
+
+function WidgetOption({ title, variant, code }) {
+  const codeRef = useRef(null);
+  const [copyStatus, setCopyStatus] = useState("");
+  const previewDocument =
+    '<!doctype html><html><head><base target="_blank"></head><body style="margin:0;background:transparent">' +
+    code +
+    "</body></html>";
+
+  useEffect(() => setCopyStatus(""), [code]);
+
+  const doCopy = async () => {
+    try {
+      await copyWidgetCode(navigator.clipboard, code);
+      setCopyStatus(title + " copied.");
+    } catch (_) {
+      if (codeRef.current != null) {
+        codeRef.current.focus();
+        codeRef.current.select();
+      }
+      setCopyStatus("Copy failed. Select the code and copy it manually.");
+    }
+  };
+
+  return (
+    <section class="widget-option">
+      <h3>{title}</h3>
+      <div class="widget-preview-shell">
+        <iframe
+          class={"widget-preview widget-preview-" + variant}
+          title={title + " preview"}
+          srcDoc={previewDocument}
+          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+          tabIndex="-1"
+        />
+      </div>
+      <textarea
+        class="widget-code"
+        ref={codeRef}
+        aria-label={title + " code"}
+        value={code}
+        readOnly
+        rows="6"
+      />
+      <div class="widget-copy-row">
+        <button class="primary" onClick={doCopy}>
+          copy {title}..
+        </button>
+        <p class="widget-copy-status" aria-live="polite">
+          {copyStatus}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function WidgetsModal({ selectedSlug, onClose, returnFocusRef }) {
+  const contentRef = useRef(null);
+  const smallCode = useMemo(
+    () => createWidgetCode(location.origin, selectedSlug, "small"),
+    [selectedSlug],
+  );
+  const longCode = useMemo(
+    () => createWidgetCode(location.origin, selectedSlug, "long"),
+    [selectedSlug],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (returnFocusRef.current != null) returnFocusRef.current.focus();
+    };
+  }, []);
+
+  const keepFocusInside = (event) => {
+    if (event.key !== "Tab" || contentRef.current == null) return;
+
+    const focusableControls = Array.from(
+      contentRef.current.querySelectorAll(
+        'button:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    if (focusableControls.length === 0) return;
+
+    const firstControl = focusableControls[0];
+    const lastControl = focusableControls[focusableControls.length - 1];
+    if (event.shiftKey && document.activeElement === firstControl) {
+      event.preventDefault();
+      lastControl.focus();
+    } else if (!event.shiftKey && document.activeElement === lastControl) {
+      event.preventDefault();
+      firstControl.focus();
+    }
+  };
+
+  return (
+    <Modal label="ready-to-use widgets" wide onClose={onClose}>
+      <div
+        class="widgets-modal-content"
+        ref={contentRef}
+        onKeyDown={keepFocusInside}
+      >
+        <h2>ready-to-use widgets</h2>
+        <p>Copy either widget for /{selectedSlug}.</p>
+        <WidgetOption title="small widget" variant="small" code={smallCode} />
+        <WidgetOption title="long widget" variant="long" code={longCode} />
+        <button class="close" onClick={onClose}>
+          close..
+        </button>
+      </div>
     </Modal>
   );
 }
@@ -923,7 +1040,12 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
   const [sites, setSites] = useState(null);
   const [error, setError] = useState(null);
   const [showAddSite, setShowAddSite] = useState(false);
+  const [showWidgets, setShowWidgets] = useState(false);
+  const [selectedWidgetSlug, setSelectedWidgetSlug] = useState("");
+  const widgetLauncherRef = useRef(null);
+  const ownedSites = useMemo(() => getOwnedActiveSites(me?.sites, me), [me]);
   useEscape(() => setShowAddSite(false), showAddSite);
+  useEscape(() => setShowWidgets(false), showWidgets);
   const loadSites = () =>
     api
       .listSites()
@@ -938,9 +1060,25 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
   useEffect(() => {
     loadSites();
   }, []);
+  useEffect(() => {
+    if (ownedSites.length === 0) {
+      setSelectedWidgetSlug("");
+      setShowWidgets(false);
+      return;
+    }
+
+    if (!ownedSites.some((site) => site.slug === selectedWidgetSlug)) {
+      setSelectedWidgetSlug(ownedSites[0].slug);
+    }
+  }, [ownedSites, selectedWidgetSlug]);
   const reloadLanding = () => {
     reload();
     loadSites();
+  };
+  const showWidgetsForSite = (slug, launcher) => {
+    widgetLauncherRef.current = launcher;
+    setSelectedWidgetSlug(slug);
+    setShowWidgets(true);
   };
 
   return (
@@ -974,24 +1112,26 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
             </a>
           </p>
         </section>
-      ) : me ? (
+      ) : null}
+      {me ? (
         <section class="panel">
-          <h2>login status</h2>
+          <h2>{me.is_admin ? "your websites" : "login status"}</h2>
           <p>Signed in as {me.display_name}.</p>
-          {me.sites.length === 0 ? (
+          {ownedSites.length === 0 ? (
             <p>You have no sites yet.</p>
           ) : (
             <ul class="sites">
-              {me.sites.map((site) => (
+              {ownedSites.map((site) => (
                 <OwnedSite
                   key={site.slug}
                   site={site}
                   onRenamed={reloadLanding}
+                  onGenerateWidgets={showWidgetsForSite}
                 />
               ))}
             </ul>
           )}
-          {me.pending.length > 0 ? (
+          {!me.is_admin && me.pending.length > 0 ? (
             <>
               <h3>awaiting review</h3>
               <ul class="pendings">
@@ -1005,27 +1145,38 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
               </ul>
             </>
           ) : null}
-          <button class="primary" onClick={() => setShowAddSite(true)}>
-            add a site..
-          </button>
-          {showAddSite ? (
-            <Modal
-              label="add a site"
-              wide
-              onClose={() => setShowAddSite(false)}
-            >
-              <AddSiteForm
-                onAdded={() => {
-                  reloadLanding();
-                  setShowAddSite(false);
-                }}
-              />
-              <button class="close" onClick={() => setShowAddSite(false)}>
-                close..
+          {!me.is_admin ? (
+            <>
+              <button class="primary" onClick={() => setShowAddSite(true)}>
+                add a site..
               </button>
-            </Modal>
+              {showAddSite ? (
+                <Modal
+                  label="add a site"
+                  wide
+                  onClose={() => setShowAddSite(false)}
+                >
+                  <AddSiteForm
+                    onAdded={() => {
+                      reloadLanding();
+                      setShowAddSite(false);
+                    }}
+                  />
+                  <button class="close" onClick={() => setShowAddSite(false)}>
+                    close..
+                  </button>
+                </Modal>
+              ) : null}
+            </>
           ) : null}
         </section>
+      ) : null}
+      {showWidgets ? (
+        <WidgetsModal
+          selectedSlug={selectedWidgetSlug}
+          onClose={() => setShowWidgets(false)}
+          returnFocusRef={widgetLauncherRef}
+        />
       ) : null}
     </main>
   );
@@ -1277,7 +1428,7 @@ export function AddSiteForm({
   );
 }
 
-export function OwnedSite({ site, onRenamed }) {
+export function OwnedSite({ site, onRenamed, onGenerateWidgets }) {
   const [name, setName] = useState(site.name);
   const [url, setUrl] = useState(site.url);
   const [description, setDescription] = useState(site.description);
@@ -1315,6 +1466,12 @@ export function OwnedSite({ site, onRenamed }) {
       <div class="row-actions">
         <button onClick={save} disabled={isDescriptionShort || isUrlInvalid}>
           save edit..
+        </button>
+        <button
+          class="primary"
+          onClick={(event) => onGenerateWidgets(site.slug, event.currentTarget)}
+        >
+          generate widgets..
         </button>
       </div>
       <UptimeRow site={site} />

@@ -21,6 +21,7 @@ echo "docs-low-detail: $(curl -s "$base/docs" | grep -c '<html class="low-detail
 echo "openapi: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/openapi.yaml")"
 echo "openapi-body: $(curl -s "$base/openapi.yaml" | grep -c '^openapi: 3.1.0')"
 echo "emoji: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/emoji/fire.png")"
+echo "font-cors: $(curl -s -D - -o /dev/null "$base/font/woff2/terminus.woff2" | grep -ic 'access-control-allow-origin: \*')"
 echo "favicon: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/favicon.ico")"
 echo "unknown: $(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$base/no/such/page")"
 echo "traversal: $(curl -s --path-as-is -o /dev/null -w '%{http_code}' "$base/x/../y")"
