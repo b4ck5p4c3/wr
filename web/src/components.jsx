@@ -445,9 +445,10 @@ export function faviconFor(url) {
   }
 }
 
-// The apple touch icon is a larger square icon the site serves at a well-known
-// path, so it is tried first, and the favicon.ico is the fallback. The icons
-// are read straight from the site, never through a third party.
+// Every miss costs the member site a request. The widely served paths are
+// walked first, and the sized variants are left for a site that carries neither
+// favicon.png nor favicon.ico. The icons are read straight from the site, never
+// through a third party.
 export function faviconCandidates(url) {
   let origin = "";
   try {
@@ -458,7 +459,14 @@ export function faviconCandidates(url) {
   return [
     origin + "/apple-touch-icon.png",
     origin + "/apple-touch-icon-precomposed.png",
+    origin + "/favicon.png",
     faviconFor(url),
+    origin + "/favicon-192x192.png",
+    origin + "/favicon-180x180.png",
+    origin + "/favicon-96x96.png",
+    origin + "/favicon-64x64.png",
+    origin + "/favicon-48x48.png",
+    origin + "/favicon-32x32.png",
   ];
 }
 
