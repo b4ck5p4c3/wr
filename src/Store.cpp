@@ -402,7 +402,7 @@ fn Store::record_liveness(StringView slug, bool is_reachable, i64 now)
       "VALUES (?, ?, ?, 1) "
       "ON CONFLICT(slug, hour_bucket) DO UPDATE SET "
       "up_count = liveness_buckets.up_count + excluded.up_count, "
-      "probe_count = probe_count + 1;"));
+      "probe_count = liveness_buckets.probe_count + 1;"));
   statement.bind(slug);
   statement.bind(hour_bucket);
   statement.bind(static_cast<i64>(up_count));
