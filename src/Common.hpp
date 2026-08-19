@@ -46,7 +46,7 @@
 
 #define WR_VER_MAJOR 0
 #define WR_VER_MINOR 0
-#define WR_VER_PATCH 1
+#define WR_VER_PATCH 2
 
 #define WR_API_VERSION 1
 

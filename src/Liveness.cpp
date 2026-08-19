@@ -93,17 +93,24 @@ fn Liveness::sweep() -> void
     let const updated = m_store.set_site_reachability(
         row.slug.view(), row.url.view(), is_up, now);
     if (updated.is_error()) {
-      LOG(Info, "reachability write dropped for %s", row.slug.c_str());
+      LOG(Info, "reachability write dropped for %s: %s", row.slug.c_str(),
+          updated.error().to_string().c_str());
       continue;
     }
     if (!updated.value()) continue;
 
-    if (m_store.record_liveness(row.slug.view(), is_up, now).is_error())
-      LOG(Info, "liveness record dropped for %s", row.slug.c_str());
+    if (let err = m_store.record_liveness(row.slug.view(), is_up, now);
+        err.is_error())
+    {
+      LOG(Info, "liveness record dropped for %s: %s", row.slug.c_str(),
+          err.error().to_string().c_str());
+    }
   }
 
-  if (m_store.rotate_liveness(now).is_error())
-    LOG(Debug, "liveness bucket rotation dropped");
+  if (let ret = m_store.rotate_liveness(now); ret.is_error()) {
+    LOG(Debug, "liveness bucket rotation errored out: %s",
+        ret.error().to_string().c_str());
+  }
 
   refresh_org_membership(now);
 }
@@ -117,7 +124,8 @@ fn Liveness::refresh_org_membership(i64 now) -> void
   let const handles_or =
       m_store.list_org_handles_due(now - ORG_REFRESH_SECONDS);
   if (handles_or.is_error()) {
-    LOG(Debug, "org membership handles could not be read");
+    LOG(Debug, "org membership handles could not be read: %s",
+        handles_or.error().to_string().c_str());
     return;
   }
 
@@ -158,15 +166,25 @@ fn Liveness::refresh_org_membership(i64 now) -> void
     builder.add_auxiliary_headers(GITHUB_API_USER_AGENT, "application/json");
     if (has_token) builder.add_header("Authorization", authorization.view());
 
-    let const response = m_client.send(builder.build());
-    if (response.is_error()) continue;
+    let const request = builder.build();
+    let const response = m_client.send(request);
+    if (response.is_error()) {
+      LOG(Info, "client couldnt send request %s: %*s",
+          response.error().to_string().c_str(),
+          static_cast<int>(request.url().count()), request.url().data);
+      continue;
+    }
 
     let const status = response.value().status();
     if (status != 204 && status != 404) continue;
 
     let const is_member = status == 204;
-    if (m_store.set_org_membership(handle.view(), is_member, now).is_error())
-      LOG(Info, "org membership write dropped for %s", handle.c_str());
+    if (let ret = m_store.set_org_membership(handle.view(), is_member, now);
+        ret.is_error())
+    {
+      LOG(Info, "org membership write dropped for %s: %s", handle.c_str(),
+          ret.error().to_string().c_str());
+    }
   }
   if (handles.count() > attempted_count)
     LOG(Info, "org membership refresh capped at %zu handles this sweep",
