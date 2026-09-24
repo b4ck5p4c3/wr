@@ -77,7 +77,6 @@ export function App() {
         me={me}
         reload={reloadMe}
         onLogin={onLogin}
-        metricsEnabled={config.metrics_enabled}
       />
     );
   else page = <NotFound navigate={navigate} />;

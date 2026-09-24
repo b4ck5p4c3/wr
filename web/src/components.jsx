@@ -702,32 +702,28 @@ function displayUrl(url) {
 function cardBody(site, ctx) {
   const handle = site.owner_tag ? "@" + site.owner_tag : null;
   const ownerUrl = ownerProfileUrl(site.owner_oauth, site.owner_tag);
+  const siteLink = "/" + site.slug + "/click";
   const handleClass =
     "tweet-handle" + (site.owner_oauth ? " owner-" + site.owner_oauth : "");
-  const recordClick = () => {
-    if (ctx.metricsEnabled) api.recordClick(site.slug).catch(() => {});
-  };
   return (
     <div class="tweet">
       <header class="tweet-head">
         <a
           class="tweet-avatar"
-          href={site.url}
+          href={siteLink}
           target="_blank"
           rel="noopener noreferrer"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={recordClick}
         >
           <Favicon url={site.url} />
         </a>
         <span class="tweet-id">
           <a
             class="tweet-name"
-            href={site.url}
+            href={siteLink}
             target="_blank"
             rel="noopener noreferrer"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={recordClick}
           >
             {site.name}
           </a>
@@ -791,11 +787,10 @@ function cardBody(site, ctx) {
         ) : null}
         <a
           class="tweet-link"
-          href={site.url}
+          href={siteLink}
           target="_blank"
           rel="noopener noreferrer"
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={recordClick}
         >
           {"visit " + displayUrl(site.url)}
         </a>
@@ -828,8 +823,8 @@ const WHEEL_GAIN = 0.35;
 // The transforms are mutated through refs, so a frame never costs a render. Each
 // card is double sided, and a card facing away shows its back. On a phone width
 // the cylinder is replaced by a plain vertical list.
-export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
-  const ctx = { me, onLogin, onReacted, metricsEnabled };
+export function Carousel({ sites, me, onLogin, onReacted }) {
+  const ctx = { me, onLogin, onReacted };
   const isNarrow = useMediaMatch(NARROW_QUERY);
 
   const ringRef = useRef(null);
@@ -1044,7 +1039,7 @@ export function Carousel({ sites, me, onLogin, onReacted, metricsEnabled }) {
   );
 }
 
-export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
+export function Landing({ navigate, me, reload, onLogin }) {
   const [sites, setSites] = useState(null);
   const [error, setError] = useState(null);
   const [showAddSite, setShowAddSite] = useState(false);
@@ -1105,7 +1100,6 @@ export function Landing({ navigate, me, reload, onLogin, metricsEnabled }) {
             me={me}
             onLogin={onLogin}
             onReacted={loadSites}
-            metricsEnabled={metricsEnabled}
           />
         )}
       </div>

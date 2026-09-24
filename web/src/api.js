@@ -44,7 +44,6 @@ export const api = {
   renameSite: (slug, name, url, description) =>
     postJson("/api/v1/sites/rename", { slug, name, url, description }),
   react: (slug, emoji) => postJson("/api/v1/sites/react", { slug, emoji }),
-  recordClick: (slug) => postJson("/api/v1/sites/click", { slug }),
   listComments: (offset = 0, limit = 5) =>
     getJson(
       `/api/v1/comments?offset=${encodeURIComponent(offset)}&limit=${encodeURIComponent(limit)}`,

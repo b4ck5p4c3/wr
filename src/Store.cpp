@@ -579,7 +579,8 @@ fn Store::record_click(StringView slug) -> ErrorOr<Ok>
   let statement = TRY(m_database.prepare(
       "INSERT INTO site_metrics (slug, click_count, hop_count) "
       "VALUES (?, 1, 0) "
-      "ON CONFLICT(slug) DO UPDATE SET click_count = click_count + 1;"));
+      "ON CONFLICT(slug) DO UPDATE SET "
+      "click_count = site_metrics.click_count + 1;"));
   statement.bind(slug);
   unused(TRY(statement.step()));
 
@@ -593,7 +594,8 @@ fn Store::record_hop(StringView slug) -> ErrorOr<Ok>
   let statement = TRY(m_database.prepare(
       "INSERT INTO site_metrics (slug, click_count, hop_count) "
       "VALUES (?, 0, 1) "
-      "ON CONFLICT(slug) DO UPDATE SET hop_count = hop_count + 1;"));
+      "ON CONFLICT(slug) DO UPDATE SET "
+      "hop_count = site_metrics.hop_count + 1;"));
   statement.bind(slug);
   unused(TRY(statement.step()));
 

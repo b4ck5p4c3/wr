@@ -53,6 +53,10 @@ The liveness worker reopens its database connection after a failed site read.
 The process exits after five consecutive failed reads, which lets Docker Compose
 restart the service.
 
+The `--enable-metrics` flag records site traffic. Links from the ring use the
+`/{slug}/click` redirect and count as clicks. Member widgets use `/{slug}`,
+`/{slug}/previous`, and `/{slug}/next`, and these transfers count as hops.
+
 ## Secrets
 
 The secrets are read from the environment. Outside dev mode at least one login

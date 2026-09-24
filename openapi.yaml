@@ -42,6 +42,8 @@ paths:
     get:
       tags: [navigation]
       summary: Redirect to a site.
+      description: >-
+        The redirect records a hop when the server runs with metrics enabled.
       security: []
       parameters:
         - $ref: "#/components/parameters/Slug"
@@ -72,6 +74,9 @@ paths:
     get:
       tags: [navigation]
       summary: Step the ring and redirect.
+      description: >-
+        The click step redirects to the named site and records a click. The
+        next, previous, and random steps record a hop to the selected site.
       security: []
       parameters:
         - $ref: "#/components/parameters/Slug"
@@ -705,10 +710,10 @@ components:
       name: step
       in: path
       required: true
-      description: The navigation step.
+      description: The redirect or navigation step.
       schema:
         type: string
-        enum: [next, previous, random]
+        enum: [click, next, previous, random]
   responses:
     Message:
       description: 'A JSON body, {"message": string}.'

@@ -658,12 +658,14 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   enum class nav_step
   {
+    click,
     next,
     previous,
     random,
   };
-  static constexpr StaticStringMap<nav_step, 3> NAV_STEPS{
-      {{"next", nav_step::next},
+  static constexpr StaticStringMap<nav_step, 4> NAV_STEPS{
+      {{"click", nav_step::click},
+       {"next", nav_step::next},
        {"previous", nav_step::previous},
        {"random", nav_step::random}}
   };
@@ -682,6 +684,7 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   if (stepped != nullptr) {
     switch (*stepped) {
+    case nav_step::click: break;
     case nav_step::next: target = (current + 1) % count; break;
     case nav_step::previous: target = (current + count - 1) % count; break;
     case nav_step::random: {
@@ -700,10 +703,11 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   if (!wants_data) {
     let const target_slug = sites[target].slug.view();
-    if (m_config.is_metrics_enabled) {
-      let const recorded = m_store.record_hop(target_slug);
+    if (m_config.is_metrics_enabled && event.method() == "GET") {
+      let const recorded = step == "click" ? m_store.record_click(target_slug)
+                                           : m_store.record_hop(target_slug);
       if (recorded.is_error())
-        LOG(Info, "hop record dropped for %.*s: %s",
+        LOG(Info, "navigation metric dropped for %.*s: %s",
             static_cast<int>(target_slug.count()), target_slug.data,
             recorded.error_as_c_str());
     }
