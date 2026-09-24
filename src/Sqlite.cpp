@@ -5,12 +5,17 @@
 
 namespace wr {
 
-Sqlite::~Sqlite()
+Sqlite::~Sqlite() { close(); }
+
+fn Sqlite::close() noexcept -> void
 {
   m_statement_cache.clear(
       [](sqlite3_stmt *handle) noexcept { sqlite3_finalize(handle); });
 
-  if (m_connection != nullptr) sqlite3_close(m_connection);
+  if (m_connection != nullptr) {
+    sqlite3_close(m_connection);
+    m_connection = nullptr;
+  }
 }
 
 fn Sqlite::make_error(StringView context, ErrorBase::Severity severity) const
@@ -28,6 +33,8 @@ fn Sqlite::make_error(StringView context, ErrorBase::Severity severity) const
 
 fn Sqlite::open(StringView connection_string) -> ErrorOr<Ok>
 {
+  close();
+
   let const path = String{m_allocator, connection_string};
   let const flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
   if (sqlite3_open_v2(path.c_str(), &m_connection, flags, nullptr) != SQLITE_OK)

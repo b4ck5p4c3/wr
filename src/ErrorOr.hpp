@@ -88,6 +88,11 @@ public:
     ASSERT(m_is_error);
     return error_reference();
   }
+  mustuse pure fn error_as_c_str() const noexcept -> const char *
+  {
+    ASSERT(m_is_error);
+    return error_reference().message().c_str();
+  }
 
   hot mustuse fn take() -> T
   {

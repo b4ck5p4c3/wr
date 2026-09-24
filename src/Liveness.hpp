@@ -46,6 +46,7 @@ private:
   static constexpr i64 DOWN_INTERVAL_SECONDS = 60;
   static constexpr i64 ORG_REFRESH_SECONDS = 86400;
   static constexpr usize ORG_REFRESH_MAX_PER_SWEEP = 25;
+  static constexpr usize DATABASE_FAILURE_LIMIT = 5;
 
   static fn thread_main(opaque *self) -> opaque *;
   fn run() -> void;
@@ -62,6 +63,7 @@ private:
   PthreadThread m_thread{};
   bool m_is_running{false};
   usize m_org_handle_position{0};
+  usize m_database_failure_count{0};
   /* The worker polls the flag and the server sets it, so it is read and written
      through the atomic builtins. */
   bool m_should_stop{false};

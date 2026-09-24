@@ -50,6 +50,7 @@ private:
     bool was_executed;
   };
 
+  fn close() noexcept -> void;
   mustuse fn make_error(StringView context,
                         ErrorBase::Severity severity =
                             ErrorBase::Severity::Recoverable) const -> Error;

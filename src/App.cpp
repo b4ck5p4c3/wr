@@ -459,13 +459,21 @@ fn App::write_listing_site(JsonWriter &writer, const site &row,
 {
   let counts_or = m_store.get_reactions(row.slug.view());
   ArrayList<reaction_count> counts{m_allocator};
-  if (!counts_or.is_error()) counts = steal(counts_or.value());
+  if (!counts_or.is_error())
+    counts = steal(counts_or.value());
+  else
+    LOG(Info, "site listing reactions unavailable, slug=%s: %s",
+        row.slug.c_str(), counts_or.error_as_c_str());
 
   ArrayList<String> reacted{m_allocator};
   if (who.has_value()) {
     let reacted_or =
         m_store.get_user_reactions(row.slug.view(), who.value().who);
-    if (!reacted_or.is_error()) reacted = steal(reacted_or.value());
+    if (!reacted_or.is_error())
+      reacted = steal(reacted_or.value());
+    else
+      LOG(Info, "site listing user reactions unavailable, slug=%s: %s",
+          row.slug.c_str(), reacted_or.error_as_c_str());
   }
 
   i64 click_count = 0;
@@ -475,13 +483,20 @@ fn App::write_listing_site(JsonWriter &writer, const site &row,
     if (!clicks_or.is_error()) {
       click_count = clicks_or.value();
       has_click_count = true;
+    } else {
+      LOG(Info, "site listing click count unavailable, slug=%s: %s",
+          row.slug.c_str(), clicks_or.error_as_c_str());
     }
   }
 
   bool is_owner_verified = false;
   if (row.owner.source == identity_source::github) {
     let const member_or = m_store.is_org_member(row.owner.name.view());
-    if (!member_or.is_error()) is_owner_verified = member_or.value();
+    if (!member_or.is_error())
+      is_owner_verified = member_or.value();
+    else
+      LOG(Info, "site listing org membership unavailable, owner=%s: %s",
+          row.owner.name.c_str(), member_or.error_as_c_str());
   }
 
   write_site_json(writer, row, &counts, who.has_value() ? &reacted : nullptr,
@@ -504,7 +519,8 @@ fn App::handle_sites(HttpServerEvent &event) -> void
   if (!reactions_or.is_error())
     reactions = steal(reactions_or.value());
   else
-    LOG(Info, "site listing reactions unavailable");
+    LOG(Info, "site listing reactions unavailable: %s",
+        reactions_or.error_as_c_str());
 
   StringMap<ArrayList<String>> user_reactions{event.request_allocator()};
   if (who.has_value()) {
@@ -512,7 +528,8 @@ fn App::handle_sites(HttpServerEvent &event) -> void
     if (!user_or.is_error())
       user_reactions = steal(user_or.value());
     else
-      LOG(Info, "site listing user reactions unavailable");
+      LOG(Info, "site listing user reactions unavailable: %s",
+          user_or.error_as_c_str());
   }
 
   StringMap<i64> click_counts{event.request_allocator()};
@@ -523,7 +540,8 @@ fn App::handle_sites(HttpServerEvent &event) -> void
       for (usize i = 0; i < metrics.count(); i++)
         click_counts.set(metrics[i].slug.view(), metrics[i].click_count);
     } else {
-      LOG(Info, "site listing click counts unavailable");
+      LOG(Info, "site listing click counts unavailable: %s",
+          metrics_or.error_as_c_str());
     }
   }
 
@@ -532,7 +550,8 @@ fn App::handle_sites(HttpServerEvent &event) -> void
   if (!verified_or.is_error())
     verified = steal(verified_or.value());
   else
-    LOG(Info, "site listing org membership unavailable");
+    LOG(Info, "site listing org membership unavailable: %s",
+        verified_or.error_as_c_str());
 
   const ArrayList<reaction_count> empty_counts{event.request_allocator()};
   const ArrayList<String> empty_reacted{event.request_allocator()};
@@ -603,6 +622,8 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
   let const sites_or = m_store.list_active_sites();
   if (sites_or.is_error()) {
     if (wants_page) {
+      LOG(Info, "navigation could not list sites: %s",
+          sites_or.error_as_c_str());
       serve_static(event);
       return;
     }
@@ -665,7 +686,12 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
     case nav_step::previous: target = (current + count - 1) % count; break;
     case nav_step::random: {
       usize roll = 0;
-      if (random_bytes(&roll, sizeof(roll)).is_error()) roll = 0;
+      let const random_result = random_bytes(&roll, sizeof(roll));
+      if (random_result.is_error()) {
+        LOG(Info, "navigation could not choose a random site: %s",
+            random_result.error_as_c_str());
+        roll = 0;
+      }
       target = roll % count;
       break;
     }
@@ -674,11 +700,12 @@ fn App::handle_navigation(HttpServerEvent &event, StringView slug,
 
   if (!wants_data) {
     let const target_slug = sites[target].slug.view();
-    if (m_config.is_metrics_enabled &&
-        m_store.record_hop(target_slug).is_error())
-    {
-      LOG(Info, "hop record dropped for %.*s",
-          static_cast<int>(target_slug.count()), target_slug.data);
+    if (m_config.is_metrics_enabled) {
+      let const recorded = m_store.record_hop(target_slug);
+      if (recorded.is_error())
+        LOG(Info, "hop record dropped for %.*s: %s",
+            static_cast<int>(target_slug.count()), target_slug.data,
+            recorded.error_as_c_str());
     }
 
     reply_redirect(event, sites[target].url.view());
@@ -765,7 +792,10 @@ fn App::emit(HttpServerEvent &event, u16 status, HttpHeaders &headers,
         static_cast<int>(uri.count()), uri.data, status);
   }
 
-  unused(event.reply(status, headers, body, SECURITY_HEADER_BLOCK).is_error());
+  let const reply_result =
+      event.reply(status, headers, body, SECURITY_HEADER_BLOCK);
+  if (reply_result.is_error())
+    LOG(Info, "response could not be sent: %s", reply_result.error_as_c_str());
 }
 
 fn App::reply_json(HttpServerEvent &event, u16 status, StringView json) -> void
@@ -805,13 +835,13 @@ fn App::record_audit_or_log(HttpServerEvent &event, const identity &actor,
                             StringView action, StringView target,
                             StringView detail) -> void
 {
-  if (m_store
-          .record_audit(actor, client_address(event), action, target, detail,
-                        now_seconds())
-          .is_error())
-    LOG(Info, "audit record dropped, action=%.*s target=%.*s",
+  let const recorded = m_store.record_audit(
+      actor, client_address(event), action, target, detail, now_seconds());
+  if (recorded.is_error())
+    LOG(Info, "audit record dropped, action=%.*s target=%.*s: %s",
         static_cast<int>(action.count()), action.data,
-        static_cast<int>(target.count()), target.data);
+        static_cast<int>(target.count()), target.data,
+        recorded.error_as_c_str());
 }
 
 fn App::reply_message(HttpServerEvent &event, u16 status, StringView message)

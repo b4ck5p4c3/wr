@@ -172,9 +172,9 @@ fn App::handle_me(HttpServerEvent &event) -> void
     if (!history_or.is_error())
       uptime = steal(history_or.value());
     else
-      LOG(All, "liveness history unavailable, slug=%.*s",
+      LOG(All, "liveness history unavailable, slug=%.*s: %s",
           static_cast<int>(sites[i].slug.view().count()),
-          sites[i].slug.view().data);
+          sites[i].slug.view().data, history_or.error_as_c_str());
 
     write_panel_site(writer, sites[i], uptime);
   }
@@ -252,9 +252,14 @@ fn App::handle_user_rename(HttpServerEvent &event, const account &who) -> void
   }
 
   let const owned = m_store.find_site(input.slug);
-  if (owned.is_error() || !owned.value().has_value() ||
-      owned.value().value().owner != who.who)
-  {
+  if (owned.is_error()) {
+    LOG(Info, "site edit ownership lookup failed, slug=%.*s: %s",
+        static_cast<int>(input.slug.count()), input.slug.data,
+        owned.error_as_c_str());
+    reply_message(event, 403, "That site is not yours");
+    return;
+  }
+  if (!owned.value().has_value() || owned.value().value().owner != who.who) {
     LOG(Info, "site edit rejected, not owned, slug=%.*s",
         static_cast<int>(input.slug.count()), input.slug.data);
     reply_message(event, 403, "That site is not yours");
@@ -356,7 +361,11 @@ fn App::handle_site_click(HttpServerEvent &event) -> void
     return;
   }
 
-  if (m_store.record_click(slug.value()).is_error()) {
+  let const recorded = m_store.record_click(slug.value());
+  if (recorded.is_error()) {
+    LOG(Info, "click could not be recorded, slug=%.*s: %s",
+        static_cast<int>(slug.value().count()), slug.value().data,
+        recorded.error_as_c_str());
     reply_message(event, 500, "Unable to record the click");
     return;
   }
@@ -645,9 +654,11 @@ fn App::handle_admin_edit(HttpServerEvent &event) -> void
 
   /* The edit may point the site at a new url, so it is queued for an immediate
      recheck instead of waiting out its reachability interval. */
-  if (m_store.schedule_recheck(input.slug).is_error())
-    LOG(Info, "recheck schedule dropped for %.*s",
-        static_cast<int>(input.slug.count()), input.slug.data);
+  let const scheduled = m_store.schedule_recheck(input.slug);
+  if (scheduled.is_error())
+    LOG(Info, "recheck schedule dropped for %.*s: %s",
+        static_cast<int>(input.slug.count()), input.slug.data,
+        scheduled.error_as_c_str());
 
   record_audit_or_log(event, who.value().who, "edit site", input.slug,
                       input.name);
@@ -883,10 +894,12 @@ fn App::handle_admin_resolve(HttpServerEvent &event, bool should_approve)
           return;
         }
 
-        if (m_store.schedule_recheck(action.target_slug.view()).is_error())
-          LOG(Info, "recheck schedule dropped for %.*s",
+        let const scheduled =
+            m_store.schedule_recheck(action.target_slug.view());
+        if (scheduled.is_error())
+          LOG(Info, "recheck schedule dropped for %.*s: %s",
               static_cast<int>(action.target_slug.view().count()),
-              action.target_slug.view().data);
+              action.target_slug.view().data, scheduled.error_as_c_str());
         break;
       }
       }

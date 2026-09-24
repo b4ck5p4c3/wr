@@ -23,7 +23,7 @@ public:
   ErrorBase(Allocator allocator, StringView message);
   virtual ~ErrorBase();
 
-  fn message() const -> String;
+  fn message() const -> const String &;
   mustuse fn is_critical() const noexcept -> bool;
 
   virtual fn to_string() const -> String;

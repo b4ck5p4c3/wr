@@ -14,6 +14,8 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
 {
   let const state_or = random_token(event.request_allocator());
   if (state_or.is_error()) {
+    LOG(Info, "github login could not create the state token: %s",
+        state_or.error_as_c_str());
     reply_message(event, 500, "Unable to start the login");
     return;
   }
@@ -37,7 +39,10 @@ fn App::handle_login_github(HttpServerEvent &event) -> void
   headers.set("Location", url.view());
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "github login started");
-  unused(event.reply(302, headers, "", SECURITY_HEADER_BLOCK).is_error());
+  let const reply_result = event.reply(302, headers, "", SECURITY_HEADER_BLOCK);
+  if (reply_result.is_error())
+    LOG(Info, "github login redirect could not be sent: %s",
+        reply_result.error_as_c_str());
 }
 
 fn App::handle_github_callback(HttpServerEvent &event) -> void
@@ -79,7 +84,8 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
           .build();
   let token_response = m_client.send(token_request);
   if (token_response.is_error()) {
-    LOG(Info, "github token exchange failed");
+    LOG(Info, "github token exchange failed: %s",
+        token_response.error_as_c_str());
     reply_message(event, 502, "The token exchange failed");
     return;
   }
@@ -105,7 +111,8 @@ fn App::handle_github_callback(HttpServerEvent &event) -> void
           .build();
   let user_response = m_client.send(user_request);
   if (user_response.is_error()) {
-    LOG(Info, "github identity fetch failed");
+    LOG(Info, "github identity fetch failed: %s",
+        user_response.error_as_c_str());
     reply_message(event, 502, "The identity fetch failed");
     return;
   }
@@ -156,17 +163,21 @@ fn App::handle_telegram_callback(HttpServerEvent &event) -> void
   /* The secret key is the SHA-256 of the bot token, and the signature is the
      HMAC of the check string under that key. */
   unsigned char secret[32] = {};
-  if (sha256(m_config.telegram_bot_token.view(), secret).is_error()) {
+  let const hash_result = sha256(m_config.telegram_bot_token.view(), secret);
+  if (hash_result.is_error()) {
+    LOG(Info, "telegram login could not hash the bot token: %s",
+        hash_result.error_as_c_str());
     reply_message(event, 500, "The signature could not be computed");
     return;
   }
 
   unsigned char digest[32] = {};
-  if (hmac_sha256(
-          StringView{reinterpret_cast<const char *>(secret), sizeof(secret)},
-          check.view(), digest)
-          .is_error())
-  {
+  let const signature_result = hmac_sha256(
+      StringView{reinterpret_cast<const char *>(secret), sizeof(secret)},
+      check.view(), digest);
+  if (signature_result.is_error()) {
+    LOG(Info, "telegram login could not compute the signature: %s",
+        signature_result.error_as_c_str());
     reply_message(event, 500, "The signature could not be computed");
     return;
   }
@@ -216,9 +227,12 @@ fn App::handle_logout(HttpServerEvent &event) -> void
               token.value().substring_of_length(0, separator.value());
           let const signature = token.value().substring(separator.value() + 1);
           unsigned char digest[32] = {};
-          has_valid_signature =
-              !hmac_sha256(m_config.session_key.view(), stored_token, digest)
-                   .is_error();
+          let const signature_result =
+              hmac_sha256(m_config.session_key.view(), stored_token, digest);
+          has_valid_signature = !signature_result.is_error();
+          if (signature_result.is_error())
+            LOG(Info, "logout could not verify the session signature: %s",
+                signature_result.error_as_c_str());
           if (has_valid_signature) {
             String expected{event.request_allocator()};
             append_hex(expected, digest, sizeof(digest));
@@ -228,10 +242,11 @@ fn App::handle_logout(HttpServerEvent &event) -> void
         }
       }
 
-      if (has_valid_signature &&
-          m_store.delete_session(stored_token).is_error())
-      {
-        LOG(Info, "logout session delete dropped");
+      if (has_valid_signature) {
+        let const deleted = m_store.delete_session(stored_token);
+        if (deleted.is_error())
+          LOG(Info, "logout session delete dropped: %s",
+              deleted.error_as_c_str());
       }
     }
   }
@@ -243,7 +258,10 @@ fn App::handle_logout(HttpServerEvent &event) -> void
   HttpHeaders headers{event.request_allocator()};
   headers.set("Location", "/");
   headers.set("Set-Cookie", cookie.view());
-  unused(event.reply(302, headers, "", SECURITY_HEADER_BLOCK).is_error());
+  let const reply_result = event.reply(302, headers, "", SECURITY_HEADER_BLOCK);
+  if (reply_result.is_error())
+    LOG(Info, "logout redirect could not be sent: %s",
+        reply_result.error_as_c_str());
 }
 
 fn App::finish_login(HttpServerEvent &event, const identity &who,
@@ -256,18 +274,25 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
     is_admin = force_admin.value();
   } else {
     let const existing = m_store.find_account(who);
-    if (!existing.is_error() && existing.value().has_value()) {
+    if (existing.is_error())
+      LOG(Info, "login could not find the existing account: %s",
+          existing.error_as_c_str());
+    else if (existing.value().has_value())
       is_admin = existing.value().value().is_admin;
-    }
   }
 
-  if (m_store.upsert_account(who, is_admin).is_error()) {
+  let const account_result = m_store.upsert_account(who, is_admin);
+  if (account_result.is_error()) {
+    LOG(Info, "login could not store the account: %s",
+        account_result.error_as_c_str());
     reply_message(event, 500, "Unable to store the account");
     return;
   }
 
   let const token_or = random_token(event.request_allocator());
   if (token_or.is_error()) {
+    LOG(Info, "login could not create the session token: %s",
+        token_or.error_as_c_str());
     reply_message(event, 500, "Unable to open the session");
     return;
   }
@@ -276,9 +301,11 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
   String cookie_token{event.request_allocator(), token.view()};
   if (!m_config.session_key.view().is_empty()) {
     unsigned char digest[32] = {};
-    if (hmac_sha256(m_config.session_key.view(), token.view(), digest)
-            .is_error())
-    {
+    let const signature_result =
+        hmac_sha256(m_config.session_key.view(), token.view(), digest);
+    if (signature_result.is_error()) {
+      LOG(Info, "login could not sign the session: %s",
+          signature_result.error_as_c_str());
       reply_message(event, 500, "Unable to sign the session");
       return;
     }
@@ -287,7 +314,11 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
   }
 
   let const expires_at = now_seconds() + (i64{30} * 24 * 60 * 60);
-  if (m_store.create_session(token.view(), who, expires_at).is_error()) {
+  let const session_result =
+      m_store.create_session(token.view(), who, expires_at);
+  if (session_result.is_error()) {
+    LOG(Info, "login could not create the session: %s",
+        session_result.error_as_c_str());
     reply_message(event, 500, "Unable to open the session");
     return;
   }
@@ -302,7 +333,10 @@ fn App::finish_login(HttpServerEvent &event, const identity &who,
   headers.set("Location", is_admin ? "/admin" : "/");
   headers.set("Set-Cookie", cookie.view());
   LOG(Info, "login for %s", who.name.c_str());
-  unused(event.reply(302, headers, "", SECURITY_HEADER_BLOCK).is_error());
+  let const reply_result = event.reply(302, headers, "", SECURITY_HEADER_BLOCK);
+  if (reply_result.is_error())
+    LOG(Info, "login redirect could not be sent: %s",
+        reply_result.error_as_c_str());
 }
 
 fn App::handle_dev_login(HttpServerEvent &event) -> void
@@ -338,9 +372,11 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
     stored_token = token.substring_of_length(0, separator.value());
     let const signature = token.substring(separator.value() + 1);
     unsigned char digest[32] = {};
-    if (hmac_sha256(m_config.session_key.view(), stored_token, digest)
-            .is_error())
-    {
+    let const signature_result =
+        hmac_sha256(m_config.session_key.view(), stored_token, digest);
+    if (signature_result.is_error()) {
+      LOG(All, "current account none, session signature failed: %s",
+          signature_result.error_as_c_str());
       return None;
     }
 
@@ -351,9 +387,8 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
 
   let const session_row = m_store.find_session(stored_token);
   if (session_row.is_error()) {
-    LOG(All, "current account none, session lookup failed, %.*s",
-        static_cast<int>(session_row.error().message().view().count()),
-        session_row.error().message().view().data);
+    LOG(All, "current account none, session lookup failed: %s",
+        session_row.error_as_c_str());
     return None;
   }
   if (!session_row.value().has_value()) {
@@ -370,7 +405,8 @@ fn App::current_account(HttpServerEvent &event) -> Maybe<account>
 
   let found = m_store.find_account(session.who);
   if (found.is_error()) {
-    LOG(All, "current account none, account lookup failed");
+    LOG(All, "current account none, account lookup failed: %s",
+        found.error_as_c_str());
     return None;
   }
   if (!found.value().has_value()) {

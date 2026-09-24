@@ -41,6 +41,7 @@ protected:
   mustuse fn column_int(opaque *handle, int column) const -> i64 override;
 
 private:
+  fn close() noexcept -> void;
   mustuse fn make_error(StringView context,
                         ErrorBase::Severity severity =
                             ErrorBase::Severity::Recoverable) const -> Error;

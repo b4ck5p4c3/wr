@@ -49,6 +49,10 @@ the organisation named by `WR_GITHUB_ORG`, which defaults to `b4ck5p4c3`, is
 marked with a verified badge on the ring. Set `WR_GITHUB_ORG_TOKEN` to read the
 private members of the organisation as well.
 
+The liveness worker reopens its database connection after a failed site read.
+The process exits after five consecutive failed reads, which lets Docker Compose
+restart the service.
+
 ## Secrets
 
 The secrets are read from the environment. Outside dev mode at least one login

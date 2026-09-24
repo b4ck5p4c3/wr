@@ -60,9 +60,25 @@ fn Liveness::sweep() -> void
 {
   let const sites_or = m_store.list_all_sites();
   if (sites_or.is_error()) {
-    LOG(Debug, "liveness could not read the sites");
+    m_database_failure_count++;
+    LOG(Debug, "liveness could not read the sites, failure %zu of %zu: %s",
+        m_database_failure_count, DATABASE_FAILURE_LIMIT,
+        sites_or.error_as_c_str());
+
+    if (__atomic_load_n(&m_should_stop, __ATOMIC_SEQ_CST)) return;
+
+    let const reopened = m_database.open(m_config.database_path.view());
+    if (reopened.is_error())
+      LOG(Info, "liveness could not reopen the database: %s",
+          reopened.error_as_c_str());
+
+    if (m_database_failure_count >= DATABASE_FAILURE_LIMIT) {
+      LOG(Info, "liveness database remained unavailable, exiting for restart");
+      _exit(1);
+    }
     return;
   }
+  m_database_failure_count = 0;
 
   let const now = now_seconds();
   let const &sites = sites_or.value();
@@ -85,6 +101,9 @@ fn Liveness::sweep() -> void
             .build();
     let const response = m_client.send(request);
 
+    if (response.is_error())
+      LOG(Debug, "liveness probe failed for %s: %s", row.slug.c_str(),
+          response.error_as_c_str());
     let const status = response.is_error() ? 0 : response.value().status();
     let const is_up = status >= 200 && status < 500;
     if (is_up != row.is_reachable)
@@ -94,23 +113,21 @@ fn Liveness::sweep() -> void
         row.slug.view(), row.url.view(), is_up, now);
     if (updated.is_error()) {
       LOG(Info, "reachability write dropped for %s: %s", row.slug.c_str(),
-          updated.error().to_string().c_str());
+          updated.error_as_c_str());
       continue;
     }
     if (!updated.value()) continue;
 
-    if (let err = m_store.record_liveness(row.slug.view(), is_up, now);
-        err.is_error())
-    {
+    let const recorded = m_store.record_liveness(row.slug.view(), is_up, now);
+    if (recorded.is_error())
       LOG(Info, "liveness record dropped for %s: %s", row.slug.c_str(),
-          err.error().to_string().c_str());
-    }
+          recorded.error_as_c_str());
   }
 
-  if (let ret = m_store.rotate_liveness(now); ret.is_error()) {
-    LOG(Debug, "liveness bucket rotation errored out: %s",
-        ret.error().to_string().c_str());
-  }
+  let const rotated = m_store.rotate_liveness(now);
+  if (rotated.is_error())
+    LOG(Debug, "liveness bucket rotation dropped: %s",
+        rotated.error_as_c_str());
 
   refresh_org_membership(now);
 }
@@ -125,7 +142,7 @@ fn Liveness::refresh_org_membership(i64 now) -> void
       m_store.list_org_handles_due(now - ORG_REFRESH_SECONDS);
   if (handles_or.is_error()) {
     LOG(Debug, "org membership handles could not be read: %s",
-        handles_or.error().to_string().c_str());
+        handles_or.error_as_c_str());
     return;
   }
 
@@ -166,12 +183,10 @@ fn Liveness::refresh_org_membership(i64 now) -> void
     builder.add_auxiliary_headers(GITHUB_API_USER_AGENT, "application/json");
     if (has_token) builder.add_header("Authorization", authorization.view());
 
-    let const request = builder.build();
-    let const response = m_client.send(request);
+    let const response = m_client.send(builder.build());
     if (response.is_error()) {
-      LOG(Info, "client couldnt send request %s: %*s",
-          response.error().to_string().c_str(),
-          static_cast<int>(request.url().count()), request.url().data);
+      LOG(Debug, "org membership probe failed for %s: %s", handle.c_str(),
+          response.error_as_c_str());
       continue;
     }
 
@@ -179,12 +194,11 @@ fn Liveness::refresh_org_membership(i64 now) -> void
     if (status != 204 && status != 404) continue;
 
     let const is_member = status == 204;
-    if (let ret = m_store.set_org_membership(handle.view(), is_member, now);
-        ret.is_error())
-    {
+    let const updated =
+        m_store.set_org_membership(handle.view(), is_member, now);
+    if (updated.is_error())
       LOG(Info, "org membership write dropped for %s: %s", handle.c_str(),
-          ret.error().to_string().c_str());
-    }
+          updated.error_as_c_str());
   }
   if (handles.count() > attempted_count)
     LOG(Info, "org membership refresh capped at %zu handles this sweep",

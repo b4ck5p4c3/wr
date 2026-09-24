@@ -12,7 +12,7 @@ ErrorBase::ErrorBase(Allocator allocator, StringView message)
 
 ErrorBase::~ErrorBase() = default;
 
-fn ErrorBase::message() const -> String { return m_message; }
+fn ErrorBase::message() const -> const String & { return m_message; }
 
 fn ErrorBase::is_critical() const noexcept -> bool
 {

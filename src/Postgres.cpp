@@ -7,12 +7,18 @@
 
 namespace wr {
 
-Postgres::~Postgres()
+Postgres::~Postgres() { close(); }
+
+fn Postgres::close() noexcept -> void
 {
+  if (m_connection != nullptr) {
+    PQfinish(m_connection);
+    m_connection = nullptr;
+  }
+
   m_statement_cache.clear(
       [this](pq_statement *handle) noexcept { destroy_statement(handle); });
-
-  if (m_connection != nullptr) PQfinish(m_connection);
+  m_prepared_count = 0;
 }
 
 fn Postgres::make_error(StringView context, ErrorBase::Severity severity) const
@@ -40,6 +46,8 @@ fn Postgres::make_result_error(opaque *result, StringView context) const
 
 fn Postgres::open(StringView connection_string) -> ErrorOr<Ok>
 {
+  close();
+
   let const conninfo = String{m_allocator, connection_string};
   m_connection = PQconnectdb(conninfo.c_str());
   if (PQstatus(m_connection) != CONNECTION_OK)
