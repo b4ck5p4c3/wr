@@ -450,7 +450,7 @@ img {
 }
 
 .tweet-avatar::after {
-  content: none;
+  content: none !important;
 }
 
 .tweet-avatar img {
@@ -478,7 +478,7 @@ img {
 }
 
 .tweet-name::after {
-  content: none;
+  content: none !important;
 }
 
 .tweet-sub {
@@ -566,7 +566,7 @@ img {
 }
 
 .tweet-link::after {
-  content: none;
+  content: none !important;
 }
 
 .tweet-link:hover {
